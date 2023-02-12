@@ -1,0 +1,20 @@
+---
+variables:
+  GIT_DEPTH: 10
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo
+  FF_USE_FASTZIP: "true"
+  ARTIFACT_COMPRESSION_LEVEL: fastest
+  CACHE_COMPRESSION_LEVEL: fastest
+
+test:
+  image: registry.gitlab.com/inko-lang/development-docker-images:alpine
+  before_script:
+    - rustc --version
+    - cargo --version
+    - bash scripts/install_inko.sh
+    - inko/target/release/inko --version
+  script:
+    - inko/target/release/inko test
+  cache:
+    paths:
+      - inko

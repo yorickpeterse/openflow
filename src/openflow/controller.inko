@@ -1,0 +1,199 @@
+import openflow::clock::Clock
+import openflow::config::Config
+import openflow::hue::(Hue, Sensors)
+import openflow::itho::(Itho, Status)
+import openflow::logger::Logger
+import openflow::room::(Room, State)
+import std::process::(sleep)
+import std::time::(DateTime, Duration)
+
+# The amount of time (in seconds) to wait after enabling manual mode, in order
+# to give the exhausts/servos time to close.
+let MANUAL_WAIT_TIME = 30
+
+# The amount of time (in seconds) to wait for a single exhaust to close.
+let EXHAUST_WAIT_TIME = 5
+
+# The minimum exhaust speed (as a percentage) to run at.
+let MIN_EXHAUST_SPEED = 25
+
+# The amount of seconds to wait for motion events, after the first event is
+# observed.
+let MOTION_TIME = 15 * 60
+
+# The number of minutes in which motion needs to be detected before ventilation
+# is to be enabled.
+let MOTION_MINUTES = 5
+
+# The hour of the day when night mode is to be enabled for a room.
+let NIGHT_START = 23
+
+# The hour of the day when night mode is to be disabled for a room.
+let NIGHT_END = 11
+
+# The maximum value an exhaust setting can be set to to control how much it's
+# opened.
+let EXHAUST_MAX = 5000
+
+# A type responsible with controlling the ventilation system, monitoring
+# sensors, etc.
+class pub Controller {
+  # The rooms to monitor along with their state and configuration settings.
+  #
+  # This field must come first so it's dropped before the `Config` field, as
+  # each `Room` contains a reference to a `openflow::config::Room`.
+  #
+  # This field is public so we can access the room states in our tests.
+  let pub @rooms: Array[Room]
+
+  let @itho: Itho
+  let @hue: Hue
+  let @logger: Logger
+  let @config: Config
+  let @clock: Clock
+
+  fn pub static new(
+    config: Config,
+    itho: Itho,
+    hue: Hue,
+    clock: Clock,
+  ) -> Controller {
+    Controller {
+      @itho = itho,
+      @hue = hue,
+      @rooms = config.rooms.iter.map fn (cfg) { Room.new(cfg) }.to_array,
+      @config = config,
+      @logger = Logger.default,
+      @clock = clock,
+    }
+  }
+
+  # Prepares the DemandFlow system for manual control.
+  fn pub mut prepare {
+    let close_manually = enable_manual_control
+
+    reset_exhaust_speed
+
+    if close_manually { close_exhausts }
+  }
+
+  # Runs a single iteration of the work loop.
+  fn pub mut iteration {
+    let sensors = try! @hue.sensors
+    let status = try! @itho.status
+    let time = @clock.now
+
+    @rooms.iter_mut.each fn (room) {
+      # Night mode takes exclusive priority over all other inputs.
+      if room.config.night { return check_night_mode(room, time) }
+
+      # If the room is humid we ignore any other sensor inputs.
+      if check_humidity(status, room) { return }
+    }
+
+    @rooms.iter_mut.each fn (room) {
+      let new_state = match room.take_pending_state {
+        case Some(state) -> state
+        case _ -> return
+      }
+
+      if room.state.same_as?(new_state).false? {
+        # TODO: calculate the new exhaust setting
+        # TODO: only physically change the setting if the values are different
+        # TODO: handle small rounding differences (e.g. 2303 and 2305 should be
+        # the same)
+      }
+
+      room.update(new_state)
+    }
+  }
+
+  fn mut enable_manual_control -> Bool {
+    if try! { @itho.get(@config.manual_control) } == 1 {
+      @logger.info('Manual control is already enabled')
+      return true
+    }
+
+    @logger.info('Enabling manual control of the DemandFlow system')
+    try! @itho.set(@config.manual_control, value: 1)
+
+    @logger.info('Waiting for all exhausts to close')
+    sleep(Duration.from_secs(MANUAL_WAIT_TIME))
+    false
+  }
+
+  fn mut reset_exhaust_speed {
+    @logger.info('Resetting the exhaust speed to its minimum')
+    try! @itho.set(@config.exhaust_speed, value: MIN_EXHAUST_SPEED)
+  }
+
+  fn mut close_exhausts {
+    # While enabling manual control closes the exhausts, it only does so if
+    # manual control wasn't already enabled. By closing the exhausts here we
+    # ensure we start off with a clean state (i.e. in the event of a crash).
+    @logger.info('Closing all exhausts')
+
+    @config.rooms.iter.each fn (room) {
+      @logger.info("Closing exhaust for room \"{room.name}\"")
+      try! @itho.set(room.exhaust, value: 0)
+      sleep(Duration.from_secs(EXHAUST_WAIT_TIME))
+    }
+  }
+
+  fn check_night_mode(room: mut Room, time: ref DateTime) {
+    # Updating the last update time isn't necessary in night mode, as the value
+    # isn't used during this time.
+    if time.hour >= NIGHT_START or time.hour < NIGHT_END {
+      match room.state {
+        case Night -> {}
+        case _ -> room.pending(State.Night)
+      }
+    } else {
+      match room.state {
+        case Night -> room.pending(State.Closed)
+        case _ -> {}
+      }
+    }
+  }
+
+  fn check_humidity(status: ref Status, room: mut Room) -> Bool {
+    let humidity = room
+      .config
+      .humidity
+      .as_ref
+      .then fn (name) { status.humidity.get(name) }
+      .unwrap_or(0)
+
+    if humidity >= @config.humidity.high {
+      match room.state {
+        case Humid -> room.update_time
+        case MaybeHumid if room.stale?(@config.humidity.high_time) -> {
+          room.pending(State.Humid)
+        }
+        case _ -> room.pending(State.MaybeHumid)
+      }
+    } else if humidity > @config.humidity.low {
+      match room.state {
+        case Humid -> room.update_time
+        case MaybeHumid -> room.pending(State.Closed)
+        case _ -> {}
+      }
+    } else if humidity < @config.humidity.low {
+      match room.state {
+        case MaybeHumid -> room.pending(State.Closed)
+        case Humid if room.stale?(@config.humidity.low_time) -> {
+          room.pending(State.Open)
+        }
+        case _ -> {}
+      }
+    }
+
+    match room.state {
+      case Humid or MaybeHumid -> true
+      case _ -> match room.pending_state {
+        case Some(Humid or MaybeHumid) -> true
+        case _ -> false
+      }
+    }
+  }
+}

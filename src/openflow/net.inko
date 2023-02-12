@@ -1,0 +1,16 @@
+import std::net::ip::IpAddress
+import std::sys::(Command, Stream)
+
+fn pub online?(ip: ref IpAddress) -> Bool {
+  let cmd = Command.new('ping')
+
+  cmd.arguments(['-c', '1', '-W', '1', ip.to_string])
+  cmd.stdin(Stream.Null)
+  cmd.stderr(Stream.Null)
+  cmd.stdout(Stream.Null)
+
+  let child = try cmd.spawn else return false
+  let status = try child.wait else return false
+
+  status.success?
+}

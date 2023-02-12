@@ -1,0 +1,38 @@
+import std::io::Write
+import std::stdio::STDERR
+import std::time::DateTime
+
+fn pad_zero(value: Int) -> String {
+  value.to_string.pad_start(with: '0', length: 2)
+}
+
+fn iso8601_time -> String {
+  let time = DateTime.new
+
+  "{time.year}-{pad_zero(time.month)}-{pad_zero(time.day)} \
+    {pad_zero(time.hour)}:{pad_zero(time.minute)}:{pad_zero(time.second)}"
+}
+
+# A simple logger type.
+class pub Logger {
+  let @stream: Write
+
+  # Returns a logger using the default output stream (STDERR).
+  fn pub static default -> Logger {
+    Logger { @stream = STDERR.new }
+  }
+
+  fn pub static new(stream: Write) -> Logger {
+    Logger { @stream = stream }
+  }
+
+  fn pub mut info(message: String) {
+    write('INFO', message)
+  }
+
+  fn pub mut write(severity: String, message: String) {
+    # Logging failing isn't a big deal, but having to handle potential failures
+    # _every_ time _is_, so we simply discard any errors.
+    try @stream.write_string("{iso8601_time}: {severity}: {message}\n") else 0
+  }
+}

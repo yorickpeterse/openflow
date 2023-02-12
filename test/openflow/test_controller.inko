@@ -1,0 +1,197 @@
+import openflow::clock::TestClock
+import openflow::config::(Config, Humidity, Room)
+import openflow::controller::Controller
+import openflow::http::(Client, Request, Response, TestDriver)
+import openflow::hue::Hue
+import openflow::itho::Itho
+import openflow::room::State
+import std::net::ip::IpAddress
+import std::test::Tests
+import std::time::(DateTime, Duration, Instant)
+
+fn config -> Config {
+  Config {
+    @rooms = [
+      Room {
+        @name = 'Living room',
+        @exhaust = 12,
+        @night = false,
+        @motion = Option.Some(1),
+        @temperature = Option.None,
+        @humidity = Option.None,
+        @ping = [],
+        @flow = 15,
+      },
+      Room {
+        @name = 'Bedroom',
+        @exhaust = 13,
+        @night = true,
+        @motion = Option.None,
+        @temperature = Option.None,
+        @humidity = Option.None,
+        @ping = [],
+        @flow = 25,
+      },
+      Room {
+        @name = 'Bathroom',
+        @exhaust = 14,
+        @night = false,
+        @motion = Option.Some(2),
+        @temperature = Option.None,
+        @humidity = Option.Some('RH foo'),
+        @ping = [],
+        @flow = 50,
+      }
+    ],
+    @humidity = Humidity {
+      @low = 70,
+      @high = 75,
+      @low_time = Duration.from_secs(1),
+      @high_time = Duration.from_secs(1),
+    },
+    @manual_control = 111,
+    @exhaust_speed = 124,
+    @itho_wifi_address = recover IpAddress.v4(192, 0, 0, 1),
+    @hue_address = recover IpAddress.v4(192, 0, 0, 2),
+    @hue_user = 'foo',
+    @max_flow = 350,
+  }
+}
+
+fn controller(
+  config: Config,
+  itho_driver: TestDriver,
+  hue_driver: TestDriver,
+  clock: TestClock,
+) -> Controller {
+  let itho = Itho.new(Client.with_driver(itho_driver))
+  let hue = Hue.new(Client.with_driver(hue_driver), user: 'foo')
+
+  Controller.new(config, itho, hue, clock)
+}
+
+fn itho(co2: Int, humidity: Int) -> TestDriver {
+  let driver = TestDriver.new
+
+  driver.request(
+    matches: fn (req) {
+      req.path == '/api.html' and req.queries['get'] == 'ithostatus'
+    },
+    then: fn (_) {
+      Response.ok(
+        "\{ \"CO2 plenum (ppm)\": {co2}, \"RH foo\": {humidity} }".to_byte_array
+      )
+    }
+  )
+
+  driver
+}
+
+fn hue -> TestDriver {
+  let driver = TestDriver.new
+
+  driver.request(
+    matches: fn (req) { req.path == '/api/foo/sensors' },
+    then: fn (_) {
+      Response.ok(
+        '
+        {
+          "1": { "type": "ZLLPresence", "state": { "presence": true } },
+          "2": { "type": "ZLLPresence", "state": { "presence": false } }
+        }
+        '.to_byte_array
+      )
+    }
+  )
+
+  driver
+}
+
+fn hour(hour: Int) -> TestClock {
+  TestClock.new(DateTime {
+    @year = 2023,
+    @month = 1,
+    @day = 12,
+    @hour = hour,
+    @minute = 4,
+    @second = 2,
+    @sub_second = 0.0,
+    @utc_offset = 0,
+  })
+}
+
+fn pub tests(t: mut Tests) {
+  t.test('Enabling night mode') fn (t) {
+    let ctl = controller(config, itho(co2: 1, humidity: 1), hue, hour(23))
+
+    ctl.iteration
+
+    t.true(match ctl.rooms[1].state { case Night -> true, case _ -> false })
+  }
+
+  t.test('Disabling night mode') fn (t) {
+    let ctl = controller(config, itho(co2: 700, humidity: 73), hue, hour(14))
+
+    ctl.rooms[1].state = State.Night
+    ctl.iteration
+
+    t.true(match ctl.rooms[1].state { case Closed -> true, case _ -> false })
+  }
+
+  t.test('Ignoring a room already in night mode') fn (t) {
+    let ctl = controller(config, itho(co2: 700, humidity: 73), hue, hour(23))
+    let room = ctl.rooms[1]
+    let before = Instant.new
+
+    room.state = State.Night
+    room.last_update = before.clone
+    ctl.iteration
+
+    t.true(match room.state { case Night -> true, case _ -> false })
+    t.equal(room.last_update, before)
+  }
+
+  t.test('Checking if a dry room is humid') fn (t) {
+    let ctl = controller(config, itho(co2: 700, humidity: 30), hue, hour(14))
+
+    ctl.iteration
+
+    t.true(match ctl.rooms[2].state { case Closed -> true, case _ -> false })
+  }
+
+  t.test('First detecting an increase in humidity') fn (t) {
+    let ctl = controller(config, itho(co2: 700, humidity: 80), hue, hour(14))
+    let room = ctl.rooms[2]
+
+    ctl.iteration
+
+    t.true(match room.state { case MaybeHumid -> true, case _ -> false })
+  }
+
+  t.test('Marking a room as humid') fn (t) {
+    let conf = config
+
+    conf.humidity.high_time = Duration.from_secs(0)
+
+    let ctl = controller(conf, itho(co2: 700, humidity: 80), hue, hour(14))
+    let room = ctl.rooms[2]
+
+    room.state = State.MaybeHumid
+    ctl.iteration
+
+    t.true(match room.state { case Humid -> true, case _ -> false })
+  }
+
+  t.test('Updating a humid room') fn (t) {
+    let ctl = controller(config, itho(co2: 700, humidity: 80), hue, hour(14))
+    let room = ctl.rooms[2]
+    let before = Instant.new + Duration.from_secs(10)
+
+    room.state = State.Humid
+    room.last_update = before.clone
+    ctl.iteration
+
+    t.true(match room.state { case Humid -> true, case _ -> false })
+    t.not_equal(room.last_update, before)
+  }
+}

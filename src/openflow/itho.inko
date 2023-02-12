@@ -1,0 +1,132 @@
+import openflow::http::(Client, Error, Request, Response, retry)
+import std::int::ToInt
+import std::json
+import std::process::(sleep)
+import std::time::Duration
+
+let PATH = '/api.html'
+
+# The amount of times an API call is retried before we give up.
+let RETRIES = 10
+
+# The time (in seconds) to wait after a failed request before trying again.
+let RETRY_WAIT_TIME = 5
+
+# The time after which a request times out, excluding retries.
+let TIMEOUT = 60
+
+class pub Status {
+  # The CO2 concentration in the plenum.
+  let pub @co2: Int
+
+  # The speed of the exhaust fan, as a percentage between 0 and 100.
+  let pub @exhaust_speed: Int
+
+  # The humidity levels for every humidity sensor.
+  let pub @humidity: Map[String, Int]
+}
+
+# An API/HTTP client for interacting with the Itho WiFi add-on API.
+class pub Itho {
+  let @client: Client
+
+  fn pub static new(client: Client) -> Itho {
+    Itho { @client = client }
+  }
+
+  fn pub mut set(setting: Int, value: ref ToInt) !! String {
+    let request = Request.get(PATH)
+    let timeout = Duration.from_secs(TIMEOUT)
+
+    request.query('setsetting', setting.to_string)
+    request.query('value', value.to_int.to_string)
+
+    try {
+      retry fn {
+        client.timeout_after = timeout
+        try client.execute(request)
+      }
+    } else (err) {
+      throw err.to_string
+    }
+  }
+
+  fn pub mut get(setting: Int) !! String -> Int {
+    let request = Request.get(PATH)
+    let timeout = Duration.from_secs(TIMEOUT)
+
+    request.query('getsetting', setting.to_string)
+
+    let resp = try {
+      retry fn {
+        client.timeout_after = timeout
+        try client.execute(request)
+      }
+    } else (err) {
+      throw err.to_string
+    }
+
+    let body = resp.body.drain_to_string
+    let root = match try json.parse(body) else (e) throw e.to_string {
+      case Object(map) -> map
+      case _ -> throw 'Expected the status to be a JSON object'
+    }
+
+    match root.remove('current') {
+      case Some(Int(v)) -> v
+      case Some(Float(v)) -> v.to_int
+      case _ -> 0
+    }
+  }
+
+  fn pub mut status !! String -> Status {
+    let request = Request.get(PATH)
+    let timeout = Duration.from_secs(TIMEOUT)
+
+    request.query('get', 'ithostatus')
+
+    let resp = try {
+      retry fn {
+        client.timeout_after = timeout
+        try client.execute(request)
+      }
+    } else (err) {
+      throw err.to_string
+    }
+
+    let body = resp.body.drain_to_string
+    let root = match try json.parse(body) else (e) throw e.to_string {
+      case Object(map) -> map
+      case _ -> throw 'Expected the status to be a JSON object'
+    }
+
+    let humidity = Map.new
+    let co2 = match root.get('CO2 plenum (ppm)') {
+      case Some(Int(v)) -> v
+      case Some(Float(v)) -> v.to_int
+      case _ -> 0
+    }
+
+    let exhaust_speed = match root.get('exhaust fan (%)') {
+      case Some(Int(v)) -> v
+      case Some(Float(v)) -> v.to_int
+      case _ -> 0
+    }
+
+    root.iter.each fn (pair) {
+      if pair.key.starts_with?('RH ').false? { return }
+
+      let value = match pair.value {
+        case Int(v) -> v
+        case Float(v) -> v.to_int
+        case _ -> return
+      }
+
+      # Sensors that aren't connected report a value that's very close to zero,
+      # which due to the conversion to an Int is turned into zero.
+      if value > 0 { humidity[pair.key] = value }
+    }
+
+    Status { @co2 = co2, @exhaust_speed = exhaust_speed, @humidity = humidity }
+  }
+}

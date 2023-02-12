@@ -1,0 +1,77 @@
+import openflow::http::(Client, Error, Request, Response, retry)
+import std::json::(self, Json)
+import std::time::Duration
+
+fn digit(input: String, byte: Int) -> Int {
+  input.byte(byte) - 48
+}
+
+# The time after which a request times out.
+let TIMEOUT = 30
+
+class pub Sensors {
+  let pub @motion: Map[Int, Bool]
+  let pub @temperature: Map[Int, Int]
+}
+
+# An API/HTTP client for interacting with the Philips Hue bridge and motion
+# sensors.
+class pub Hue {
+  let @client: Client
+  let @user: String
+
+  fn pub static new(client: Client, user: String) -> Hue {
+    Hue { @client = client, @user = user }
+  }
+
+  fn pub mut sensors !! String -> Sensors {
+    let request = Request.get("/api/{@user}/sensors")
+    let timeout = Duration.from_secs(TIMEOUT)
+    let resp = try {
+      retry fn {
+        client.timeout_after = timeout
+        try client.execute(request)
+      }
+    } else (err) {
+      throw err.to_string
+    }
+
+    let body = resp.body.drain_to_string
+    let root = match try json.parse(body) else (e) throw e.to_string {
+      case Object(map) -> map
+      case _ -> throw 'Expected the status to be a JSON object'
+    }
+
+    let motion = Map.new
+    let temp = Map.new
+
+    root.into_iter.each fn (entry) {
+      let id = Int.from_base10(entry.key).unwrap
+      let val = match entry {
+        case { @value = Object(map) } -> map
+        case _ -> return
+      }
+
+      let state = match val.remove('state') {
+        case Some(Object(map)) -> map
+        case _ -> return
+      }
+
+      match val.remove('type') {
+        case Some(String('ZLLPresence')) -> match state.remove('presence') {
+          case Some(Bool(val)) -> motion[id] = val
+          case _ -> motion[id] = false
+        }
+        case Some(String('ZLLTemperature')) -> {
+          match state.remove('temperature') {
+            case Some(Int(val)) -> temp[id] = val
+            case _ -> temp[id] = 0
+          }
+        }
+        case _ -> {}
+      }
+    }
+
+    Sensors { @motion = motion, @temperature = temp }
+  }
+}

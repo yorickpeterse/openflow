@@ -1,0 +1,16 @@
+import openflow::test_controller
+import openflow::test_http
+import std::env
+import std::test::Tests
+
+class async Main {
+  fn async main {
+    let tests = Tests.new
+
+    test_http.tests(tests)
+    test_controller.tests(tests)
+
+    tests.pattern = env.arguments.into_iter.next
+    tests.run
+  }
+}

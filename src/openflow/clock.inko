@@ -1,0 +1,38 @@
+import std::time::DateTime
+
+# A type that represents a real/wall time clock.
+trait pub Clock {
+  # Returns the current time.
+  fn pub now -> DateTime
+}
+
+# A Clock type that uses the system clock.
+class pub SystemClock {
+  # Returns a new `SystemClock`.
+  fn pub static new -> SystemClock {
+    SystemClock {}
+  }
+}
+
+impl Clock for SystemClock {
+  fn pub now -> DateTime {
+    DateTime.new
+  }
+}
+
+# A clock that always returns the same point in time.
+class pub TestClock {
+  let @time: DateTime
+
+  # Returns a new `TestClock` that always produces a copy of the given
+  # `DateTime`.
+  fn pub static new(time: DateTime) -> TestClock {
+    TestClock { @time = time }
+  }
+}
+
+impl Clock for TestClock {
+  fn pub now -> DateTime {
+    @time.clone
+  }
+}

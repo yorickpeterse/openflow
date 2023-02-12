@@ -1,0 +1,37 @@
+import openflow::http::(Request, Response, TestDriver)
+import std::test::Tests
+
+fn pub tests(t: mut Tests) {
+  t.test('TestDriver.execute without a registered handler') fn (t) {
+    let driver = TestDriver.new
+    let request = Request.get('/foo')
+
+    t.throw fn { try driver.execute(request) }
+  }
+
+  t.test('TestDriver.exectue without any matching handlers') fn (t) {
+    let driver = TestDriver.new
+    let request = Request.get('/foo')
+
+    driver.request(
+      matches: fn (r) { false },
+      then: fn (r) { Response.ok(ByteArray.new) }
+    )
+
+    t.throw fn { try driver.execute(request) }
+  }
+
+  t.test('TestDriver.execute with a matching handler') fn (t) {
+    let driver = TestDriver.new
+    let request = Request.get('/foo')
+
+    driver.request(
+      matches: fn (r) { r.path == '/foo' },
+      then: fn (r) { Response.ok('foo'.to_byte_array) }
+    )
+
+    let response = try! driver.execute(request)
+
+    t.equal(response.body, 'foo'.to_byte_array)
+  }
+}

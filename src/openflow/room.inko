@@ -1,0 +1,100 @@
+import openflow::config::(Room as Config)
+import std::time::(Duration, Instant)
+
+# The state of a ventilation exhaust.
+class pub enum State {
+  # The exhaust is closed.
+  case Closed
+
+  # The exhaust is in night mode, and it shouldn't be changed by the input of
+  # any sensors.
+  case Night
+
+  # Humidity in the room is increasing, but it's not yet high enough to switch
+  # to the "Humid" state.
+  case MaybeHumid
+
+  # The exhaust is fully opened to ventilate a humid room, and shouldn't be
+  # changed by the input of any sensors.
+  case Humid
+
+  # Regular ventilation is or should be applied to the room.
+  case Open
+
+  # A motion sensor detected movement, and we may need to ventilate the room if
+  # motion continues.
+  #
+  # The first value is the last minute motion was detected at. The second value
+  # is the total number of minutes in which motion is detected.
+  case Motion(Int, Int)
+
+  fn pub same_as?(other: ref Self) -> Bool {
+    match (self, other) {
+      case (Closed, Closed) -> true
+      case (Night, Night) -> true
+      case (MaybeHumid, MaybeHumid) -> true
+      case (Humid, Humid) -> true
+      case (Open, Open) -> true
+      case (Motion(_, _), Motion(_, _)) -> true
+      case _ -> false
+    }
+  }
+}
+
+# The state of a room to ventilate.
+class pub Room {
+  # The configuration settings for this room.
+  let pub @config: ref Config
+
+  # The current state of the exhaust.
+  let pub @state: State
+
+  # The state to transition the exhaust to.
+  let pub @pending_state: Option[State]
+
+  # The last time the state of this room was updated.
+  let pub @last_update: Instant
+
+  # How far the exhaust is opened.
+  #
+  # This is tracked separate from the state as the value is not yet known when
+  # first changing a room from "closed" to "open".
+  let pub @opening: Int
+
+  fn pub static new(config: ref Config) -> Room {
+    Room {
+      @config = config,
+      @state = State.Closed,
+      @pending_state = Option.None,
+      @last_update = Instant.new,
+      @opening = 0,
+    }
+  }
+
+  fn pub mut pending(state: State) {
+    @pending_state = Option.Some(state)
+  }
+
+  fn pub mut take_pending_state -> Option[State] {
+    @pending_state := Option.None
+  }
+
+  fn pub mut update_time {
+    @last_update = Instant.new
+  }
+
+  fn pub stale?(duration: ref Duration) -> Bool {
+    @last_update.elapsed >= duration
+  }
+
+  fn pub mut update(state: State) {
+    @state = state
+
+    match @state {
+      # Additional pending states shouldn't change the update timestamp,
+      # otherwise we'd reset the time window upon every movement.
+      case Motion(_, count) if count > 1 -> {}
+      case _ -> @last_update = Instant.new
+    }
+  }
+}
