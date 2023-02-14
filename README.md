@@ -99,7 +99,7 @@ podman run \
     --rm \
     --name openflow \
     --tz=local \
-    --volume $PWD/config.json:/etc/openflow.json \
+    --volume /etc/openflow.json:/etc/openflow.json \
     --tty \
     --interactive \
     --init \
@@ -122,7 +122,7 @@ podman run \
     --rm \
     --name openflow \
     --tz=local \
-    --volume $PWD/config.json:/etc/openflow.json \
+    --volume /etc/openflow.json:/etc/openflow.json \
     --detach \
     --init \
     localhost/openflow:latest
