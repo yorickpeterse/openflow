@@ -1,39 +1,31 @@
 import openflow::clock::Clock
+import openflow::co2::Co2
 import openflow::config::Config
 import openflow::hue::(Hue, Sensors)
 import openflow::itho::(Itho, Status)
 import openflow::logger::Logger
+import openflow::net::(online?)
 import openflow::room::(Room, State)
 import std::process::(sleep)
-import std::time::(DateTime, Duration)
+import std::time::(DateTime, Duration, Instant)
 
 # The amount of time (in seconds) to wait after enabling manual mode, in order
 # to give the exhausts/servos time to close.
-let MANUAL_WAIT_TIME = 30
-
-# The amount of time (in seconds) to wait for a single exhaust to close.
-let EXHAUST_WAIT_TIME = 5
-
-# The minimum exhaust speed (as a percentage) to run at.
-let MIN_EXHAUST_SPEED = 25
-
-# The amount of seconds to wait for motion events, after the first event is
-# observed.
-let MOTION_TIME = 15 * 60
-
-# The number of minutes in which motion needs to be detected before ventilation
-# is to be enabled.
-let MOTION_MINUTES = 5
-
-# The hour of the day when night mode is to be enabled for a room.
-let NIGHT_START = 23
-
-# The hour of the day when night mode is to be disabled for a room.
-let NIGHT_END = 11
+let MANUAL_WAIT_TIME = 60
 
 # The maximum value an exhaust setting can be set to to control how much it's
 # opened.
-let EXHAUST_MAX = 5000
+let EXHAUST_MAX = 5000.0
+
+# The flow rate (in m3/hour) to add to every room to compensate for higher CO2
+# levels.
+let CO2_ADD_FLOW = 5
+
+# The amount of ppm for a single CO2 flow increment.
+#
+# For every such increment the CO2 levels are above the threshold, ventilation
+# speed is increased.
+let CO2_FLOW_INCREMENT = 100
 
 # A type responsible with controlling the ventilation system, monitoring
 # sensors, etc.
@@ -46,25 +38,40 @@ class pub Controller {
   # This field is public so we can access the room states in our tests.
   let pub @rooms: Array[Room]
 
+  # The last known speed of the exhaust fan.
+  #
+  # The Itho API refreshes data periodically, and this may result in a new
+  # status update still containing the old exhaust speed. By tracking this value
+  # manually we prevent unnecessary API calls and exhaust speed adjustments.
+  let @exhaust_speed: Int
+
+  # The last time the exhaust speed was updated.
+  let @last_exhaust_update: Instant
+
   let @itho: Itho
   let @hue: Hue
   let @logger: Logger
   let @config: Config
   let @clock: Clock
+  let @co2: Co2
 
   fn pub static new(
     config: Config,
     itho: Itho,
     hue: Hue,
     clock: Clock,
+    logger: Logger,
   ) -> Controller {
     Controller {
       @itho = itho,
       @hue = hue,
       @rooms = config.rooms.iter.map fn (cfg) { Room.new(cfg) }.to_array,
       @config = config,
-      @logger = Logger.default,
+      @logger = logger,
       @clock = clock,
+      @exhaust_speed = 0,
+      @last_exhaust_update = Instant.new,
+      @co2 = Co2.new,
     }
   }
 
@@ -81,41 +88,26 @@ class pub Controller {
   fn pub mut iteration {
     let sensors = try! @hue.sensors
     let status = try! @itho.status
-    let time = @clock.now
+    let old_co2 = @co2.value
 
-    @rooms.iter_mut.each fn (room) {
-      # Night mode takes exclusive priority over all other inputs.
-      if room.config.night { return check_night_mode(room, time) }
+    @co2.add(status.co2)
 
-      # If the room is humid we ignore any other sensor inputs.
-      if check_humidity(status, room) { return }
+    if @co2.update and @co2.value != old_co2 {
+      logger.info("CO2 estimate updated to {@co2.value} ppm")
     }
 
-    @rooms.iter_mut.each fn (room) {
-      let new_state = match room.take_pending_state {
-        case Some(state) -> state
-        case _ -> return
-      }
-
-      if room.state.same_as?(new_state).false? {
-        # TODO: calculate the new exhaust setting
-        # TODO: only physically change the setting if the values are different
-        # TODO: handle small rounding differences (e.g. 2303 and 2305 should be
-        # the same)
-      }
-
-      room.update(new_state)
-    }
+    update_rooms(status, sensors)
+    apply_changes
   }
 
   fn mut enable_manual_control -> Bool {
-    if try! { @itho.get(@config.manual_control) } == 1 {
+    if try! { @itho.get(@config.exhaust.manual_setting) } == 1 {
       @logger.info('Manual control is already enabled')
       return true
     }
 
-    @logger.info('Enabling manual control of the DemandFlow system')
-    try! @itho.set(@config.manual_control, value: 1)
+    @logger.info('Enabling manual control')
+    try! @itho.set(@config.exhaust.manual_setting, value: 1)
 
     @logger.info('Waiting for all exhausts to close')
     sleep(Duration.from_secs(MANUAL_WAIT_TIME))
@@ -123,8 +115,11 @@ class pub Controller {
   }
 
   fn mut reset_exhaust_speed {
+    let speed = flow_percentage(@config.exhaust.min_flow)
+
     @logger.info('Resetting the exhaust speed to its minimum')
-    try! @itho.set(@config.exhaust_speed, value: MIN_EXHAUST_SPEED)
+    try! @itho.set(@config.exhaust.speed_setting, value: speed)
+    sleep(@config.exhaust.close_time)
   }
 
   fn mut close_exhausts {
@@ -136,27 +131,34 @@ class pub Controller {
     @config.rooms.iter.each fn (room) {
       @logger.info("Closing exhaust for room \"{room.name}\"")
       try! @itho.set(room.exhaust, value: 0)
-      sleep(Duration.from_secs(EXHAUST_WAIT_TIME))
+      sleep(@config.exhaust.close_time)
     }
   }
 
-  fn check_night_mode(room: mut Room, time: ref DateTime) {
-    # Updating the last update time isn't necessary in night mode, as the value
-    # isn't used during this time.
-    if time.hour >= NIGHT_START or time.hour < NIGHT_END {
-      match room.state {
-        case Night -> {}
-        case _ -> room.pending(State.Night)
-      }
-    } else {
-      match room.state {
-        case Night -> room.pending(State.Closed)
-        case _ -> {}
-      }
+  fn mut check_schedule(room: mut Room, time: ref DateTime) -> Bool {
+    let schedule = match room.config.schedule {
+      case Some(val) -> val
+      case _ -> return false
     }
+
+    if schedule.active?(time) {
+      if room.state.schedule?.false? {
+        logger.info("Enabling schedule \"{room.config.name}\"")
+        room.update(State.Schedule)
+      }
+
+      return true
+    }
+
+    if room.state.schedule? {
+      logger.info("Disabling schedule for \"{room.config.name}\"")
+      room.update(State.Closed)
+    }
+
+    false
   }
 
-  fn check_humidity(status: ref Status, room: mut Room) -> Bool {
+  fn mut check_humidity(status: ref Status, room: mut Room) -> Bool {
     let humidity = room
       .config
       .humidity
@@ -168,21 +170,27 @@ class pub Controller {
       match room.state {
         case Humid -> room.update_time
         case MaybeHumid if room.stale?(@config.humidity.high_time) -> {
-          room.pending(State.Humid)
+          logger.info("The humidity in \"{room.config.name}\" is too high")
+          room.update(State.Humid)
         }
-        case _ -> room.pending(State.MaybeHumid)
+        case MaybeHumid -> {
+          # Don't do anything in this case, otherwise the state update below
+          # would also update the timestamp.
+        }
+        case _ -> {
+          logger.info("The humidity in \"{room.config.name}\" is increasing")
+          room.update(State.MaybeHumid)
+        }
       }
-    } else if humidity > @config.humidity.low {
+    } else if humidity <= @config.humidity.low {
       match room.state {
-        case Humid -> room.update_time
-        case MaybeHumid -> room.pending(State.Closed)
-        case _ -> {}
-      }
-    } else if humidity < @config.humidity.low {
-      match room.state {
-        case MaybeHumid -> room.pending(State.Closed)
+        case MaybeHumid -> {
+          logger.info("The humidity in \"{room.config.name}\" didn't increase enough")
+          room.update(State.Closed)
+        }
         case Humid if room.stale?(@config.humidity.low_time) -> {
-          room.pending(State.Open)
+          logger.info("The humidity in \"{room.config.name}\" OK again")
+          room.update(State.Closed)
         }
         case _ -> {}
       }
@@ -190,10 +198,185 @@ class pub Controller {
 
     match room.state {
       case Humid or MaybeHumid -> true
-      case _ -> match room.pending_state {
-        case Some(Humid or MaybeHumid) -> true
-        case _ -> false
+      case _ -> false
+    }
+  }
+
+  fn mut check_motion(sensors: ref Sensors, room: mut Room, time: ref DateTime) {
+    let motion = match room.config.motion {
+      case Some(id) -> sensors.motion[id]
+      case _ -> false
+    }
+
+    if motion {
+      match room.state {
+        case Closed -> {
+          logger.info("Motion detected in \"{room.config.name}\"")
+          room.update(State.Motion(time.minute, 1))
+        }
+        case Motion(min, count) if min != time.minute -> {
+          let new_count = count + 1
+          let new_state = if new_count == @config.motion_minutes {
+            logger.info("Enabling ventilation for \"{room.config.name}\"")
+            State.Open
+          } else {
+            State.Motion(time.minute, new_count)
+          }
+
+          room.update(new_state)
+        }
+        case Open -> room.update_time
+        case _ -> {}
+      }
+    } else if room.stale?(@config.ventilation_time) {
+      match room.state {
+        case Open -> {
+          # Pinging takes a few seconds depening on the number of IPs to ping,
+          # so we only do this if the timer is about to expire.
+          let reset = room.config.ping.iter.any? fn (ip) { online?(ip) }
+
+          if reset {
+            room.update_time
+          } else {
+            logger.info("Disabling ventilation for \"{room.config.name}\"")
+            room.update(State.Closed)
+          }
+        }
+        case _ -> {}
+      }
+    } else if room.stale?(@config.motion_wait_time) {
+      match room.state {
+        case Motion(_, _) -> {
+          logger.info("Not enough motion detected in \"{room.config.name}\"")
+          room.update(State.Closed)
+        }
+        case _ -> {}
       }
     }
+  }
+
+  fn update_exhaust_speed?(new_speed: Int) -> Bool {
+    if new_speed > @exhaust_speed {
+      true
+    } else if new_speed < @exhaust_speed {
+      @last_exhaust_update.elapsed >= @config.exhaust.reduce_wait_time
+    } else {
+      false
+    }
+  }
+
+  fn mut update_rooms(status: ref Status, sensors: ref Sensors) {
+    let time = @clock.now
+
+    @rooms.iter_mut.each fn (room) {
+      # If the schedule is active, it takes priority over all other inputs.
+      if check_schedule(room, time) { return }
+
+      # If the room is humid we ignore any other sensor inputs.
+      if check_humidity(status, room) { return }
+
+      check_motion(sensors, room, time)
+    }
+  }
+
+  fn mut apply_changes {
+    # No ventilation can result in stale/dirty air building up. As such, if we
+    # don't detect the need for ventilating anywhere we'll just ventilate the
+    # first room.
+    let ventilate_first = @rooms.iter.all? fn (room) {
+      match room.state { case Open or Humid or Schedule -> false, case _ -> true }
+    }
+
+    if ventilate_first {
+      let room = @rooms[0]
+
+      logger.info(
+        "No rooms need ventilating, \
+        enabling ventilation for \"{room.config.name}\""
+      )
+      room.update(State.Open)
+    }
+
+    let humid = @rooms.iter.any? fn (room) {
+      match room.state { case Humid -> true, case _ -> false }
+    }
+
+    let extra_flow = if @co2.value > @config.co2 and humid.false? {
+      # As CO2 levels rise, we gradually increase the air flow in rooms that are
+      # ventilated. in an attempt to keep the CO2 levels stable.
+      #
+      # If one or more rooms are humid we don't do this, as in such a case we're
+      # already ventilating one or more rooms at a very high speed, and chances
+      # are that CO2 increases originate from the same room anyway (i.e a person
+      # taking a shower).
+      @co2.value - @config.co2 / CO2_FLOW_INCREMENT * CO2_ADD_FLOW
+    } else {
+      0
+    }
+
+    let room_flows = @rooms
+      .iter
+      .map fn (room) {
+        match room.state {
+          case Schedule or Open -> {
+            # When a room is humid the exhaust speed is increased to a high
+            # speed. This can result in excessive noise in other rooms. To
+            # prevent this from happening we reduce the flow rate of non humid
+            # rooms, reducing how far the exhaust is opened, and thereby
+            # hopefully keeping noise levels at a minimum.
+            #
+            # While this results in reduced ventilation in said rooms, in
+            # practise this only is the case for 30-45 minutes, so it shouldn't
+            # pose any problems.
+            extra_flow
+              + if humid { room.config.flow / 2 } else { room.config.flow }
+          }
+          case Humid -> @config.humidity.flow
+          case _ -> 0
+        }
+      }
+      .to_array
+
+    let mut total_flow = room_flows.iter.reduce(0) fn (sum, val) { sum + val }
+
+    if total_flow > @config.exhaust.max_flow {
+      total_flow = @config.exhaust.max_flow
+    } else if total_flow < @config.exhaust.min_flow {
+      total_flow = @config.exhaust.min_flow
+    }
+
+    @rooms.iter_mut.each_with_index fn (index, room) {
+      let flow = room_flows[index]
+      let exhaust =
+        (flow.to_float / total_flow.to_float * EXHAUST_MAX).ceil.to_int
+
+      if exhaust != room.exhaust {
+        logger.info(
+          "Changing exhaust setting for \"{room.config.name}\" from \
+          {room.exhaust} to {exhaust} ({flow} m3/h)"
+        )
+        room.exhaust = exhaust
+
+        try! @itho.set(setting: room.config.exhaust, value: exhaust)
+        sleep(@config.exhaust.close_time)
+      }
+    }
+
+    let new_speed = flow_percentage(total_flow)
+
+    if update_exhaust_speed?(new_speed) {
+      logger.info(
+        "Changing exhaust speed from {@exhaust_speed}% to \
+        {new_speed}% ({total_flow} m3/h)"
+      )
+      try! @itho.set(setting: @config.exhaust.speed_setting, value: new_speed)
+      sleep(@config.exhaust.close_time)
+      @exhaust_speed = new_speed
+      @last_exhaust_update = Instant.new
+    }
+  }
+
+  fn flow_percentage(flow: Int) -> Int {
+    (flow.to_float / @config.exhaust.max_flow.to_float * 100.0).ceil.to_int
   }
 }

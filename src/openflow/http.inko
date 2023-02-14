@@ -466,7 +466,7 @@ impl Driver for DefaultDriver {
 
 # An HTTP driver to use for writing tests.
 class pub TestDriver {
-  let @requests: Array[(fn (ref Request) -> Bool, fn (ref Request) -> Response)]
+  let pub @requests: Array[(fn (ref Request) -> Bool, fn (ref Request) -> Response)]
 
   fn pub static new -> TestDriver {
     TestDriver { @requests = [] }

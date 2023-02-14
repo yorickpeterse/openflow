@@ -1,0 +1,95 @@
+import openflow::histogram::Histogram
+import std::time::(Duration, Instant)
+
+# The lower bound of the histogram. All values up to this value are tracked in
+# the first bucket.
+let LOW = 500
+
+# The upper bound of the histogram. All values above this value are tracked in
+# the last bucket.
+let HIGH = 1200
+
+# The number of buckets to use for the CO2 histogram.
+#
+# CO2 levels are divided into the following buckets:
+#
+#     <= 500
+#     <= 600
+#     <= 700
+#     <= 800
+#     <= 900
+#     <= 1000
+#     <= 1100
+#     >= 1200
+let BUCKETS = 8
+
+# The last/maximum bucket.
+let MAX_BUCKET = BUCKETS - 1
+
+# The amount of time (in seconds) to wait before flushing the samples to a CO2
+# estimate.
+#
+# We're using this particular interval to reduce the number of (unnecessary)
+# speed/exhaust adjustments in response to sudden/temporary changes of the CO2
+# levels.
+let INTERVAL = 15 * 60
+
+# A type for tracking the estimated CO2 levels over time, while taking into
+# account sporadic/temporary changes in the reported value.
+class pub Co2 {
+  # The histogram used to keep track of how many times certain CO2 levels are
+  # reported.
+  let @histogram: Histogram
+
+  # The last time the histogram's values were reset.
+  let @last_update: Instant
+
+  # The current estimated CO2 level in parts-per-million (ppm).
+  let @value: Int
+
+  # The amount of time in between updates to the calculated CO2 value.
+  let @interval: Duration
+
+  # Returns a new `Co2` that updates the value using a default interval.
+  fn pub static new -> Co2 {
+    with_interval(Duration.from_secs(INTERVAL))
+  }
+
+  # Returns a new `Co2` that updates the value at the given interval.
+  fn pub static with_interval(interval: Duration) -> Co2 {
+    Co2 {
+      @histogram = Histogram.new(BUCKETS),
+      @last_update = Instant.new,
+      @value = LOW,
+      @interval = interval,
+    }
+  }
+
+  # Returns the current CO2 estimate.
+  fn pub value -> Int {
+    @value
+  }
+
+  # Updates the CO2 estimate if necessary.
+  fn pub mut update -> Bool {
+    if @last_update.elapsed <= @interval { return false }
+
+    @value = LOW + (@histogram.largest * 100)
+    @last_update = Instant.new
+    @histogram.reset
+    true
+  }
+
+  # Adds the given PPM to the list of samples.
+  fn pub mut add(co2: Int) {
+    let bucket = if co2 <= LOW {
+      0
+    } else if co2 <= HIGH {
+      co2 - LOW / 100
+    } else {
+      MAX_BUCKET
+    }
+
+    @histogram.increment(bucket)
+  }
+}

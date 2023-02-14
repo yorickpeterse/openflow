@@ -1,13 +1,31 @@
 import openflow::clock::TestClock
-import openflow::config::(Config, Humidity, Room)
+import openflow::config::(Config, Exhaust, Humidity, Room, Schedule)
 import openflow::controller::Controller
 import openflow::http::(Client, Request, Response, TestDriver)
 import openflow::hue::Hue
 import openflow::itho::Itho
+import openflow::logger::Logger
 import openflow::room::State
+import std::io::Write
 import std::net::ip::IpAddress
 import std::test::Tests
 import std::time::(DateTime, Duration, Instant)
+
+let SPEED = 124
+
+class NullWriter {}
+
+impl Write for NullWriter {
+  fn pub mut write_bytes(bytes: ref ByteArray) -> Int {
+    0
+  }
+
+  fn pub mut write_string(string: String) -> Int {
+    0
+  }
+
+  fn pub mut flush {}
+}
 
 fn config -> Config {
   Config {
@@ -15,7 +33,7 @@ fn config -> Config {
       Room {
         @name = 'Living room',
         @exhaust = 12,
-        @night = false,
+        @schedule = Option.None,
         @motion = Option.Some(1),
         @temperature = Option.None,
         @humidity = Option.None,
@@ -25,7 +43,7 @@ fn config -> Config {
       Room {
         @name = 'Bedroom',
         @exhaust = 13,
-        @night = true,
+        @schedule = Option.Some(Schedule.Night),
         @motion = Option.None,
         @temperature = Option.None,
         @humidity = Option.None,
@@ -35,26 +53,46 @@ fn config -> Config {
       Room {
         @name = 'Bathroom',
         @exhaust = 14,
-        @night = false,
+        @schedule = Option.None,
         @motion = Option.Some(2),
         @temperature = Option.None,
         @humidity = Option.Some('RH foo'),
         @ping = [],
         @flow = 50,
-      }
+      },
+      Room {
+        @name = 'Office',
+        @exhaust = 15,
+        @schedule = Option.None,
+        @motion = Option.Some(3),
+        @temperature = Option.None,
+        @humidity = Option.None,
+        @ping = [],
+        @flow = 15,
+      },
     ],
     @humidity = Humidity {
-      @low = 70,
       @high = 75,
+      @low = 70,
       @low_time = Duration.from_secs(1),
       @high_time = Duration.from_secs(1),
+      @flow = 150,
     },
-    @manual_control = 111,
-    @exhaust_speed = 124,
+    @exhaust = Exhaust {
+      @manual_setting = 111,
+      @speed_setting = SPEED,
+      @min_flow = 90,
+      @max_flow = 350,
+      @close_time = Duration.from_secs(0),
+      @reduce_wait_time = Duration.from_secs(60),
+    },
     @itho_wifi_address = recover IpAddress.v4(192, 0, 0, 1),
     @hue_address = recover IpAddress.v4(192, 0, 0, 2),
     @hue_user = 'foo',
-    @max_flow = 350,
+    @co2 = 700,
+    @ventilation_time = Duration.from_secs(10),
+    @motion_wait_time = Duration.from_secs(10),
+    @motion_minutes = 5,
   }
 }
 
@@ -66,8 +104,9 @@ fn controller(
 ) -> Controller {
   let itho = Itho.new(Client.with_driver(itho_driver))
   let hue = Hue.new(Client.with_driver(hue_driver), user: 'foo')
+  let logger = Logger.new(NullWriter {})
 
-  Controller.new(config, itho, hue, clock)
+  Controller.new(config, itho, hue, clock, logger)
 }
 
 fn itho(co2: Int, humidity: Int) -> TestDriver {
@@ -75,7 +114,10 @@ fn itho(co2: Int, humidity: Int) -> TestDriver {
 
   driver.request(
     matches: fn (req) {
-      req.path == '/api.html' and req.queries['get'] == 'ithostatus'
+      match req.queries.get('get') {
+        case Some('ithostatus') -> true
+        case _ -> false
+      }
     },
     then: fn (_) {
       Response.ok(
@@ -87,6 +129,25 @@ fn itho(co2: Int, humidity: Int) -> TestDriver {
   driver
 }
 
+fn track_settings(driver: mut TestDriver) -> Array[(Int, Int)] {
+  let updates = []
+
+  driver.request(
+    matches: fn (req) { req.queries.get('setsetting').some? },
+    then: fn (req) {
+      updates.push(
+        (
+          Int.from_base10(req.queries['setsetting']).unwrap_or(0),
+          Int.from_base10(req.queries['value']).unwrap_or(0),
+        )
+      )
+      Response.ok('OK'.to_byte_array)
+    }
+  )
+
+  updates
+}
+
 fn hue -> TestDriver {
   let driver = TestDriver.new
 
@@ -96,8 +157,9 @@ fn hue -> TestDriver {
       Response.ok(
         '
         {
-          "1": { "type": "ZLLPresence", "state": { "presence": true } },
-          "2": { "type": "ZLLPresence", "state": { "presence": false } }
+          "1": { "type": "ZLLPresence", "state": { "presence": false } },
+          "2": { "type": "ZLLPresence", "state": { "presence": false } },
+          "3": { "type": "ZLLPresence", "state": { "presence": true } }
         }
         '.to_byte_array
       )
@@ -121,77 +183,222 @@ fn hour(hour: Int) -> TestClock {
 }
 
 fn pub tests(t: mut Tests) {
-  t.test('Enabling night mode') fn (t) {
-    let ctl = controller(config, itho(co2: 1, humidity: 1), hue, hour(23))
+  t.test('A room for which to enable a schedule') fn (t) {
+    let itho = itho(co2: 1, humidity: 1)
+    let updates = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(23))
+    let room = ctl.rooms[1]
 
     ctl.iteration
 
-    t.true(match ctl.rooms[1].state { case Night -> true, case _ -> false })
+    t.equal(room.state, State.Schedule)
+    t.true(updates.contains?((room.config.exhaust, room.exhaust)))
+    t.true(updates.contains?((SPEED, 26)))
   }
 
-  t.test('Disabling night mode') fn (t) {
-    let ctl = controller(config, itho(co2: 700, humidity: 73), hue, hour(14))
+  t.test('A room for which to disable a schedule') fn (t) {
+    let itho = itho(co2: 700, humidity: 73)
+    let updates = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[1]
 
-    ctl.rooms[1].state = State.Night
+    room.state = State.Schedule
+    room.exhaust = 500
     ctl.iteration
 
-    t.true(match ctl.rooms[1].state { case Closed -> true, case _ -> false })
+    t.equal(room.state, State.Closed)
+    t.true(updates.contains?((room.config.exhaust, 0)))
+    t.true(updates.contains?((SPEED, 26)))
   }
 
-  t.test('Ignoring a room already in night mode') fn (t) {
-    let ctl = controller(config, itho(co2: 700, humidity: 73), hue, hour(23))
+  t.test('A room that is already running a schedule') fn (t) {
+    let itho = itho(co2: 700, humidity: 73)
+    let _ = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(23))
     let room = ctl.rooms[1]
     let before = Instant.new
 
-    room.state = State.Night
+    room.state = State.Schedule
     room.last_update = before.clone
+    room.exhaust = 1389
     ctl.iteration
 
-    t.true(match room.state { case Night -> true, case _ -> false })
+    t.equal(room.state, State.Schedule)
     t.equal(room.last_update, before)
   }
 
-  t.test('Checking if a dry room is humid') fn (t) {
-    let ctl = controller(config, itho(co2: 700, humidity: 30), hue, hour(14))
-
-    ctl.iteration
-
-    t.true(match ctl.rooms[2].state { case Closed -> true, case _ -> false })
-  }
-
   t.test('First detecting an increase in humidity') fn (t) {
-    let ctl = controller(config, itho(co2: 700, humidity: 80), hue, hour(14))
+    let itho = itho(co2: 700, humidity: 80)
+    let _ = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
     let room = ctl.rooms[2]
 
     ctl.iteration
 
-    t.true(match room.state { case MaybeHumid -> true, case _ -> false })
+    t.equal(room.state, State.MaybeHumid)
   }
 
-  t.test('Marking a room as humid') fn (t) {
+  t.test('Detecting an increase in humidity a second time') fn (t) {
+    let itho = itho(co2: 700, humidity: 80)
+    let _ = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[2]
+
+    ctl.iteration
+
+    let update = room.last_update.clone
+
+    ctl.iteration
+
+    t.equal(room.state, State.MaybeHumid)
+    t.equal(room.last_update, update)
+  }
+
+  t.test('A room that is becoming too humid') fn (t) {
     let conf = config
 
     conf.humidity.high_time = Duration.from_secs(0)
 
-    let ctl = controller(conf, itho(co2: 700, humidity: 80), hue, hour(14))
+    let itho = itho(co2: 700, humidity: 80)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
     let room = ctl.rooms[2]
 
     room.state = State.MaybeHumid
     ctl.iteration
 
-    t.true(match room.state { case Humid -> true, case _ -> false })
+    t.equal(room.state, State.Humid)
+    t.true(updates.contains?((room.config.exhaust, room.exhaust)))
+    t.true(updates.contains?((SPEED, 43)))
   }
 
-  t.test('Updating a humid room') fn (t) {
-    let ctl = controller(config, itho(co2: 700, humidity: 80), hue, hour(14))
+  t.test('A room that is too humid') fn (t) {
+    let itho = itho(co2: 700, humidity: 80)
+    let _ = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
     let room = ctl.rooms[2]
     let before = Instant.new + Duration.from_secs(10)
 
     room.state = State.Humid
     room.last_update = before.clone
+    room.exhaust = 5000
     ctl.iteration
 
-    t.true(match room.state { case Humid -> true, case _ -> false })
+    t.equal(room.state, State.Humid)
+    t.not_equal(room.last_update, before)
+  }
+
+  t.test('A room that was humid but not for long enough') fn (t) {
+    # This covers both the cases of `humidity >= low` and `humidity < low`.
+    [70, 60].into_iter.each fn (humidity) {
+      let itho = itho(co2: 700, humidity: humidity)
+      let _ = track_settings(itho)
+      let ctl = controller(config, itho, hue, hour(14))
+      let room = ctl.rooms[2]
+
+      room.state = State.MaybeHumid
+      ctl.iteration
+
+      t.equal(room.state, State.Closed)
+    }
+  }
+
+  t.test('A room that has dried up') fn (t) {
+    let conf = config
+
+    conf.humidity.low_time = Duration.from_secs(0)
+
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms[2]
+
+    room.state = State.Humid
+    room.exhaust = 5000
+    ctl.iteration
+
+    t.equal(room.state, State.Closed)
+    t.equal(room.exhaust, 0)
+    t.true(updates.contains?((room.config.exhaust, room.exhaust)))
+  }
+
+  t.test('A dry room when the humidity levels are OK') fn (t) {
+    let itho = itho(co2: 700, humidity: 65)
+    let _ = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[2]
+    let before = Instant.new + Duration.from_secs(10)
+
+    room.state = State.Open
+    room.last_update = before.clone
+    room.exhaust = 2778
+    ctl.iteration
+
+    t.equal(room.state, State.Open)
+    t.equal(room.last_update, before)
+  }
+
+  t.test('A room with motion detected for the first time') fn (t) {
+    let itho = itho(co2: 700, humidity: 65)
+    let _ = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[3]
+
+    ctl.iteration
+
+    t.equal(room.state, State.Motion(4, 1))
+  }
+
+  t.test('A room with motion detected multiple times in the same minute') fn (t) {
+    let itho = itho(co2: 700, humidity: 65)
+    let _ = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[3]
+
+    ctl.iteration
+    ctl.iteration
+
+    t.equal(room.state, State.Motion(4, 1))
+  }
+
+  t.test('A room with motion detected in two different minutes') fn (t) {
+    let itho = itho(co2: 700, humidity: 65)
+    let _ = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[3]
+
+    room.state = State.Motion(3, 1)
+    ctl.iteration
+
+    t.equal(room.state, State.Motion(4, 2))
+  }
+
+  t.test('A room with enough motion events detected') fn (t) {
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[3]
+
+    room.state = State.Motion(3, 4)
+    ctl.iteration
+
+    t.equal(room.state, State.Open)
+    t.true(updates.contains?((room.config.exhaust, room.exhaust)))
+  }
+
+  t.test('A room with motion while ventilation is already active') fn (t) {
+    let itho = itho(co2: 700, humidity: 65)
+    let _ = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[3]
+    let before = Instant.new + Duration.from_secs(10)
+
+    room.state = State.Open
+    room.last_update = before.clone
+    room.exhaust = 834
+    ctl.iteration
+
+    t.equal(room.state, State.Open)
     t.not_equal(room.last_update, before)
   }
 }

@@ -1,4 +1,6 @@
 import openflow::config::(Room as Config)
+import std::cmp::Equal
+import std::fmt::(Format, Formatter)
 import std::time::(Duration, Instant)
 
 # The state of a ventilation exhaust.
@@ -8,7 +10,7 @@ class pub enum State {
 
   # The exhaust is in night mode, and it shouldn't be changed by the input of
   # any sensors.
-  case Night
+  case Schedule
 
   # Humidity in the room is increasing, but it's not yet high enough to switch
   # to the "Humid" state.
@@ -28,15 +30,37 @@ class pub enum State {
   # is the total number of minutes in which motion is detected.
   case Motion(Int, Int)
 
-  fn pub same_as?(other: ref Self) -> Bool {
+  fn pub schedule? -> Bool {
+    match self {
+      case Schedule -> true
+      case _ -> false
+    }
+  }
+}
+
+impl Equal for State {
+  fn pub ==(other: ref Self) -> Bool {
     match (self, other) {
       case (Closed, Closed) -> true
-      case (Night, Night) -> true
+      case (Schedule, Schedule) -> true
       case (MaybeHumid, MaybeHumid) -> true
       case (Humid, Humid) -> true
-      case (Open, Open) -> true
-      case (Motion(_, _), Motion(_, _)) -> true
+      case (Open, Open) -> true,
+      case (Motion(l1, l2), Motion(r1, r2)) -> l1 == r1 and l2 == r2
       case _ -> false
+    }
+  }
+}
+
+impl Format for State {
+  fn pub fmt(formatter: mut Formatter) {
+    match self {
+      case Closed -> formatter.write('Closed')
+      case Schedule -> formatter.write('Schedule')
+      case MaybeHumid -> formatter.write('MaybeHumid')
+      case Humid -> formatter.write('Humid')
+      case Open -> formatter.write('Open')
+      case Motion(a, b) -> formatter.write("Motion({a}, {b})")
     }
   }
 }
@@ -49,9 +73,6 @@ class pub Room {
   # The current state of the exhaust.
   let pub @state: State
 
-  # The state to transition the exhaust to.
-  let pub @pending_state: Option[State]
-
   # The last time the state of this room was updated.
   let pub @last_update: Instant
 
@@ -59,24 +80,15 @@ class pub Room {
   #
   # This is tracked separate from the state as the value is not yet known when
   # first changing a room from "closed" to "open".
-  let pub @opening: Int
+  let pub @exhaust: Int
 
   fn pub static new(config: ref Config) -> Room {
     Room {
       @config = config,
       @state = State.Closed,
-      @pending_state = Option.None,
       @last_update = Instant.new,
-      @opening = 0,
+      @exhaust = 0,
     }
-  }
-
-  fn pub mut pending(state: State) {
-    @pending_state = Option.Some(state)
-  }
-
-  fn pub mut take_pending_state -> Option[State] {
-    @pending_state := Option.None
   }
 
   fn pub mut update_time {

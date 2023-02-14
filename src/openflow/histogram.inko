@@ -1,0 +1,32 @@
+# A histogram for tracking the occurrences of some value.
+class pub Histogram {
+  let @buckets: Array[Int]
+
+  # Returns a new `Histogram` with `buckets` buckets.
+  fn pub static new(buckets: Int) -> Histogram {
+    Histogram { @buckets = Array.filled(with: 0, times: buckets) }
+  }
+
+  # Increments the number of values in the given bucket.
+  fn pub mut increment(bucket: Int) {
+    @buckets[bucket] = @buckets[bucket] + 1
+  }
+
+  # Returns the bucket with the largest number of values.
+  #
+  # When multiple buckets have the same values, this method returns the first
+  # bucket.
+  fn pub largest -> Int {
+    # The tuple format is (index, bucket value).
+    @buckets
+      .iter
+      .with_index
+      .reduce((0, 0)) fn (acc, curr) { if curr.1 > acc.1 { curr } else { acc } }
+      .0
+  }
+
+  # Resets the values of all buckets back to zero.
+  fn pub mut reset {
+    @buckets.length.times fn (index) { @buckets[index] = 0 }
+  }
+}

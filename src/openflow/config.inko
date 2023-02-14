@@ -2,10 +2,7 @@ import std::fs::file::ReadOnlyFile
 import std::fs::path::IntoPath
 import std::json::(self, Json)
 import std::net::ip::IpAddress
-import std::time::Duration
-
-# The default flow in m3/hour in case a room doesn't specify a custom flow.
-let DEFAULT_FLOW = 15
+import std::time::(DateTime, Duration)
 
 fn array(object: mut Map[String, Json], key: String) !! String -> Array[Json] {
   match object.remove(key) {
@@ -40,6 +37,29 @@ fn ip(object: mut Map[String, Json], key: String) !! String -> uni IpAddress {
   throw "The '{key}' value must be a valid IP address"
 }
 
+# Configuration details for a fixed ventilation schedule.
+class pub enum Schedule {
+  # Ventilation should be enabled between 23:00 and 11:00.
+  #
+  # This schedule is meant for bedrooms that are used at night, as these pretty
+  # much always need ventilation when in use.
+  case Night
+
+  # Ventilation should be enabled between 07:00 and 08:00.
+  #
+  # This schedule is meant for rooms that may build up stale/smelly air over
+  # night.
+  case Morning
+
+  # Returns `true` if the schedule is/should be active.
+  fn pub active?(time: ref DateTime) -> Bool {
+    match self {
+      case Night -> time.hour == 23 or time.hour < 11
+      case Morning -> time.hour == 7
+    }
+  }
+}
+
 # Configuration details of a single room, such as the name and the motion
 # sensor.
 class pub Room {
@@ -49,9 +69,8 @@ class pub Room {
   # The setting index used to control the exhaust in a room.
   let pub @exhaust: Int
 
-  # A flag indicating that this room should be ventilated at night, regardless
-  # of the state of any sensors.
-  let pub @night: Bool
+  # A ventilation schedule to apply.
+  let pub @schedule: Option[Schedule]
 
   # The ID of the motion sensor attached to this room.
   let pub @motion: Option[Int]
@@ -71,9 +90,10 @@ class pub Room {
   fn pub static from_json(value: Map[String, Json]) !! String -> Room {
     let name = try string(value, 'name')
     let exhaust = try int(value, 'exhaust')
-    let night = match value.get('night') {
-      case Some(Bool(val)) -> val
-      case _ -> false
+    let schedule = match value.remove('schedule') {
+      case Some(String('night')) -> Option.Some(Schedule.Night)
+      case Some(String('morning')) -> Option.Some(Schedule.Morning)
+      case _ -> Option.None
     }
 
     let motion = match value.remove('motion') {
@@ -93,7 +113,7 @@ class pub Room {
 
     let flow = match value.remove('flow') {
       case Some(Int(val)) -> val
-      case _ -> DEFAULT_FLOW
+      case _ -> 15
     }
 
     let ping = match value.remove('ping') {
@@ -113,7 +133,7 @@ class pub Room {
 
     Room {
       @name = name,
-      @night = night,
+      @schedule = schedule,
       @exhaust = exhaust,
       @motion = motion,
       @temperature = temperature,
@@ -133,7 +153,8 @@ class pub Humidity {
 
   # The low threshold.
   #
-  # When humidity levels drop below this value, the room is deemed dry enough.
+  # When the humidity levels are reduced to or below this level, the room is
+  # considered dry enough.
   let pub @low: Int
 
   # The amount of time to wait after the high threshold is exceeded, before
@@ -144,17 +165,55 @@ class pub Humidity {
   # turning ventilation back to normal.
   let pub @low_time: Duration
 
+  # The air flow rate in m3/hour to apply to a room when it's too humid.
+  let pub @flow: Int
+
   fn pub static from_json(value: Map[String, Json]) !! String -> Humidity {
-    let low = try int(value, 'low')
     let high = try int(value, 'high')
+    let low = try int(value, 'low')
     let low_time = Duration.from_secs(try int(value, 'low_time'))
     let high_time = Duration.from_secs(try int(value, 'high_time'))
+    let flow = try int(value, 'flow')
 
     Humidity {
-      @low = low,
       @high = high,
+      @low = low,
       @low_time = low_time,
       @high_time = high_time,
+      @flow = flow,
+    }
+  }
+}
+
+# Configuration details for the exhaust fan and valves.
+class pub Exhaust {
+  # The minimum flow of air in m3/hour.
+  let pub @min_flow: Int
+
+  # The maximum supported flow of air in m3/hour.
+  let pub @max_flow: Int
+
+  # The amount of time to wait for an exhaust valve to close.
+  let pub @close_time: Duration
+
+  # The amount of time to wait after an exhaust speed change before we allow
+  # reducing the speed again.
+  let pub @reduce_wait_time: Duration
+
+  # The setting that controls the speed.
+  let pub @speed_setting: Int
+
+  # The setting that enables/disables manual control.
+  let pub @manual_setting: Int
+
+  fn pub static from_json(value: Map[String, Json]) !! String -> Exhaust {
+    Exhaust {
+      @min_flow = try int(value, 'min_flow'),
+      @max_flow = try int(value, 'max_flow'),
+      @close_time = Duration.from_secs(try int(value, 'close_time')),
+      @speed_setting = try int(value, 'speed_setting'),
+      @manual_setting = try int(value, 'manual_setting'),
+      @reduce_wait_time = Duration.from_secs(try int(value, 'reduce_wait_time')),
     }
   }
 }
@@ -165,12 +224,6 @@ class pub Config {
   # Rooms to ventilate.
   let pub @rooms: Array[Room]
 
-  # The setting used to turn on manual control of the DemandFlow device.
-  let pub @manual_control: Int
-
-  # The setting used to control the exhaust speed of the DemandFlow/HRU device.
-  let pub @exhaust_speed: Int
-
   # The IP address of the Ith WiFi add-on API.
   let pub @itho_wifi_address: uni IpAddress
 
@@ -180,11 +233,25 @@ class pub Config {
   # The username/key for the Philips Hue API.
   let pub @hue_user: String
 
-  # The maximum flow rate in m3/hour that the exhaust supports.
-  let pub @max_flow: Int
-
   # The humidity sensor settings.
   let pub @humidity: Humidity
+
+  # The desired CO2 level in parts-per-million.
+  let pub @co2: Int
+
+  # The settings to control the exhaust fan and valves.
+  let pub @exhaust: Exhaust
+
+  # The amount of time (in seconds) to keep ventilating a room after the last
+  # motion event.
+  let pub @ventilation_time: Duration
+
+  # The amount of time (in seconds) to wait for motion events.
+  let pub @motion_wait_time: Duration
+
+  # The amount of individual minutes motion must be registered in before
+  # enabling ventilation.
+  let pub @motion_minutes: Int
 
   fn pub static load(path: IntoPath) !! String -> Config {
     let file = try {
@@ -224,15 +291,28 @@ class pub Config {
       case _ -> throw 'The "humidity" object is required'
     }
 
+    let exhaust = match root.remove('exhaust') {
+      case Some(Object(map)) -> try Exhaust.from_json(map)
+      case _ -> throw 'The "exhaust" object is required'
+    }
+
+    let ventilation_time =
+      Duration.from_secs(try int(root, 'ventilation_time'))
+
+    let motion_wait_time =
+      Duration.from_secs(try int(root, 'motion_wait_time'))
+
     Config {
       @rooms = rooms,
-      @manual_control = try int(root, 'manual_control'),
-      @exhaust_speed = try int(root, 'exhaust_speed'),
       @itho_wifi_address = try ip(root, 'itho_api'),
       @hue_address = try ip(root, 'hue_api'),
       @hue_user = try string(root, 'hue_user'),
-      @max_flow = try int(root, 'max_flow'),
       @humidity = humidity,
+      @exhaust = exhaust,
+      @co2 = try int(root, 'co2'),
+      @ventilation_time = ventilation_time,
+      @motion_wait_time = motion_wait_time,
+      @motion_minutes = try int(root, 'motion_minutes'),
     }
   }
 }

@@ -1,0 +1,55 @@
+import openflow::co2::Co2
+import std::process::(sleep)
+import std::test::Tests
+import std::time::Duration
+
+fn pub tests(t: mut Tests) {
+  t.test('Co2.update when no updates are necessary') fn (t) {
+    let co2 = Co2.new
+
+    t.false(co2.update)
+    t.equal(co2.value, 500)
+  }
+
+  t.test('Co2.update only updates after enough time has passed') fn (t) {
+    let co2 = Co2.with_interval(Duration.from_millis(10))
+
+    sleep(Duration.from_millis(15))
+    t.true(co2.update)
+    t.false(co2.update)
+  }
+
+  t.test('Co2.update with values less than the smallest bucket') fn (t) {
+    let co2 = Co2.with_interval(Duration.from_secs(0))
+
+    co2.update
+    t.equal(co2.value, 500)
+
+    co2.add(420)
+    t.true(co2.update)
+    t.equal(co2.value, 500)
+  }
+
+  t.test('Co2.update when updates are necessary') fn (t) {
+    let co2 = Co2.with_interval(Duration.from_secs(0))
+
+    co2.add(710)
+    co2.add(780)
+    t.true(co2.update)
+    t.equal(co2.value, 700)
+
+    co2.add(750)
+    co2.add(803)
+    co2.add(810)
+    t.true(co2.update)
+    t.equal(co2.value, 800)
+
+    co2.add(1250)
+    co2.add(1500)
+    t.true(co2.update)
+    t.equal(co2.value, 1200)
+
+    t.true(co2.update)
+    t.equal(co2.value, 500)
+  }
+}

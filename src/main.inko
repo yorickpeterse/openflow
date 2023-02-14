@@ -4,6 +4,7 @@ import openflow::controller::Controller
 import openflow::http::Client
 import openflow::hue::Hue
 import openflow::itho::Itho
+import openflow::logger::Logger
 import std::env
 import std::process::(sleep)
 import std::time::Duration
@@ -14,12 +15,16 @@ let INTERVAL = 5
 
 class async Main {
   fn async main {
-    let conf_path = env.get('OPENFLOW_CONFIG').unwrap_or('config.json')
+    let logger = Logger.default
+    let conf_path = env.arguments.get(0).unwrap_or('/etc/openflow.json')
+
+    logger.info("Using configuration file {conf_path}")
+
     let conf = try! Config.load(conf_path)
     let itho = Itho.new(Client.new(conf.itho_wifi_address.clone))
     let hue = Hue.new(Client.new(conf.hue_address.clone), user: conf.hue_user)
     let clock = SystemClock.new
-    let ctl = Controller.new(conf, itho, hue, clock)
+    let ctl = Controller.new(conf, itho, hue, clock, logger)
     let interval = Duration.from_secs(INTERVAL)
 
     ctl.prepare

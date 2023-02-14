@@ -1,4 +1,6 @@
+import openflow::test_co2
 import openflow::test_controller
+import openflow::test_histogram
 import openflow::test_http
 import std::env
 import std::test::Tests
@@ -9,6 +11,8 @@ class async Main {
 
     test_http.tests(tests)
     test_controller.tests(tests)
+    test_histogram.tests(tests)
+    test_co2.tests(tests)
 
     tests.pattern = env.arguments.into_iter.next
     tests.run

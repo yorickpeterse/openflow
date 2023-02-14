@@ -55,7 +55,78 @@ for a long time, and in general being more reliable and efficient.
 
 # Installation
 
-TODO
+Assuming the WiFi module is set up, you'll need to determine what the setting
+indexes are to control the exhaust valves of the rooms you want to ventilate. To
+obtain these indexes, go to the "Itho settings" page of the WiFi module and
+click "Retrieve settings". The settings you need will be called something along
+the lines of "Flap position XXX with manual control" or "Damper position of XXX
+with manual control". The indexes are in the "Index" column.
+
+Next you'll need to find the settings indexes that enable the manual control
+setting (most likely called "manual control") and the exhaust fan speed
+("Ventilation requirement for exhaust air fan in manual mode (%)" or something
+along those lines).
+
+Third, you'll need to determine the IP addresses of the WiFi module and the
+Philips Hue bridge. OpenFlow doesn't have support for service discovery of any
+kind, nor can it resolve host names, so make sure to assign these devices a
+static IP address. For the Hue bridge you'll also need a user/API token. You can
+find more information on how to do this [on this
+page](https://developers.meethue.com/develop/get-started-2/).
+
+With all the information gathered, copy `config.example.json` to
+`/etc/openflow.json` and adjust it accordingly.
+
+You can then build and run OpenFlow as follows:
+
+```bash
+inko build src/main.inko -o openflow.ibi # Compiles the code
+inko run openflow.ibi                    # Runs it
+```
+
+The repository also contains a `Dockerfile` that makes this process easier. You
+can build it like so (I'm using `podman` here, but `docker` should also work):
+
+```bash
+podman build -t openflow:latest -f Dockerfile .
+```
+
+You can then run it as follows:
+
+```bash
+podman run \
+    --memory 64m \
+    --rm \
+    --name openflow \
+    --tz=local \
+    --volume $PWD/config.json:/etc/openflow.json \
+    --tty \
+    --interactive \
+    --init \
+    localhost/openflow:latest
+```
+
+The `--tz=local` flag ensures the container reuses your system's timezone
+instead of using UTC. This is important as otherwise ventilation schedules may
+run at a different time from what you'd expect.
+
+The `--init` flag ensures signals are forwarded, that way `Control+C` works as
+expected. Without this you'll need to use `podman kill ...` to stop the
+container.
+
+If you want to run the container in the background, start it as follows instead:
+
+```bash
+podman run \
+    --memory 64m \
+    --rm \
+    --name openflow \
+    --tz=local \
+    --volume $PWD/config.json:/etc/openflow.json \
+    --detach \
+    --init \
+    localhost/openflow:latest
+```
 
 # License
 

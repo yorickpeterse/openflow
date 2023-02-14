@@ -1,0 +1,62 @@
+{
+    "rooms": [
+        {
+            "exhaust": 100,
+            "motion": 8,
+            "name": "Living room",
+            "ping": [],
+            "flow": 50,
+            "schedule": "morning"
+        },
+        {
+            "exhaust": 101,
+            "motion": 11,
+            "name": "Kitchen",
+            "flow": 25,
+            "schedule": "morning"
+        },
+        {
+            "exhaust": 102,
+            "motion": 2,
+            "name": "Toilet",
+            "flow": 10,
+            "schedule": "morning"
+        },
+        {
+            "exhaust": 103,
+            "name": "Bedroom",
+            "flow": 60,
+            "schedule": "night"
+        },
+        {
+            "exhaust": 104,
+            "motion": 5,
+            "humidity": "RH bathroom 1 (%)",
+            "name": "Bathroom",
+            "flow": 15,
+            "schedule": "morning"
+        }
+    ],
+    "humidity": {
+        "high": 80,
+        "low": 75,
+        "high_time": 60,
+        "low_time": 900,
+        "flow": 200
+    },
+    "exhaust": {
+        "manual_setting": 111,
+        "speed_setting": 124,
+        "min_flow": 70,
+        "max_flow": 350,
+        "close_time": 5,
+        "reduce_wait_time": 300
+    },
+    "co2": 700,
+    "ventilation_time": 900,
+    "motion_wait_time": 600,
+    "motion_minutes": 3,
+    "itho_api": "192.168.1.2",
+    "hue_api": "192.168.1.3",
+    "hue_user": "hue API username/token here"
+}

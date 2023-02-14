@@ -1,0 +1,31 @@
+import openflow::histogram::Histogram
+import std::test::Tests
+
+fn pub tests(t: mut Tests) {
+  t.test('Histogram.largest') fn (t) {
+    let histo = Histogram.new(buckets: 3)
+
+    t.equal(histo.largest, 0)
+
+    histo.increment(0)
+    histo.increment(1)
+
+    t.equal(histo.largest, 0)
+
+    histo.increment(2)
+    histo.increment(2)
+
+    t.equal(histo.largest, 2)
+  }
+
+  t.test('Histogram.reset') fn (t) {
+    let histo = Histogram.new(buckets: 3)
+
+    histo.increment(0)
+    histo.increment(1)
+    histo.increment(1)
+    histo.reset
+
+    t.equal(histo.largest, 0)
+  }
+}
