@@ -30,7 +30,7 @@ docker:
     - docker:dind
   image: docker:git
   script:
-    - bash ./scripts/docker.sh "${CI_REGISTRY_IMAGE}:openflow:main"
+    - sh ./scripts/docker.sh "${CI_REGISTRY_IMAGE}:openflow:main"
   except:
     - schedules
   only:
@@ -40,3 +40,4 @@ docker:
       - Dockerfile
       - LICENSE
       - src/**/*.inko
+      - .gitlab-ci.yml
