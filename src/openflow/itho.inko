@@ -42,10 +42,7 @@ class pub Itho {
     request.query('value', value.to_int.to_string)
 
     try {
-      retry fn {
-        client.timeout_after = timeout
-        try client.execute(request)
-      }
+      retry fn { try execute(request, timeout) }
     } else (err) {
       throw err.to_string
     }
@@ -58,10 +55,7 @@ class pub Itho {
     request.query('getsetting', setting.to_string)
 
     let resp = try {
-      retry fn {
-        client.timeout_after = timeout
-        try client.execute(request)
-      }
+      retry fn { try execute(request, timeout) }
     } else (err) {
       throw err.to_string
     }
@@ -86,10 +80,7 @@ class pub Itho {
     request.query('get', 'ithostatus')
 
     let resp = try {
-      retry fn {
-        client.timeout_after = timeout
-        try client.execute(request)
-      }
+      retry fn { try execute(request, timeout) }
     } else (err) {
       throw err.to_string
     }
@@ -128,5 +119,22 @@ class pub Itho {
     }
 
     Status { @co2 = co2, @exhaust_speed = exhaust_speed, @humidity = humidity }
+  }
+
+  fn pub mut execute(
+    request: ref Request,
+    timeout: ref Duration
+  ) !! Error -> Response {
+    client.timeout_after = timeout
+
+    let response = try client.execute(request)
+
+    # The API may produce an HTTP 500 if an I2C command fails. In this case we
+    # want to retry the operation.
+    if response.status == 500 {
+      throw Error.InternalServerError
+    } else {
+      response
+    }
   }
 }
