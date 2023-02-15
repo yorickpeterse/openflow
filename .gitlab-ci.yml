@@ -30,7 +30,7 @@ docker:
     - docker:dind
   image: docker:git
   script:
-    - sh ./scripts/docker.sh "${CI_REGISTRY_IMAGE}:openflow:main"
+    - sh ./scripts/docker.sh "${CI_REGISTRY_IMAGE}/openflow:main"
   except:
     - schedules
   only:
