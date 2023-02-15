@@ -218,6 +218,22 @@ class pub Exhaust {
   }
 }
 
+# Configuration settings for the CO2 levels.
+class pub Co2 {
+  # The target/desired CO2 concentration.
+  let pub @target: Int
+
+  # The amount of time to gather samples before calculating a new CO2 estimate.
+  let pub @sample_time: Duration
+
+  fn pub static from_json(value: Map[String, Json]) !! String -> Co2 {
+    Co2 {
+      @target = try int(value, 'target'),
+      @sample_time = Duration.from_secs(try int(value, 'sample_time')),
+    }
+  }
+}
+
 # Various configuration settings, such as the settings to control the
 # ventilation and the room-specific settings.
 class pub Config {
@@ -236,9 +252,6 @@ class pub Config {
   # The humidity sensor settings.
   let pub @humidity: Humidity
 
-  # The desired CO2 level in parts-per-million.
-  let pub @co2: Int
-
   # The settings to control the exhaust fan and valves.
   let pub @exhaust: Exhaust
 
@@ -252,6 +265,9 @@ class pub Config {
   # The amount of individual minutes motion must be registered in before
   # enabling ventilation.
   let pub @motion_minutes: Int
+
+  # Configuration settings related to the CO2 levels.
+  let pub @co2: Co2
 
   fn pub static load(path: IntoPath) !! String -> Config {
     let file = try {
@@ -296,6 +312,11 @@ class pub Config {
       case _ -> throw 'The "exhaust" object is required'
     }
 
+    let co2 = match root.remove('co2') {
+      case Some(Object(map)) -> try Co2.from_json(map)
+      case _ -> throw 'The "co2" object is required'
+    }
+
     let ventilation_time =
       Duration.from_secs(try int(root, 'ventilation_time'))
 
@@ -309,10 +330,10 @@ class pub Config {
       @hue_user = try string(root, 'hue_user'),
       @humidity = humidity,
       @exhaust = exhaust,
-      @co2 = try int(root, 'co2'),
       @ventilation_time = ventilation_time,
       @motion_wait_time = motion_wait_time,
       @motion_minutes = try int(root, 'motion_minutes'),
+      @co2 = co2,
     }
   }
 }

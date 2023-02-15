@@ -1,5 +1,5 @@
-import openflow::clock::TestClock
-import openflow::config::(Config, Exhaust, Humidity, Room, Schedule)
+import openflow::clock::(Clock, TestClock)
+import openflow::config::(Co2, Config, Exhaust, Humidity, Room, Schedule)
 import openflow::controller::Controller
 import openflow::http::(Client, Request, Response, TestDriver)
 import openflow::hue::Hue
@@ -10,6 +10,37 @@ import std::io::Write
 import std::net::ip::IpAddress
 import std::test::Tests
 import std::time::(DateTime, Duration, Instant)
+
+class CycleClock {
+  let @index: Int
+
+  fn static new -> CycleClock {
+    CycleClock { @index = 0 }
+  }
+}
+
+impl Clock for CycleClock {
+  fn pub mut now -> DateTime {
+    let hour = if @index == 0 {
+      @index = 1
+      23
+    } else {
+      @index = 0
+      14
+    }
+
+    DateTime {
+      @year = 2023,
+      @month = 1,
+      @day = 12,
+      @hour = hour,
+      @minute = 4,
+      @second = 2,
+      @sub_second = 0.0,
+      @utc_offset = 0,
+    }
+  }
+}
 
 let SPEED = 124
 
@@ -48,7 +79,7 @@ fn config -> Config {
         @temperature = Option.None,
         @humidity = Option.None,
         @ping = [],
-        @flow = 25,
+        @flow = 60,
       },
       Room {
         @name = 'Bathroom',
@@ -89,7 +120,10 @@ fn config -> Config {
     @itho_wifi_address = recover IpAddress.v4(192, 0, 0, 1),
     @hue_address = recover IpAddress.v4(192, 0, 0, 2),
     @hue_user = 'foo',
-    @co2 = 700,
+    @co2 = Co2 {
+      @target = 700,
+      @sample_time = Duration.from_secs(900),
+    },
     @ventilation_time = Duration.from_secs(10),
     @motion_wait_time = Duration.from_secs(10),
     @motion_minutes = 5,
@@ -100,7 +134,7 @@ fn controller(
   config: Config,
   itho_driver: TestDriver,
   hue_driver: TestDriver,
-  clock: TestClock,
+  clock: Clock,
 ) -> Controller {
   let itho = Itho.new(Client.with_driver(itho_driver))
   let hue = Hue.new(Client.with_driver(hue_driver), user: 'foo')
@@ -400,5 +434,197 @@ fn pub tests(t: mut Tests) {
 
     t.equal(room.state, State.Open)
     t.not_equal(room.last_update, before)
+  }
+
+  t.test('A room that is ventilated but is now vacant') fn (t) {
+    let conf = config
+
+    conf.ventilation_time = Duration.from_secs(0)
+
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms[2]
+
+    room.state = State.Open
+    room.exhaust = 2778
+    ctl.iteration
+
+    t.equal(room.state, State.Closed)
+    t.equal(room.exhaust, 0)
+    t.true(updates.contains?((room.config.exhaust, room.exhaust)))
+  }
+
+  t.test('A vacant room with an IP responding to a ping') fn (t) {
+    let conf = config
+
+    conf.ventilation_time = Duration.from_secs(0)
+    conf.rooms[2].ping.push(IpAddress.v4(127, 0, 0, 1))
+
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms[2]
+    let before = room.last_update.clone
+
+    room.state = State.Open
+    room.exhaust = 2778
+    ctl.iteration
+
+    t.equal(room.state, State.Open)
+    t.not_equal(room.last_update, before)
+    t.equal(room.exhaust, 2778)
+  }
+
+  t.test('A room with not enough motion events') fn (t) {
+    let conf = config
+
+    conf.motion_wait_time = Duration.from_secs(0)
+
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms[2]
+
+    room.state = State.Motion(1, 1)
+    ctl.iteration
+
+    t.equal(room.state, State.Closed)
+  }
+
+  t.test('Ventilating the first room when no other rooms need ventilation') fn (t) {
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[0]
+
+    ctl.iteration
+
+    t.equal(room.state, State.Open)
+    t.equal(room.exhaust, 834)
+    t.true(updates.contains?((room.config.exhaust, room.exhaust)))
+  }
+
+  t.test('The first room is not ventilated when another room needs ventilation') fn (t) {
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(23))
+
+    ctl.iteration
+
+    t.equal(ctl.rooms[0].state, State.Closed)
+  }
+
+  t.test('Updating the exhaust settings') fn (t) {
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(23))
+    let room = ctl.rooms[1]
+
+    ctl.iteration
+
+    t.equal(updates, [(room.config.exhaust, room.exhaust), (SPEED, 26)])
+  }
+
+  t.test('Increasing the flow when CO2 levels are high') fn (t) {
+    let conf = config
+
+    conf.co2.sample_time = Duration.from_secs(0)
+
+    let itho = itho(co2: 1200, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(23))
+    let room = ctl.rooms[1]
+
+    ctl.iteration
+
+    t.equal(updates, [(room.config.exhaust, room.exhaust), (SPEED, 32)])
+  }
+
+  t.test('No extra flow is added when a room is humid') fn (t) {
+    let conf = config
+
+    conf.co2.sample_time = Duration.from_secs(0)
+    conf.humidity.high_time = Duration.from_secs(0)
+
+    let itho = itho(co2: 1200, humidity: 80)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(23))
+    let bathroom = ctl.rooms[2]
+    let bedroom = ctl.rooms[1]
+
+    bathroom.state = State.Humid
+    bathroom.exhaust = 4167
+    ctl.iteration
+
+    t.equal(updates, [(bedroom.config.exhaust, 834), (SPEED, 52)])
+  }
+
+  t.test('The exhaust speed is limited to the maximum flow') fn (t) {
+    let conf = config
+
+    conf.exhaust.min_flow = 10
+    conf.exhaust.max_flow = 30
+
+    let itho = itho(co2: 700, humidity: 60)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(23))
+    let bedroom = ctl.rooms[1]
+
+    ctl.iteration
+
+    t.equal(updates, [(bedroom.config.exhaust, 5000), (SPEED, 100)])
+  }
+
+  t.test('The exhaust speed is always greater than the minimum flow') fn (t) {
+    let conf = config
+
+    conf.rooms[1].flow = 5
+
+    let itho = itho(co2: 700, humidity: 60)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(23))
+    let bedroom = ctl.rooms[1]
+
+    ctl.iteration
+
+    t.equal(updates, [(bedroom.config.exhaust, 278), (SPEED, 26)])
+  }
+
+  t.test('The exhaust is only updated when there is a speed change') fn (t) {
+    let itho = itho(co2: 700, humidity: 60)
+    let updates = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(23))
+    let bedroom = ctl.rooms[1]
+
+    ctl.iteration
+    ctl.iteration
+
+    t.equal(updates, [(bedroom.config.exhaust, 3334), (SPEED, 26)])
+  }
+
+  t.test('The exhaust speed is only reduced after a period of time') fn (t) {
+    let itho = itho(co2: 700, humidity: 80)
+    let updates = track_settings(itho)
+    let clock = CycleClock.new
+    let ctl = controller(config, itho, hue, clock)
+    let bedroom = ctl.rooms[1]
+    let bathroom = ctl.rooms[2]
+
+    bathroom.state = State.Humid
+    bathroom.exhaust = 5000
+    ctl.iteration
+    ctl.iteration
+
+    t.equal(
+      updates,
+      [
+        (bedroom.config.exhaust, 834),
+        (bathroom.config.exhaust, 4167),
+        (SPEED, 52),
+        (bedroom.config.exhaust, 0),
+        (bathroom.config.exhaust, 5000),
+      ]
+    )
   }
 }

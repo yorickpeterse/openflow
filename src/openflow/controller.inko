@@ -66,12 +66,12 @@ class pub Controller {
       @itho = itho,
       @hue = hue,
       @rooms = config.rooms.iter.map fn (cfg) { Room.new(cfg) }.to_array,
-      @config = config,
       @logger = logger,
       @clock = clock,
       @exhaust_speed = 0,
       @last_exhaust_update = Instant.new,
-      @co2 = Co2.new,
+      @co2 = Co2.new(config.co2.sample_time.clone),
+      @config = config,
     }
   }
 
@@ -97,6 +97,7 @@ class pub Controller {
     }
 
     update_rooms(status, sensors)
+    ventilate_default_room
     apply_changes
   }
 
@@ -279,29 +280,31 @@ class pub Controller {
     }
   }
 
-  fn mut apply_changes {
+  fn mut ventilate_default_room {
     # No ventilation can result in stale/dirty air building up. As such, if we
     # don't detect the need for ventilating anywhere we'll just ventilate the
     # first room.
     let ventilate_first = @rooms.iter.all? fn (room) {
-      match room.state { case Open or Humid or Schedule -> false, case _ -> true }
+      match room.state {
+        case Open or Humid or Schedule -> false
+        case _ -> true
+      }
     }
 
-    if ventilate_first {
-      let room = @rooms[0]
+    if ventilate_first.false? { return }
 
-      logger.info(
-        "No rooms need ventilating, \
-        enabling ventilation for \"{room.config.name}\""
-      )
-      room.update(State.Open)
-    }
+    let room = @rooms[0]
 
+    logger.info("Enabling default ventilation for \"{room.config.name}\"")
+    room.update(State.Open)
+  }
+
+  fn mut apply_changes {
     let humid = @rooms.iter.any? fn (room) {
       match room.state { case Humid -> true, case _ -> false }
     }
 
-    let extra_flow = if @co2.value > @config.co2 and humid.false? {
+    let extra_flow = if @co2.value > @config.co2.target and humid.false? {
       # As CO2 levels rise, we gradually increase the air flow in rooms that are
       # ventilated. in an attempt to keep the CO2 levels stable.
       #
@@ -309,7 +312,7 @@ class pub Controller {
       # already ventilating one or more rooms at a very high speed, and chances
       # are that CO2 increases originate from the same room anyway (i.e a person
       # taking a shower).
-      @co2.value - @config.co2 / CO2_FLOW_INCREMENT * CO2_ADD_FLOW
+      @co2.value - @config.co2.target / CO2_FLOW_INCREMENT * CO2_ADD_FLOW
     } else {
       0
     }
@@ -347,8 +350,11 @@ class pub Controller {
 
     @rooms.iter_mut.each_with_index fn (index, room) {
       let flow = room_flows[index]
-      let exhaust =
+      let exhaust = if flow >= total_flow {
+        EXHAUST_MAX.to_int
+      } else {
         (flow.to_float / total_flow.to_float * EXHAUST_MAX).ceil.to_int
+      }
 
       if exhaust != room.exhaust {
         logger.info(

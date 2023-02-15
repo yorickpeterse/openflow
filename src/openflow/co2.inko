@@ -26,14 +26,6 @@ let BUCKETS = 8
 # The last/maximum bucket.
 let MAX_BUCKET = BUCKETS - 1
 
-# The amount of time (in seconds) to wait before flushing the samples to a CO2
-# estimate.
-#
-# We're using this particular interval to reduce the number of (unnecessary)
-# speed/exhaust adjustments in response to sudden/temporary changes of the CO2
-# levels.
-let INTERVAL = 15 * 60
-
 # A type for tracking the estimated CO2 levels over time, while taking into
 # account sporadic/temporary changes in the reported value.
 class pub Co2 {
@@ -50,13 +42,8 @@ class pub Co2 {
   # The amount of time in between updates to the calculated CO2 value.
   let @interval: Duration
 
-  # Returns a new `Co2` that updates the value using a default interval.
-  fn pub static new -> Co2 {
-    with_interval(Duration.from_secs(INTERVAL))
-  }
-
   # Returns a new `Co2` that updates the value at the given interval.
-  fn pub static with_interval(interval: Duration) -> Co2 {
+  fn pub static new(interval: Duration) -> Co2 {
     Co2 {
       @histogram = Histogram.new(BUCKETS),
       @last_update = Instant.new,
@@ -72,7 +59,7 @@ class pub Co2 {
 
   # Updates the CO2 estimate if necessary.
   fn pub mut update -> Bool {
-    if @last_update.elapsed <= @interval { return false }
+    if @last_update.elapsed < @interval { return false }
 
     @value = LOW + (@histogram.largest * 100)
     @last_update = Instant.new

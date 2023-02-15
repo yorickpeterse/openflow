@@ -52,7 +52,10 @@
         "close_time": 5,
         "reduce_wait_time": 300
     },
-    "co2": 700,
+    "co2": {
+        "target": 700,
+        "sample_time": 900
+    },
     "ventilation_time": 900,
     "motion_wait_time": 600,
     "motion_minutes": 3,

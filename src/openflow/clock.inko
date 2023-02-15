@@ -3,7 +3,7 @@ import std::time::DateTime
 # A type that represents a real/wall time clock.
 trait pub Clock {
   # Returns the current time.
-  fn pub now -> DateTime
+  fn pub mut now -> DateTime
 }
 
 # A Clock type that uses the system clock.
@@ -15,7 +15,7 @@ class pub SystemClock {
 }
 
 impl Clock for SystemClock {
-  fn pub now -> DateTime {
+  fn pub mut now -> DateTime {
     DateTime.new
   }
 }
@@ -32,7 +32,7 @@ class pub TestClock {
 }
 
 impl Clock for TestClock {
-  fn pub now -> DateTime {
+  fn pub mut now -> DateTime {
     @time.clone
   }
 }
