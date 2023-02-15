@@ -5,22 +5,19 @@
             "motion": 8,
             "name": "Living room",
             "ping": [],
-            "flow": 50,
-            "schedule": "morning"
+            "flow": 50
         },
         {
             "exhaust": 101,
             "motion": 11,
             "name": "Kitchen",
-            "flow": 25,
-            "schedule": "morning"
+            "flow": 25
         },
         {
             "exhaust": 102,
             "motion": 2,
             "name": "Toilet",
-            "flow": 10,
-            "schedule": "morning"
+            "flow": 10
         },
         {
             "exhaust": 103,
@@ -33,8 +30,7 @@
             "motion": 5,
             "humidity": "RH bathroom 1 (%)",
             "name": "Bathroom",
-            "flow": 15,
-            "schedule": "morning"
+            "flow": 15
         }
     ],
     "humidity": {
