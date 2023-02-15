@@ -8,8 +8,7 @@ class pub enum State {
   # The exhaust is closed.
   case Closed
 
-  # The exhaust is in night mode, and it shouldn't be changed by the input of
-  # any sensors.
+  # The room is ventilated according to a fixed schedule.
   case Schedule
 
   # Humidity in the room is increasing, but it's not yet high enough to switch
@@ -22,6 +21,9 @@ class pub enum State {
 
   # Regular ventilation is or should be applied to the room.
   case Open
+
+  # The room is ventilated because no other rooms need ventilation.
+  case Default
 
   # A motion sensor detected movement, and we may need to ventilate the room if
   # motion continues.
@@ -46,6 +48,7 @@ impl Equal for State {
       case (MaybeHumid, MaybeHumid) -> true
       case (Humid, Humid) -> true
       case (Open, Open) -> true,
+      case (Default, Default) -> true
       case (Motion(l1, l2), Motion(r1, r2)) -> l1 == r1 and l2 == r2
       case _ -> false
     }
@@ -60,6 +63,7 @@ impl Format for State {
       case MaybeHumid -> formatter.write('MaybeHumid')
       case Humid -> formatter.write('Humid')
       case Open -> formatter.write('Open')
+      case Default -> formatter.write('Default')
       case Motion(a, b) -> formatter.write("Motion({a}, {b})")
     }
   }

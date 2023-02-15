@@ -500,7 +500,7 @@ fn pub tests(t: mut Tests) {
 
     ctl.iteration
 
-    t.equal(room.state, State.Open)
+    t.equal(room.state, State.Default)
     t.equal(room.exhaust, 834)
     t.true(updates.contains?((room.config.exhaust, room.exhaust)))
   }
@@ -626,5 +626,19 @@ fn pub tests(t: mut Tests) {
         (bathroom.config.exhaust, 5000),
       ]
     )
+  }
+
+  t.test('Detecting motion in a room that has default ventilation applied') fn (t) {
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[3]
+
+    room.state = State.Default
+    room.exhaust = 834
+    ctl.iteration
+
+    t.equal(room.state, State.Open)
+    t.equal(room.exhaust, 834)
   }
 }

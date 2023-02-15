@@ -45,7 +45,7 @@ class pub enum Schedule {
   # much always need ventilation when in use.
   case Night
 
-  # Ventilation should be enabled between 07:00 and 08:00.
+  # Ventilation should be enabled between 06:00 and 07:00.
   #
   # This schedule is meant for rooms that may build up stale/smelly air over
   # night.
@@ -55,7 +55,7 @@ class pub enum Schedule {
   fn pub active?(time: ref DateTime) -> Bool {
     match self {
       case Night -> time.hour == 23 or time.hour < 11
-      case Morning -> time.hour == 7
+      case Morning -> time.hour == 6
     }
   }
 }

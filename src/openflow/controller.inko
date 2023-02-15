@@ -227,6 +227,7 @@ class pub Controller {
           room.update(new_state)
         }
         case Open -> room.update_time
+        case Default -> room.update(State.Open)
         case _ -> {}
       }
     } else if room.stale?(@config.ventilation_time) {
@@ -295,8 +296,13 @@ class pub Controller {
 
     let room = @rooms[0]
 
-    logger.info("Enabling default ventilation for \"{room.config.name}\"")
-    room.update(State.Open)
+    match room.state {
+      case Default -> room.update_time
+      case _ -> {
+        logger.info("Enabling default ventilation for \"{room.config.name}\"")
+        room.update(State.Default)
+      }
+    }
   }
 
   fn mut apply_changes {
@@ -321,7 +327,7 @@ class pub Controller {
       .iter
       .map fn (room) {
         match room.state {
-          case Schedule or Open -> {
+          case Schedule or Open or Default -> {
             # When a room is humid the exhaust speed is increased to a high
             # speed. This can result in excessive noise in other rooms. To
             # prevent this from happening we reduce the flow rate of non humid
