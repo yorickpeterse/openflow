@@ -19,7 +19,7 @@ let EXHAUST_MAX = 5000.0
 
 # The flow rate (in m3/hour) to add to every room to compensate for higher CO2
 # levels.
-let CO2_ADD_FLOW = 5
+let CO2_ADD_FLOW = 10
 
 # The amount of ppm for a single CO2 flow increment.
 #
