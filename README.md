@@ -84,16 +84,11 @@ inko build src/main.inko -o openflow.ibi # Compiles the code
 inko run openflow.ibi                    # Runs it
 ```
 
-The repository also contains a `Dockerfile` that makes this process easier. You
-can build it like so (I'm using `podman` here, but `docker` should also work):
+To make this process easier, a Docker/Podman container is provided. You can use
+it as follows (I'm using `podman` here, but `docker` should also work):
 
 ```bash
-podman build -t openflow:latest -f Dockerfile .
-```
-
-You can then run it as follows:
-
-```bash
+podman pull registry.gitlab.com/yorickpeterse/openflow/openflow:main
 podman run \
     --memory 64m \
     --rm \
@@ -103,7 +98,7 @@ podman run \
     --tty \
     --interactive \
     --init \
-    localhost/openflow:latest
+    openflow:main
 ```
 
 The `--tz=local` flag ensures the container reuses your system's timezone
@@ -125,7 +120,7 @@ podman run \
     --volume /etc/openflow.json:/etc/openflow.json \
     --detach \
     --init \
-    localhost/openflow:latest
+    openflow:main
 ```
 
 # License
