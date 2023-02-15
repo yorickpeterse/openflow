@@ -4,11 +4,19 @@ import std::test::Tests
 import std::time::Duration
 
 fn pub tests(t: mut Tests) {
-  t.test('Co2.update when no updates are necessary') fn (t) {
+  t.test('Co2.update on the first call without any samples') fn (t) {
     let co2 = Co2.new(Duration.from_secs(900))
 
-    t.false(co2.update)
+    t.true(co2.update)
     t.equal(co2.value, 500)
+  }
+
+  t.test('Co2.update on the first call with samples') fn (t) {
+    let co2 = Co2.new(Duration.from_secs(900))
+
+    co2.add(850)
+    t.true(co2.update)
+    t.equal(co2.value, 800)
   }
 
   t.test('Co2.update only updates after enough time has passed') fn (t) {

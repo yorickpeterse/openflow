@@ -47,7 +47,7 @@ class pub Co2 {
     Co2 {
       @histogram = Histogram.new(BUCKETS),
       @last_update = Instant.new,
-      @value = LOW,
+      @value = 0,
       @interval = interval,
     }
   }
@@ -59,7 +59,7 @@ class pub Co2 {
 
   # Updates the CO2 estimate if necessary.
   fn pub mut update -> Bool {
-    if @last_update.elapsed < @interval { return false }
+    if @last_update.elapsed < @interval and @value > 0 { return false }
 
     @value = LOW + (@histogram.largest * 100)
     @last_update = Instant.new
