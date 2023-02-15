@@ -6,7 +6,12 @@ variables:
   ARTIFACT_COMPRESSION_LEVEL: fastest
   CACHE_COMPRESSION_LEVEL: fastest
 
+stages:
+  - test
+  - docker
+
 test:
+  stage: test
   image: registry.gitlab.com/inko-lang/development-docker-images:alpine
   before_script:
     - rustc --version
@@ -18,3 +23,20 @@ test:
   cache:
     paths:
       - inko
+
+docker:
+  stage: docker
+  services:
+    - docker:dind
+  image: docker:git
+  script:
+    - bash ./scripts/docker.sh "${CI_REGISTRY_IMAGE}:openflow:main"
+  except:
+    - schedules
+  only:
+    refs:
+      - main
+    changes:
+      - Dockerfile
+      - LICENSE
+      - src/**/*.inko
