@@ -4,13 +4,8 @@ import std::json
 import std::process::(sleep)
 import std::time::Duration
 
+# The path to the API endpoint.
 let PATH = '/api.html'
-
-# The amount of times an API call is retried before we give up.
-let RETRIES = 10
-
-# The time (in seconds) to wait after a failed request before trying again.
-let RETRY_WAIT_TIME = 5
 
 # The time after which a request times out, excluding retries.
 let TIMEOUT = 60
@@ -30,10 +25,18 @@ class pub Status {
 class pub Itho {
   let @client: Client
 
+  # The amount of time to wait after retrying a failed operation.
+  let pub @retry_wait_time: Duration
+
   fn pub static new(client: Client) -> Itho {
-    Itho { @client = client }
+    Itho { @client = client, @retry_wait_time = Duration.from_secs(5) }
   }
 
+  # Sets a setting.
+  #
+  # The `setting` argument must be the setting index as obtained from the "Itho
+  # settings" page. The `value` argument is the value for said setting. Only
+  # integer values are supported.
   fn pub mut set(setting: Int, value: ref ToInt) !! String {
     let request = Request.get(PATH)
     let timeout = Duration.from_secs(TIMEOUT)
@@ -42,12 +45,16 @@ class pub Itho {
     request.query('value', value.to_int.to_string)
 
     try {
-      retry fn { try execute(request, timeout) }
+      retry(@retry_wait_time) fn { try execute(request, timeout) }
     } else (err) {
       throw err.to_string
     }
   }
 
+  # Returns the value of a setting.
+  #
+  # The `setting` argument must be the setting index. See `Itho.set` for more
+  # information.
   fn pub mut get(setting: Int) !! String -> Int {
     let request = Request.get(PATH)
     let timeout = Duration.from_secs(TIMEOUT)
@@ -55,7 +62,7 @@ class pub Itho {
     request.query('getsetting', setting.to_string)
 
     let resp = try {
-      retry fn { try execute(request, timeout) }
+      retry(@retry_wait_time) fn { try execute(request, timeout) }
     } else (err) {
       throw err.to_string
     }
@@ -73,6 +80,7 @@ class pub Itho {
     }
   }
 
+  # Returns the status of the Itho device.
   fn pub mut status !! String -> Status {
     let request = Request.get(PATH)
     let timeout = Duration.from_secs(TIMEOUT)
@@ -80,7 +88,7 @@ class pub Itho {
     request.query('get', 'ithostatus')
 
     let resp = try {
-      retry fn { try execute(request, timeout) }
+      retry(@retry_wait_time) fn { try execute(request, timeout) }
     } else (err) {
       throw err.to_string
     }
@@ -121,7 +129,7 @@ class pub Itho {
     Status { @co2 = co2, @exhaust_speed = exhaust_speed, @humidity = humidity }
   }
 
-  fn pub mut execute(
+  fn mut execute(
     request: ref Request,
     timeout: ref Duration
   ) !! Error -> Response {

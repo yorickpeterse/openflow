@@ -29,15 +29,15 @@ let CAPITAL_Z = 90
 # The amount of times we'll retry the operation.
 let RETRIES = 10
 
-# The time (in seconds) to wait after a failed request before trying again.
-let RETRY_WAIT_TIME = 5
-
-fn pub retry(block: fn !! Error -> Response) !! Error -> Response {
+fn pub retry(
+  wait: ref Duration,
+  block: fn !! Error -> Response
+) !! Error -> Response {
   let mut attempts = 0
 
   loop {
     return try block.call else (err) {
-      if attempts == RETRY_WAIT_TIME { throw err }
+      if attempts == RETRIES { throw err }
 
       match ref err {
         case InvalidRequest(_) -> throw err
@@ -45,7 +45,7 @@ fn pub retry(block: fn !! Error -> Response) !! Error -> Response {
       }
 
       attempts += 1
-      sleep(Duration.from_secs(RETRY_WAIT_TIME))
+      sleep(wait)
       next
     }
   }
@@ -419,12 +419,12 @@ trait pub Driver {
 # The default driver.
 #
 # This driver is a pure Inko HTTP driver.
-class DefaultDriver {
+class pub DefaultDriver {
   let @ip: IpAddress
   let @port: Int
   let @deadline: Option[Instant]
 
-  fn static new(ip: IpAddress, port: Int) -> DefaultDriver {
+  fn pub static new(ip: IpAddress, port: Int) -> DefaultDriver {
     DefaultDriver { @ip = ip, @port = port, @deadline = Option.None }
   }
 

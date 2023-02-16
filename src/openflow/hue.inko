@@ -2,16 +2,13 @@ import openflow::http::(Client, Error, Request, Response, retry)
 import std::json::(self, Json)
 import std::time::Duration
 
-fn digit(input: String, byte: Int) -> Int {
-  input.byte(byte) - 48
-}
-
 # The time after which a request times out.
 let TIMEOUT = 30
 
+# The sensor states.
 class pub Sensors {
+  # A Map that maps sensor IDs to a boolean indicating if motion is detected.
   let pub @motion: Map[Int, Bool]
-  let pub @temperature: Map[Int, Int]
 }
 
 # An API/HTTP client for interacting with the Philips Hue bridge and motion
@@ -20,15 +17,22 @@ class pub Hue {
   let @client: Client
   let @user: String
 
+  # The amount of time to wait after retrying a failed operation.
+  let pub @retry_wait_time: Duration
+
   fn pub static new(client: Client, user: String) -> Hue {
-    Hue { @client = client, @user = user }
+    Hue {
+      @client = client,
+      @user = user,
+      @retry_wait_time = Duration.from_secs(5),
+    }
   }
 
   fn pub mut sensors !! String -> Sensors {
     let request = Request.get("/api/{@user}/sensors")
     let timeout = Duration.from_secs(TIMEOUT)
     let resp = try {
-      retry fn {
+      retry(@retry_wait_time) fn {
         client.timeout_after = timeout
         try client.execute(request)
       }
@@ -43,7 +47,6 @@ class pub Hue {
     }
 
     let motion = Map.new
-    let temp = Map.new
 
     root.into_iter.each fn (entry) {
       let id = Int.from_base10(entry.key).unwrap
@@ -62,16 +65,10 @@ class pub Hue {
           case Some(Bool(val)) -> motion[id] = val
           case _ -> motion[id] = false
         }
-        case Some(String('ZLLTemperature')) -> {
-          match state.remove('temperature') {
-            case Some(Int(val)) -> temp[id] = val
-            case _ -> temp[id] = 0
-          }
-        }
         case _ -> {}
       }
     }
 
-    Sensors { @motion = motion, @temperature = temp }
+    Sensors { @motion = motion }
   }
 }

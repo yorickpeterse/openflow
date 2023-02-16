@@ -2,6 +2,8 @@ import openflow::test_co2
 import openflow::test_controller
 import openflow::test_histogram
 import openflow::test_http
+import openflow::test_hue
+import openflow::test_itho
 import std::env
 import std::test::Tests
 
@@ -9,10 +11,12 @@ class async Main {
   fn async main {
     let tests = Tests.new
 
-    test_http.tests(tests)
+    test_co2.tests(tests)
     test_controller.tests(tests)
     test_histogram.tests(tests)
-    test_co2.tests(tests)
+    test_http.tests(tests)
+    test_hue.tests(tests)
+    test_itho.tests(tests)
 
     tests.pattern = env.arguments.into_iter.next
     tests.run

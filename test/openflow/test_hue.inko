@@ -1,0 +1,81 @@
+import openflow::http::(Client, Driver, Error, Request, Response, TestDriver)
+import openflow::hue::Hue
+import std::io::(Error as IoError)
+import std::test::Tests
+import std::time::(Duration, ToInstant)
+
+class TimeoutDriver {
+  let @timed_out: Bool
+
+  fn static new -> TimeoutDriver {
+    TimeoutDriver { @timed_out = false }
+  }
+}
+
+impl Driver for TimeoutDriver {
+  fn pub mut timeout_after=(time: ref ToInstant) {}
+
+  fn pub mut execute(request: ref Request) !! Error -> Response {
+    if @timed_out {
+      Response.ok(
+        '{ "1": { "type": "ZLLPresence", "state": { "presence": false } } }'
+          .to_byte_array
+      )
+    } else {
+      @timed_out = true
+      throw Error.Network(IoError.TimedOut)
+    }
+  }
+}
+
+fn pub tests(t: mut Tests) {
+  t.test('Hue.sensors with a valid response format') fn (t) {
+    let driver = TestDriver.new
+
+    driver.request(
+      matches: fn (req) { req.path == '/api/foo/sensors' },
+      then: fn (_) {
+        Response.ok(
+          '
+          {
+            "1": { "type": "ZLLPresence", "state": { "presence": false } },
+            "2": { "type": "ZLLPresence", "state": { "presence": true } }
+          }
+          '.to_byte_array
+        )
+      }
+    )
+
+    let client = Client.with_driver(driver)
+    let hue = Hue.new(client, user: 'foo')
+    let sensors = try! hue.sensors
+
+    t.false(sensors.motion[1])
+    t.true(sensors.motion[2])
+  }
+
+  t.test('Hue.sensors retries failed requests') fn (t) {
+    let client = Client.with_driver(TimeoutDriver.new)
+    let hue = Hue.new(client, user: 'foo')
+
+    hue.retry_wait_time = Duration.from_secs(0)
+
+    t.no_throw fn { try hue.sensors }
+  }
+
+  t.test('Hue.sensors with an invalid response format') fn (t) {
+    let driver = TestDriver.new
+
+    driver.request(
+      matches: fn (req) { req.path == '/api/foo/sensors' },
+      then: fn (_) {
+        Response.ok('[]'.to_byte_array)
+      }
+    )
+
+    let client = Client.with_driver(driver)
+    let hue = Hue.new(client, user: 'foo')
+
+    t.throw fn { try hue.sensors }
+  }
+}
