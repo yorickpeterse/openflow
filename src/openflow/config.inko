@@ -60,6 +60,26 @@ class pub enum Schedule {
   }
 }
 
+class pub Motion {
+  # The ID of the motion sensor attached to this room.
+  let pub @sensor: Int
+
+  # The amount of minutes in which motion needs to be detected before
+  # ventilating the room.
+  let pub @minutes: Int
+
+  # The amount of time to wait for motion to be detected.
+  let pub @time: Duration
+
+  fn pub static from_json(value: Map[String, Json]) !! String -> Motion {
+    Motion {
+      @sensor = try int(value, 'sensor'),
+      @minutes = try int(value, 'minutes') else 5,
+      @time = Duration.from_secs(try int(value, 'time') else 900),
+    }
+  }
+}
+
 # Configuration details of a single room, such as the name and the motion
 # sensor.
 class pub Room {
@@ -72,8 +92,8 @@ class pub Room {
   # A ventilation schedule to apply.
   let pub @schedule: Option[Schedule]
 
-  # The ID of the motion sensor attached to this room.
-  let pub @motion: Option[Int]
+  # The motion sensor for this room along with its settings.
+  let pub @motion: Option[Motion]
 
   # The ID of the temperature sensor attached to this room.
   let pub @temperature: Option[Int]
@@ -97,7 +117,7 @@ class pub Room {
     }
 
     let motion = match value.remove('motion') {
-      case Some(Int(val)) -> Option.Some(val)
+      case Some(Object(val)) -> Option.Some(try Motion.from_json(val))
       case _ -> Option.None
     }
 
@@ -259,13 +279,6 @@ class pub Config {
   # motion event.
   let pub @ventilation_time: Duration
 
-  # The amount of time (in seconds) to wait for motion events.
-  let pub @motion_wait_time: Duration
-
-  # The amount of individual minutes motion must be registered in before
-  # enabling ventilation.
-  let pub @motion_minutes: Int
-
   # Configuration settings related to the CO2 levels.
   let pub @co2: Co2
 
@@ -320,9 +333,6 @@ class pub Config {
     let ventilation_time =
       Duration.from_secs(try int(root, 'ventilation_time'))
 
-    let motion_wait_time =
-      Duration.from_secs(try int(root, 'motion_wait_time'))
-
     Config {
       @rooms = rooms,
       @itho_wifi_address = try ip(root, 'itho_api'),
@@ -331,8 +341,6 @@ class pub Config {
       @humidity = humidity,
       @exhaust = exhaust,
       @ventilation_time = ventilation_time,
-      @motion_wait_time = motion_wait_time,
-      @motion_minutes = try int(root, 'motion_minutes'),
       @co2 = co2,
     }
   }

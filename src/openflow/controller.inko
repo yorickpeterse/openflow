@@ -204,10 +204,12 @@ class pub Controller {
   }
 
   fn mut check_motion(sensors: ref Sensors, room: mut Room, time: ref DateTime) {
-    let motion = match room.config.motion {
-      case Some(id) -> sensors.motion[id]
-      case _ -> false
+    let conf = match room.config.motion {
+      case Some(conf) -> conf
+      case _ -> return
     }
+
+    let motion = sensors.motion[conf.sensor]
 
     if motion {
       match room.state {
@@ -217,7 +219,7 @@ class pub Controller {
         }
         case Motion(min, count) if min != time.minute -> {
           let new_count = count + 1
-          let new_state = if new_count == @config.motion_minutes {
+          let new_state = if new_count == conf.minutes {
             logger.info("Enabling ventilation for \"{room.config.name}\"")
             State.Open
           } else {
@@ -246,7 +248,7 @@ class pub Controller {
         }
         case _ -> {}
       }
-    } else if room.stale?(@config.motion_wait_time) {
+    } else if room.stale?(conf.time) {
       match room.state {
         case Motion(_, _) -> {
           logger.info("Not enough motion detected in \"{room.config.name}\"")

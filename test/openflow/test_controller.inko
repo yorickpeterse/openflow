@@ -1,5 +1,5 @@
 import openflow::clock::(Clock, TestClock)
-import openflow::config::(Co2, Config, Exhaust, Humidity, Room, Schedule)
+import openflow::config::(Co2, Config, Exhaust, Humidity, Motion, Room, Schedule)
 import openflow::controller::Controller
 import openflow::http::(Client, Request, Response, TestDriver)
 import openflow::hue::Hue
@@ -65,7 +65,11 @@ fn config -> Config {
         @name = 'Living room',
         @exhaust = 12,
         @schedule = Option.None,
-        @motion = Option.Some(1),
+        @motion = Option.Some(Motion {
+          @sensor = 1,
+          @minutes = 5,
+          @time = Duration.from_secs(10),
+        }),
         @temperature = Option.None,
         @humidity = Option.None,
         @ping = [],
@@ -85,7 +89,11 @@ fn config -> Config {
         @name = 'Bathroom',
         @exhaust = 14,
         @schedule = Option.None,
-        @motion = Option.Some(2),
+        @motion = Option.Some(Motion {
+          @sensor = 2,
+          @minutes = 5,
+          @time = Duration.from_secs(10),
+        }),
         @temperature = Option.None,
         @humidity = Option.Some('RH foo'),
         @ping = [],
@@ -95,7 +103,11 @@ fn config -> Config {
         @name = 'Office',
         @exhaust = 15,
         @schedule = Option.None,
-        @motion = Option.Some(3),
+        @motion = Option.Some(Motion {
+          @sensor = 3,
+          @minutes = 5,
+          @time = Duration.from_secs(10),
+        }),
         @temperature = Option.None,
         @humidity = Option.None,
         @ping = [],
@@ -125,8 +137,6 @@ fn config -> Config {
       @sample_time = Duration.from_secs(900),
     },
     @ventilation_time = Duration.from_secs(10),
-    @motion_wait_time = Duration.from_secs(10),
-    @motion_minutes = 5,
   }
 }
 
@@ -479,7 +489,7 @@ fn pub tests(t: mut Tests) {
   t.test('A room with not enough motion events') fn (t) {
     let conf = config
 
-    conf.motion_wait_time = Duration.from_secs(0)
+    conf.rooms[2].motion.as_mut.unwrap.time = Duration.from_secs(0)
 
     let itho = itho(co2: 700, humidity: 65)
     let updates = track_settings(itho)
