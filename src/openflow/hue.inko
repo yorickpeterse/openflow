@@ -1,14 +1,75 @@
 import openflow::http::(Client, Error, Request, Response, retry)
 import std::json::(self, Json)
-import std::time::Duration
+import std::time::(DateTime, Duration)
+
+fn digit(input: String, byte: Int) -> Int {
+  input.byte(byte) - 48
+}
+
+fn parse_utc_date(input: String) -> DateTime {
+  let year = (digit(input, 0) * 1000)
+    + (digit(input, 1) * 100)
+    + (digit(input, 2) * 10)
+    + digit(input, 3)
+
+  let month = (digit(input, 5) * 10) + digit(input, 6)
+  let day = (digit(input, 8) * 10) + digit(input, 9)
+  let hour = (digit(input, 11) * 10) + digit(input, 12)
+  let minute = (digit(input, 14) * 10) + digit(input, 15)
+  let second = (digit(input, 17) * 10) + digit(input, 18)
+
+  DateTime {
+    @year = year,
+    @month = month,
+    @day = day,
+    @hour = hour,
+    @minute = minute,
+    @second = second,
+    @sub_second = 0.0,
+    @utc_offset = 0,
+  }
+}
 
 # The time after which a request times out.
 let TIMEOUT = 30
+
+# An indicator of how the button was pressed.
+class pub enum ButtonPress {
+  case Short
+  case Long
+}
+
+# The state of a Philips Hue button.
+class pub Button {
+  # How the button was pressed.
+  let pub @press: ButtonPress
+
+  # The time when the button was last pressed.
+  let pub @last_update: DateTime
+
+  fn pub static from_json(value: Map[String, Json]) -> Option[Button] {
+    let press = match value.remove('buttonevent') {
+      case Some(Int(1002)) -> ButtonPress.Short
+      case Some(Int(1003)) -> ButtonPress.Long
+      case _ -> return Option.None
+    }
+
+    let last_update = match value.remove('lastupdated') {
+      case Some(String(val)) -> parse_utc_date(val)
+      case _ -> DateTime.utc
+    }
+
+    Option.Some(Button { @press = press, @last_update = last_update })
+  }
+}
 
 # The sensor states.
 class pub Sensors {
   # A Map that maps sensor IDs to a boolean indicating if motion is detected.
   let pub @motion: Map[Int, Bool]
+
+  # A map that maps button IDs to their states.
+  let pub @buttons: Map[Int, Button]
 }
 
 # An API/HTTP client for interacting with the Philips Hue bridge and motion
@@ -47,6 +108,7 @@ class pub Hue {
     }
 
     let motion = Map.new
+    let buttons = Map.new
 
     root.into_iter.each fn (entry) {
       let id = Int.from_base10(entry.key).unwrap
@@ -65,10 +127,14 @@ class pub Hue {
           case Some(Bool(val)) -> motion[id] = val
           case _ -> motion[id] = false
         }
+        case Some(String('ZLLSwitch')) -> match Button.from_json(state) {
+          case Some(button) -> buttons[id] = button
+          case _ -> {}
+        }
         case _ -> {}
       }
     }
 
-    Sensors { @motion = motion }
+    Sensors { @motion = motion, @buttons = buttons }
   }
 }

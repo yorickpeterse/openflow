@@ -1,7 +1,7 @@
 import openflow::config::(Room as Config)
 import std::cmp::Equal
 import std::fmt::(Format, Formatter)
-import std::time::(Duration, Instant)
+import std::time::(DateTime, Duration, Instant)
 
 # The state of a ventilation exhaust.
 class pub enum State {
@@ -10,6 +10,9 @@ class pub enum State {
 
   # The room is ventilated according to a fixed schedule.
   case Schedule
+
+  # The room is ventilated in response to a button being pressed.
+  case Button
 
   # Humidity in the room is increasing, but it's not yet high enough to switch
   # to the "Humid" state.
@@ -44,6 +47,7 @@ impl Equal for State {
   fn pub ==(other: ref Self) -> Bool {
     match (self, other) {
       case (Closed, Closed) -> true
+      case (Button, Button) -> true
       case (Schedule, Schedule) -> true
       case (MaybeHumid, MaybeHumid) -> true
       case (Humid, Humid) -> true
@@ -59,6 +63,7 @@ impl Format for State {
   fn pub fmt(formatter: mut Formatter) {
     match self {
       case Closed -> formatter.write('Closed')
+      case Button -> formatter.write('Button')
       case Schedule -> formatter.write('Schedule')
       case MaybeHumid -> formatter.write('MaybeHumid')
       case Humid -> formatter.write('Humid')
@@ -80,6 +85,9 @@ class pub Room {
   # The last time the state of this room was updated.
   let pub @last_update: Instant
 
+  # The timestamp of the last button press, if any.
+  let pub @last_button_press: Option[DateTime]
+
   # How far the exhaust is opened.
   #
   # This is tracked separate from the state as the value is not yet known when
@@ -92,6 +100,7 @@ class pub Room {
       @state = State.Closed,
       @last_update = Instant.new,
       @exhaust = 0,
+      @last_button_press = Option.None,
     }
   }
 

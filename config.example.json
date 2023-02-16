@@ -1,9 +1,9 @@
 {
     "rooms": [
         {
-            "exhaust": 100,
+            "exhaust": 99,
             "motion": {
-                "sensor": 8,
+                "id": 8,
                 "minutes": 5,
                 "time": 900
             },
@@ -12,9 +12,19 @@
             "flow": 50
         },
         {
+            "exhaust": 100,
+            "button": {
+                "id": 23,
+                "press": "short",
+                "time": 3600
+            },
+            "name": "Extractor",
+            "flow": 150
+        },
+        {
             "exhaust": 101,
             "motion": {
-                "sensor": 11,
+                "id": 11,
                 "minutes": 5,
                 "time": 900
             },
@@ -24,7 +34,7 @@
         {
             "exhaust": 102,
             "motion": {
-                "sensor": 2,
+                "id": 2,
                 "minutes": 5,
                 "time": 900
             },
@@ -40,7 +50,7 @@
         {
             "exhaust": 104,
             "motion": {
-                "sensor": 5,
+                "id": 5,
                 "minutes": 5,
                 "time": 900
             },

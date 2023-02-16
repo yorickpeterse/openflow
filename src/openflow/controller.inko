@@ -136,6 +136,44 @@ class pub Controller {
     }
   }
 
+  fn mut check_button(room: mut Room, sensors: ref Sensors) -> Bool {
+    let conf = match room.config.button {
+      case Some(conf) -> conf
+      case _ -> return false
+    }
+
+    let state = sensors.buttons[conf.id]
+    let changed = match room.last_button_press {
+      case Some(last) -> last > state.last_update
+      case _ -> false
+    }
+
+    room.last_button_press = Option.Some(state.last_update.clone)
+
+    if changed.false? {
+      match room.state {
+        case Button if room.stale?(conf.time) -> room.update(State.Closed)
+        case _ -> {}
+      }
+
+      return false
+    }
+
+    match (conf.press, state.press) {
+      case (Short, Short) -> {}
+      case (Long, Long) -> {}
+      case _ -> return false
+    }
+
+    let new_state = match room.state {
+      case Button -> State.Closed
+      case _ -> State.Button
+    }
+
+    room.update(new_state)
+    true
+  }
+
   fn mut check_schedule(room: mut Room, time: ref DateTime) -> Bool {
     let schedule = match room.config.schedule {
       case Some(val) -> val
@@ -209,7 +247,7 @@ class pub Controller {
       case _ -> return
     }
 
-    let motion = sensors.motion[conf.sensor]
+    let motion = sensors.motion[conf.id]
 
     if motion {
       match room.state {
@@ -273,7 +311,9 @@ class pub Controller {
     let time = @clock.now
 
     @rooms.iter_mut.each fn (room) {
-      # If the schedule is active, it takes priority over all other inputs.
+      if check_button(room, sensors) { return }
+
+      # If the schedule is active, it takes priority over the remaining inputs.
       if check_schedule(room, time) { return }
 
       # If the room is humid we ignore any other sensor inputs.
@@ -289,20 +329,28 @@ class pub Controller {
     # first room.
     let ventilate_first = @rooms.iter.all? fn (room) {
       match room.state {
-        case Open or Humid or Schedule -> false
+        case Open or Humid or Schedule or Button -> false
         case _ -> true
       }
     }
 
-    if ventilate_first.false? { return }
-
     let room = @rooms[0]
 
-    match room.state {
-      case Default -> room.update_time
-      case _ -> {
-        logger.info("Enabling default ventilation for \"{room.config.name}\"")
-        room.update(State.Default)
+    if ventilate_first {
+      match room.state {
+        case Default -> room.update_time
+        case _ -> {
+          logger.info("Enabling default ventilation for \"{room.config.name}\"")
+          room.update(State.Default)
+        }
+      }
+    } else {
+      match room.state {
+        case Default -> {
+          logger.info("Disabling ventilation for \"{room.config.name}\"")
+          room.update(State.Closed)
+        }
+        case _ -> {}
       }
     }
   }
@@ -329,7 +377,7 @@ class pub Controller {
       .iter
       .map fn (room) {
         match room.state {
-          case Schedule or Open or Default -> {
+          case Schedule or Open or Default or Button -> {
             # When a room is humid the exhaust speed is increased to a high
             # speed. This can result in excessive noise in other rooms. To
             # prevent this from happening we reduce the flow rate of non humid

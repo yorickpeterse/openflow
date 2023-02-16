@@ -1,5 +1,7 @@
 import openflow::clock::(Clock, TestClock)
-import openflow::config::(Co2, Config, Exhaust, Humidity, Motion, Room, Schedule)
+import openflow::config::(
+  Button, ButtonPress, Co2, Config, Exhaust, Humidity, Motion, Room, Schedule
+)
 import openflow::controller::Controller
 import openflow::http::(Client, Request, Response, TestDriver)
 import openflow::hue::Hue
@@ -66,10 +68,11 @@ fn config -> Config {
         @exhaust = 12,
         @schedule = Option.None,
         @motion = Option.Some(Motion {
-          @sensor = 1,
+          @id = 1,
           @minutes = 5,
           @time = Duration.from_secs(10),
         }),
+        @button = Option.None,
         @temperature = Option.None,
         @humidity = Option.None,
         @ping = [],
@@ -80,6 +83,7 @@ fn config -> Config {
         @exhaust = 13,
         @schedule = Option.Some(Schedule.Night),
         @motion = Option.None,
+        @button = Option.None,
         @temperature = Option.None,
         @humidity = Option.None,
         @ping = [],
@@ -90,10 +94,11 @@ fn config -> Config {
         @exhaust = 14,
         @schedule = Option.None,
         @motion = Option.Some(Motion {
-          @sensor = 2,
+          @id = 2,
           @minutes = 5,
           @time = Duration.from_secs(10),
         }),
+        @button = Option.None,
         @temperature = Option.None,
         @humidity = Option.Some('RH foo'),
         @ping = [],
@@ -104,8 +109,13 @@ fn config -> Config {
         @exhaust = 15,
         @schedule = Option.None,
         @motion = Option.Some(Motion {
-          @sensor = 3,
+          @id = 3,
           @minutes = 5,
+          @time = Duration.from_secs(10),
+        }),
+        @button = Option.Some(Button {
+          @id = 4,
+          @press = ButtonPress.Short,
           @time = Duration.from_secs(10),
         }),
         @temperature = Option.None,
@@ -203,7 +213,14 @@ fn hue -> TestDriver {
         {
           "1": { "type": "ZLLPresence", "state": { "presence": false } },
           "2": { "type": "ZLLPresence", "state": { "presence": false } },
-          "3": { "type": "ZLLPresence", "state": { "presence": true } }
+          "3": { "type": "ZLLPresence", "state": { "presence": true } },
+          "4": {
+            "type": "ZLLSwitch",
+            "state": {
+              "buttonevent": 1002,
+              "lastupdated": "2023-02-16T14:10:22"
+            }
+          }
         }
         '.to_byte_array
       )
@@ -224,6 +241,19 @@ fn hour(hour: Int) -> TestClock {
     @sub_second = 0.0,
     @utc_offset = 0,
   })
+}
+
+fn button_time -> DateTime {
+  DateTime {
+    @year = 2023,
+    @month = 2,
+    @day = 16,
+    @hour = 14,
+    @minute = 10,
+    @second = 30,
+    @sub_second = 0.0,
+    @utc_offset = 0,
+  }
 }
 
 fn pub tests(t: mut Tests) {
@@ -517,12 +547,31 @@ fn pub tests(t: mut Tests) {
 
   t.test('The first room is not ventilated when another room needs ventilation') fn (t) {
     let itho = itho(co2: 700, humidity: 65)
-    let updates = track_settings(itho)
+    let _ = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(23))
 
     ctl.iteration
 
     t.equal(ctl.rooms[0].state, State.Closed)
+  }
+
+  t.test('The first room is closed when another room needs ventilating') fn (t) {
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let living_room = ctl.rooms[0]
+    let bedroom = ctl.rooms[1]
+
+    ctl.iteration
+    t.equal(living_room.state, State.Default)
+
+    bedroom.update(State.Open)
+    ctl.iteration
+
+    t.equal(living_room.state, State.Closed)
+    t.equal(bedroom.state, State.Open)
+    t.true(updates.contains?((bedroom.config.exhaust, bedroom.exhaust)))
+    t.true(updates.contains?((living_room.config.exhaust, 0)))
   }
 
   t.test('Updating the exhaust settings') fn (t) {
@@ -650,5 +699,99 @@ fn pub tests(t: mut Tests) {
 
     t.equal(room.state, State.Open)
     t.equal(room.exhaust, 834)
+  }
+
+  t.test('Enabling ventilation in response to a button press') fn (t) {
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[3]
+
+    # The first time we ignore the button state, otherwise we can't track state
+    # changes.
+    ctl.iteration
+    t.equal(room.state, State.Motion(4, 1))
+
+    room.last_button_press = Option.Some(button_time)
+
+    # With the button state changed, the room should be ventilated.
+    ctl.iteration
+    t.equal(room.state, State.Button)
+    t.true(updates.contains?((room.config.exhaust, 834)))
+  }
+
+  t.test('Ignoring a button press of a different kind') fn (t) {
+    let conf = config
+
+    conf.rooms[3].button.as_mut.unwrap.press = ButtonPress.Long
+
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms[3]
+
+    ctl.iteration
+    t.equal(room.state, State.Motion(4, 1))
+
+    room.last_button_press = Option.Some(button_time)
+
+    ctl.iteration
+    t.equal(room.state, State.Motion(4, 1))
+  }
+
+  t.test('Button events are ignored if the time is in the past') fn (t) {
+    # When the Hue Bridge is blocked from accessing the network, timestamps at
+    # some point wrap around to 1980, after which they seem to continue as usual.
+    # To prevent such a random wrap-around from triggering a button, we _do_
+    # track the new date but _don't_ fire a button event.
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[3]
+
+    # The first time we ignore the button state, otherwise we can't track state
+    # changes.
+    ctl.iteration
+    t.equal(room.state, State.Motion(4, 1))
+
+    room.last_button_press = Option.Some( DateTime {
+      @year = 1980,
+      @month = 2,
+      @day = 16,
+      @hour = 14,
+      @minute = 10,
+      @second = 30,
+      @sub_second = 0.0,
+      @utc_offset = 0,
+    })
+
+    ctl.iteration
+    t.equal(room.state, State.Motion(4, 1))
+  }
+
+  t.test('Disabling ventilation from a button after the timeout expires') fn (t) {
+    let conf = config
+
+    conf.rooms[3].button.as_mut.unwrap.time = Duration.from_secs(0)
+
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms[3]
+
+    # The first iteration ignores the state.
+    ctl.iteration
+
+    # The second iteration enables the button mode.
+    room.last_button_press = Option.Some(button_time)
+    ctl.iteration
+
+    t.equal(room.state, State.Button)
+
+    # The third iteration disables the button mode, because the timeout expired.
+    ctl.iteration
+
+    t.equal(room.state, State.Motion(4, 1))
+    t.true(updates.contains?((room.config.exhaust, 0)))
   }
 }
