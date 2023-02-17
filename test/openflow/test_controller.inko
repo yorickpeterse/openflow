@@ -397,10 +397,25 @@ fn pub tests(t: mut Tests) {
     t.true(updates.contains?((room.config.exhaust, room.exhaust)))
   }
 
-  t.test('A room with increasing humidity') fn (t) {
+  t.test('A room with increasing humidity after not enough time has passed') fn (t) {
+    let itho = itho(co2: 700, humidity: 71)
+    let _ = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[2]
+
+    ctl.iteration
+
+    t.equal(room.state, State.Closed)
+  }
+
+  t.test('A room with increasing humidity after enough time has passed') fn (t) {
+    let conf = config
+
+    conf.humidity.low_time = Duration.from_secs(0)
+
     let itho = itho(co2: 700, humidity: 71)
     let updates = track_settings(itho)
-    let ctl = controller(config, itho, hue, hour(14))
+    let ctl = controller(conf, itho, hue, hour(14))
     let room = ctl.rooms[2]
 
     ctl.iteration
@@ -416,6 +431,22 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.true(room.last_update > before)
+  }
+
+  t.test('A humid room reaching the low humidity threshold') fn (t) {
+    let itho = itho(co2: 700, humidity: 71)
+    let _ = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[2]
+
+    room.update(State.Humid)
+
+    let before = room.last_update.clone
+
+    ctl.iteration
+
+    t.equal(room.state, State.Humid)
+    t.greater(room.last_update, before)
   }
 
   t.test('A dry room when the humidity levels are OK') fn (t) {
