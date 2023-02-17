@@ -233,20 +233,23 @@ class pub Controller {
           # Don't do anything in this case, otherwise the state update below
           # would also update the timestamp.
         }
-        case _ -> {
+        case _ -> room.update(State.MaybeHumid)
+      }
+    } else if humidity > @config.humidity.low {
+      match room.state {
+        case Closed -> {
           logger.info("The humidity in \"{room.config.name}\" is increasing")
-          room.update(State.MaybeHumid)
+          room.update(State.Open)
         }
+        case Open -> room.update_time
+        case _ -> {}
       }
     } else if humidity <= @config.humidity.low {
       match room.state {
-        case MaybeHumid -> {
-          logger.info("The humidity in \"{room.config.name}\" didn't increase enough")
-          room.update(State.Closed)
-        }
+        case MaybeHumid -> room.update(State.Closed)
         case Humid if room.stale?(@config.humidity.low_time) -> {
           logger.info("The humidity in \"{room.config.name}\" OK again")
-          room.update(State.Closed)
+          room.update(State.Open)
         }
         case _ -> {}
       }
