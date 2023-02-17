@@ -144,7 +144,7 @@ class pub Controller {
 
     let state = sensors.buttons[conf.id]
     let changed = match room.last_button_press {
-      case Some(last) -> last > state.last_update
+      case Some(current) -> state.last_update > current
       case _ -> false
     }
 
@@ -152,7 +152,10 @@ class pub Controller {
 
     if changed.false? {
       match room.state {
-        case Button if room.stale?(conf.time) -> room.update(State.Closed)
+        case Button if room.stale?(conf.time) -> {
+          logger.info("Button ventilation for \"{room.config.name}\" finished")
+          room.update(State.Closed)
+        }
         case _ -> {}
       }
 
@@ -166,8 +169,18 @@ class pub Controller {
     }
 
     let new_state = match room.state {
-      case Button -> State.Closed
-      case _ -> State.Button
+      case Button -> {
+        logger.info(
+          "Button pressed again for \"{room.config.name}\", disabling ventilation"
+        )
+        State.Closed
+      }
+      case _ -> {
+        logger.info(
+          "Button pressed for \"{room.config.name}\", enabling ventilation"
+        )
+        State.Button
+      }
     }
 
     room.update(new_state)

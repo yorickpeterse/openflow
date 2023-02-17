@@ -9,6 +9,7 @@ import openflow::itho::Itho
 import openflow::logger::Logger
 import openflow::room::State
 import std::io::Write
+import std::json::Json
 import std::net::ip::IpAddress
 import std::test::Tests
 import std::time::(DateTime, Duration, Instant)
@@ -250,7 +251,7 @@ fn button_time -> DateTime {
     @day = 16,
     @hour = 14,
     @minute = 10,
-    @second = 30,
+    @second = 15,
     @sub_second = 0.0,
     @utc_offset = 0,
   }
@@ -754,13 +755,13 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
     t.equal(room.state, State.Motion(4, 1))
 
-    room.last_button_press = Option.Some( DateTime {
-      @year = 1980,
+    room.last_button_press = Option.Some(DateTime {
+      @year = 2023,
       @month = 2,
       @day = 16,
       @hour = 14,
-      @minute = 10,
-      @second = 30,
+      @minute = 12,
+      @second = 15,
       @sub_second = 0.0,
       @utc_offset = 0,
     })
