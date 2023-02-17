@@ -35,6 +35,7 @@ let TIMEOUT = 30
 
 # An indicator of how the button was pressed.
 class pub enum ButtonPress {
+  case Other
   case Short
   case Long
 }
@@ -47,11 +48,11 @@ class pub Button {
   # The time when the button was last pressed.
   let pub @last_update: DateTime
 
-  fn pub static from_json(value: Map[String, Json]) -> Option[Button] {
+  fn pub static from_json(value: Map[String, Json]) -> Button {
     let press = match value.remove('buttonevent') {
       case Some(Int(1002)) -> ButtonPress.Short
       case Some(Int(1003)) -> ButtonPress.Long
-      case _ -> return Option.None
+      case _ -> ButtonPress.Other
     }
 
     let last_update = match value.remove('lastupdated') {
@@ -59,7 +60,7 @@ class pub Button {
       case _ -> DateTime.utc
     }
 
-    Option.Some(Button { @press = press, @last_update = last_update })
+    Button { @press = press, @last_update = last_update }
   }
 }
 
@@ -127,10 +128,7 @@ class pub Hue {
           case Some(Bool(val)) -> motion[id] = val
           case _ -> motion[id] = false
         }
-        case Some(String('ZLLSwitch')) -> match Button.from_json(state) {
-          case Some(button) -> buttons[id] = button
-          case _ -> {}
-        }
+        case Some(String('ZLLSwitch')) -> buttons[id] = Button.from_json(state)
         case _ -> {}
       }
     }

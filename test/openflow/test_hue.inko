@@ -39,7 +39,28 @@ fn pub tests(t: mut Tests) {
           '
           {
             "1": { "type": "ZLLPresence", "state": { "presence": false } },
-            "2": { "type": "ZLLPresence", "state": { "presence": true } }
+            "2": { "type": "ZLLPresence", "state": { "presence": true } },
+            "3": {
+              "type": "ZLLSwitch",
+              "state": {
+                "buttonevent": 1002,
+                "lastupdated": "2023-02-17T18:15:00"
+              }
+            },
+            "4": {
+              "type": "ZLLSwitch",
+              "state": {
+                "buttonevent": 1003,
+                "lastupdated": "2023-02-17T18:15:00"
+              }
+            },
+            "5": {
+              "type": "ZLLSwitch",
+              "state": {
+                "buttonevent": 1001,
+                "lastupdated": "2023-02-17T18:15:00"
+              }
+            }
           }
           '.to_byte_array
         )
@@ -49,9 +70,13 @@ fn pub tests(t: mut Tests) {
     let client = Client.with_driver(driver)
     let hue = Hue.new(client, user: 'foo')
     let sensors = try! hue.sensors
+    let buttons = sensors.buttons
 
     t.false(sensors.motion[1])
     t.true(sensors.motion[2])
+    t.true(match buttons[3].press { case Short -> true, case _ -> false })
+    t.true(match buttons[4].press { case Long -> true, case _ -> false })
+    t.true(match buttons[5].press { case Other -> true, case _ -> false })
   }
 
   t.test('Hue.sensors retries failed requests') fn (t) {
