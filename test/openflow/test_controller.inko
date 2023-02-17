@@ -721,6 +721,20 @@ fn pub tests(t: mut Tests) {
     t.true(updates.contains?((room.config.exhaust, 834)))
   }
 
+  t.test("Ignoring a button that can't be found") fn (t) {
+    let conf = config
+
+    conf.rooms[3].button.as_mut.unwrap.id = 42
+
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms[3]
+
+    ctl.iteration
+    t.equal(room.state, State.Motion(4, 1))
+  }
+
   t.test('Ignoring a button press of a different kind') fn (t) {
     let conf = config
 

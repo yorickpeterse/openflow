@@ -142,7 +142,11 @@ class pub Controller {
       case _ -> return false
     }
 
-    let state = sensors.buttons[conf.id]
+    let state = match sensors.buttons.get(conf.id) {
+      case Some(state) -> state
+      case _ -> return false
+    }
+
     let changed = match room.last_button_press {
       case Some(current) -> state.last_update > current
       case _ -> false
