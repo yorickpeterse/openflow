@@ -1,5 +1,5 @@
 import std::io::Write
-import std::stdio::STDERR
+import std::stdio::STDOUT
 import std::time::DateTime
 
 fn pad_zero(value: Int) -> String {
@@ -17,9 +17,9 @@ fn iso8601_time -> String {
 class pub Logger {
   let @stream: Write
 
-  # Returns a logger using the default output stream (STDERR).
+  # Returns a logger using the default output stream (STDOUT).
   fn pub static default -> Logger {
-    Logger { @stream = STDERR.new }
+    Logger { @stream = STDOUT.new }
   }
 
   fn pub static new(stream: Write) -> Logger {
