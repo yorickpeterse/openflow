@@ -7,8 +7,6 @@ import std::string::(StringBuffer, ToString)
 import std::time::(Instant, ToInstant)
 import std::time::Duration
 
-import std::stdio::STDOUT
-
 let READ_SIZE = 1024
 let TAB = 9
 let LF = 10
