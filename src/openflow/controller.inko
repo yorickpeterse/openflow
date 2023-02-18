@@ -281,6 +281,7 @@ class pub Controller {
             logger.info("Enabling ventilation for \"{room.config.name}\"")
             State.Open
           } else {
+            logger.info("More motion detected for \"{room.config.name}\"")
             State.Motion(time.minute, new_count)
           }
 
