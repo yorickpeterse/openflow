@@ -267,9 +267,7 @@ class pub Controller {
       case _ -> return
     }
 
-    let motion = sensors.motion[conf.id]
-
-    if motion {
+    if sensors.motion[conf.id] {
       match room.state {
         case Closed -> {
           logger.info("Motion detected in \"{room.config.name}\"")
@@ -291,30 +289,28 @@ class pub Controller {
         case Default -> room.update(State.Open)
         case _ -> {}
       }
-    } else if room.stale?(@config.ventilation_time) {
-      match room.state {
-        case Open -> {
-          # Pinging takes a few seconds depening on the number of IPs to ping,
-          # so we only do this if the timer is about to expire.
-          let reset = room.config.ping.iter.any? fn (ip) { online?(ip) }
 
-          if reset {
-            room.update_time
-          } else {
-            logger.info("Disabling ventilation for \"{room.config.name}\"")
-            room.update(State.Closed)
-          }
-        }
-        case _ -> {}
-      }
-    } else if room.stale?(conf.time) {
-      match room.state {
-        case Motion(_, _) -> {
-          logger.info("Not enough motion detected in \"{room.config.name}\"")
+      return
+    }
+
+    match room.state {
+      case Open if room.stale?(@config.ventilation_time) -> {
+        # Pinging takes a few seconds depening on the number of IPs to ping, so
+        # we only do this if the timer is about to expire.
+        let reset = room.config.ping.iter.any? fn (ip) { online?(ip) }
+
+        if reset {
+          room.update_time
+        } else {
+          logger.info("Disabling ventilation for \"{room.config.name}\"")
           room.update(State.Closed)
         }
-        case _ -> {}
       }
+      case Motion(_, _) if room.stale?(conf.time) -> {
+        logger.info("Not enough motion detected in \"{room.config.name}\"")
+        room.update(State.Closed)
+      }
+      case _ -> {}
     }
   }
 
