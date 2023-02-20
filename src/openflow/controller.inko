@@ -216,7 +216,14 @@ class pub Controller {
       match room.state {
         case Closed -> {
           logger.info("Motion detected in \"{room.config.name}\"")
-          room.update(State.Motion(time.minute, 1))
+
+          let new_state = if conf.minutes == 1 {
+            State.Open
+          } else {
+            State.Motion(time.minute, 1)
+          }
+
+          room.update(new_state)
         }
         case Motion(min, count) if min != time.minute -> {
           let new_count = count + 1
