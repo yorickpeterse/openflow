@@ -170,15 +170,14 @@ class pub Controller {
     if humidity >= @config.humidity.high {
       match room.state {
         case Humid -> room.update_time
-        case MaybeHumid if room.stale?(@config.humidity.high_time) -> {
-          logger.info("The humidity in \"{room.config.name}\" is too high")
-          room.update(State.Humid)
+        case Open or MaybeHumid -> {
+          if room.stale?(@config.humidity.high_time) {
+            logger.info("The humidity in \"{room.config.name}\" is too high")
+            room.update(State.Humid)
+          }
         }
-        case MaybeHumid -> {
-          # Don't do anything in this case, otherwise the state update below
-          # would also update the timestamp.
-        }
-        case _ -> room.update(State.MaybeHumid)
+        case Closed -> room.update(State.MaybeHumid)
+        case _ -> {}
       }
     } else if humidity > @config.humidity.low {
       match room.state {

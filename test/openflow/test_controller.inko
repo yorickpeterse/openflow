@@ -305,6 +305,18 @@ fn pub tests(t: mut Tests) {
     t.equal(room.state, State.MaybeHumid)
   }
 
+  t.test('First detecting an increase in humidity when the exhaust is open') fn (t) {
+    let itho = itho(co2: 700, humidity: 80)
+    let _ = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms[2]
+
+    room.state = State.Open
+    ctl.iteration
+
+    t.equal(room.state, State.Open)
+  }
+
   t.test('Detecting an increase in humidity a second time') fn (t) {
     let itho = itho(co2: 700, humidity: 80)
     let _ = track_settings(itho)
