@@ -1,6 +1,6 @@
 import openflow::clock::(Clock, TestClock)
 import openflow::config::(
-  Button, ButtonPress, Co2, Config, Exhaust, Humidity, Motion, Room, Schedule
+  Co2, Config, Exhaust, Humidity, Motion, Room, Schedule
 )
 import openflow::controller::Controller
 import openflow::http::(Client, Request, Response, TestDriver)
@@ -73,7 +73,6 @@ fn config -> Config {
           @minutes = 5,
           @time = Duration.from_secs(10),
         }),
-        @button = Option.None,
         @temperature = Option.None,
         @humidity = Option.None,
         @ping = [],
@@ -84,7 +83,6 @@ fn config -> Config {
         @exhaust = 13,
         @schedule = Option.Some(Schedule.Night),
         @motion = Option.None,
-        @button = Option.None,
         @temperature = Option.None,
         @humidity = Option.None,
         @ping = [],
@@ -99,7 +97,6 @@ fn config -> Config {
           @minutes = 5,
           @time = Duration.from_secs(10),
         }),
-        @button = Option.None,
         @temperature = Option.None,
         @humidity = Option.Some('RH foo'),
         @ping = [],
@@ -112,11 +109,6 @@ fn config -> Config {
         @motion = Option.Some(Motion {
           @id = 3,
           @minutes = 5,
-          @time = Duration.from_secs(10),
-        }),
-        @button = Option.Some(Button {
-          @id = 4,
-          @press = ButtonPress.Short,
           @time = Duration.from_secs(10),
         }),
         @temperature = Option.None,
@@ -770,113 +762,5 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.equal(room.state, State.Closed)
-  }
-
-  t.test('Enabling ventilation in response to a button press') fn (t) {
-    let itho = itho(co2: 700, humidity: 65)
-    let updates = track_settings(itho)
-    let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[3]
-
-    # The first time we ignore the button state, otherwise we can't track state
-    # changes.
-    ctl.iteration
-    t.equal(room.state, State.Motion(4, 1))
-
-    room.last_button_press = Option.Some(button_time)
-
-    # With the button state changed, the room should be ventilated.
-    ctl.iteration
-    t.equal(room.state, State.Button)
-    t.true(updates.contains?((room.config.exhaust, 834)))
-  }
-
-  t.test("Ignoring a button that can't be found") fn (t) {
-    let conf = config
-
-    conf.rooms[3].button.as_mut.unwrap.id = 42
-
-    let itho = itho(co2: 700, humidity: 65)
-    let updates = track_settings(itho)
-    let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[3]
-
-    ctl.iteration
-    t.equal(room.state, State.Motion(4, 1))
-  }
-
-  t.test('Ignoring a button press of a different kind') fn (t) {
-    let conf = config
-
-    conf.rooms[3].button.as_mut.unwrap.press = ButtonPress.Long
-
-    let itho = itho(co2: 700, humidity: 65)
-    let updates = track_settings(itho)
-    let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[3]
-
-    ctl.iteration
-    t.equal(room.state, State.Motion(4, 1))
-
-    room.last_button_press = Option.Some(button_time)
-
-    ctl.iteration
-    t.equal(room.state, State.Motion(4, 1))
-  }
-
-  t.test('Button events are ignored if the time is in the past') fn (t) {
-    # When the Hue Bridge is blocked from accessing the network, timestamps at
-    # some point wrap around to 1980, after which they seem to continue as usual.
-    # To prevent such a random wrap-around from triggering a button, we _do_
-    # track the new date but _don't_ fire a button event.
-    let itho = itho(co2: 700, humidity: 65)
-    let updates = track_settings(itho)
-    let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[3]
-
-    # The first time we ignore the button state, otherwise we can't track state
-    # changes.
-    ctl.iteration
-    t.equal(room.state, State.Motion(4, 1))
-
-    room.last_button_press = Option.Some(DateTime {
-      @year = 2023,
-      @month = 2,
-      @day = 16,
-      @hour = 14,
-      @minute = 12,
-      @second = 15,
-      @sub_second = 0.0,
-      @utc_offset = 0,
-    })
-
-    ctl.iteration
-    t.equal(room.state, State.Motion(4, 1))
-  }
-
-  t.test('Disabling ventilation from a button after the timeout expires') fn (t) {
-    let conf = config
-
-    conf.rooms[3].button.as_mut.unwrap.time = Duration.from_secs(0)
-
-    let itho = itho(co2: 700, humidity: 65)
-    let updates = track_settings(itho)
-    let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[3]
-
-    # The first iteration ignores the state.
-    ctl.iteration
-
-    # The second iteration enables the button mode.
-    room.last_button_press = Option.Some(button_time)
-    ctl.iteration
-
-    t.equal(room.state, State.Button)
-
-    # The third iteration disables the button mode, because the timeout expired.
-    ctl.iteration
-
-    t.equal(room.state, State.Motion(4, 1))
-    t.true(updates.contains?((room.config.exhaust, 0)))
   }
 }

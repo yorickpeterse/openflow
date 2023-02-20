@@ -60,38 +60,6 @@ class pub enum Schedule {
   }
 }
 
-# An indicator of how the button was pressed.
-class pub enum ButtonPress {
-  case Short
-  case Long
-}
-
-# Configuration details for a button.
-class pub Button {
-  # The ID of the sensor/button.
-  let pub @id: Int
-
-  # What to respond to: a short or long press.
-  let pub @press: ButtonPress
-
-  # How long the room should be ventilated for.
-  let pub @time: Duration
-
-  fn pub static from_json(value: Map[String, Json]) !! String -> Button {
-    let press = match value.remove('press') {
-      case Some(String('short')) -> ButtonPress.Short,
-      case Some(String('long')) -> ButtonPress.Long,
-      case _ -> throw 'The "press" field must be either "short" or "long"'
-    }
-
-    Button {
-      @id = try int(value, 'id'),
-      @press = press,
-      @time = Duration.from_secs(try int(value, 'time'))
-    }
-  }
-}
-
 # Configuration details for a motion sensor.
 class pub Motion {
   # The ID of the motion sensor attached to this room.
@@ -127,9 +95,6 @@ class pub Room {
 
   # The motion sensor for this room along with its settings.
   let pub @motion: Option[Motion]
-
-  # The button settings for this room.
-  let pub @button: Option[Button]
 
   # The ID of the temperature sensor attached to this room.
   let pub @temperature: Option[Int]
@@ -187,18 +152,12 @@ class pub Room {
       case _ -> []
     }
 
-    let button = match value.remove('button') {
-      case Some(Object(val)) -> Option.Some(try Button.from_json(val))
-      case _ -> Option.None
-    }
-
     Room {
       @name = name,
       @schedule = schedule,
       @exhaust = exhaust,
       @motion = motion,
       @temperature = temperature,
-      @button = button,
       @humidity = humidity
       @ping = ping,
       @flow = flow,
