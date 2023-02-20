@@ -245,7 +245,7 @@ class pub Controller {
     }
 
     match room.state {
-      case Open if room.stale?(@config.ventilation_time) -> {
+      case Open if room.stale?(room.config.ventilation_time) -> {
         # Pinging takes a few seconds depening on the number of IPs to ping, so
         # we only do this if the timer is about to expire.
         let reset = room.config.ping.iter.any? fn (ip) { online?(ip) }

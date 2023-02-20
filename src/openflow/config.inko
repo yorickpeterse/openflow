@@ -108,6 +108,9 @@ class pub Room {
   # The desired flow rate in h3/hour.
   let pub @flow: Int
 
+  # The amount of time to ventilate the room for.
+  let pub @ventilation_time: Duration
+
   fn pub static from_json(value: Map[String, Json]) !! String -> Room {
     let name = try string(value, 'name')
     let exhaust = try int(value, 'exhaust')
@@ -152,6 +155,8 @@ class pub Room {
       case _ -> []
     }
 
+    let ventilation_time = Duration.from_secs(try int(value, 'time'))
+
     Room {
       @name = name,
       @schedule = schedule,
@@ -161,6 +166,7 @@ class pub Room {
       @humidity = humidity
       @ping = ping,
       @flow = flow,
+      @ventilation_time = ventilation_time,
     }
   }
 }
@@ -276,10 +282,6 @@ class pub Config {
   # The settings to control the exhaust fan and valves.
   let pub @exhaust: Exhaust
 
-  # The amount of time (in seconds) to keep ventilating a room after the last
-  # motion event.
-  let pub @ventilation_time: Duration
-
   # Configuration settings related to the CO2 levels.
   let pub @co2: Co2
 
@@ -331,9 +333,6 @@ class pub Config {
       case _ -> throw 'The "co2" object is required'
     }
 
-    let ventilation_time =
-      Duration.from_secs(try int(root, 'ventilation_time'))
-
     Config {
       @rooms = rooms,
       @itho_wifi_address = try ip(root, 'itho_api'),
@@ -341,7 +340,6 @@ class pub Config {
       @hue_user = try string(root, 'hue_user'),
       @humidity = humidity,
       @exhaust = exhaust,
-      @ventilation_time = ventilation_time,
       @co2 = co2,
     }
   }
