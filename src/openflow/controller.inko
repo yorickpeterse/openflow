@@ -413,6 +413,12 @@ class pub Controller {
         (flow.to_float / total_flow.to_float * EXHAUST_MAX).ceil.to_int
       }
 
+      @metrics.send(Metric.with('air_flow') fn (m) {
+        m.tag('room', room.config.name)
+        m.field('rate', flow)
+        m.field('setting', exhaust)
+      })
+
       if exhaust == room.exhaust { return }
 
       logger.info(
@@ -423,12 +429,6 @@ class pub Controller {
 
       try! @itho.set(setting: room.config.exhaust, value: exhaust)
       sleep(@config.exhaust.close_time)
-
-      @metrics.send(Metric.with('air_flow') fn (m) {
-        m.tag('room', room.config.name)
-        m.field('rate', flow)
-        m.field('setting', exhaust)
-      })
     }
 
     let new_speed = flow_percentage(total_flow)
