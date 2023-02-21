@@ -19,6 +19,9 @@ class pub enum State {
   # changed by the input of any sensors.
   case Humid
 
+  # The room is ventilated using its minimum flow rate.
+  case Minimum
+
   # Regular ventilation is or should be applied to the room.
   case Open
 
@@ -48,6 +51,7 @@ impl Equal for State {
       case (MaybeHumid, MaybeHumid) -> true
       case (Humid, Humid) -> true
       case (Open, Open) -> true,
+      case (Minimum, Minimum) -> true
       case (Default, Default) -> true
       case (Motion(l1, l2), Motion(r1, r2)) -> l1 == r1 and l2 == r2
       case _ -> false
@@ -63,6 +67,7 @@ impl Format for State {
       case MaybeHumid -> formatter.write('MaybeHumid')
       case Humid -> formatter.write('Humid')
       case Open -> formatter.write('Open')
+      case Minimum -> formatter.write('Minimum')
       case Default -> formatter.write('Default')
       case Motion(a, b) -> formatter.write("Motion({a}, {b})")
     }
@@ -83,6 +88,9 @@ class pub Room {
   # The timestamp of the last button press, if any.
   let pub @last_button_press: Option[DateTime]
 
+  # The total number of motion events detected.
+  let pub @motion_events: Int
+
   # How far the exhaust is opened.
   #
   # This is tracked separate from the state as the value is not yet known when
@@ -90,12 +98,16 @@ class pub Room {
   let pub @exhaust: Int
 
   fn pub static new(config: ref Config) -> Room {
+    let state =
+      if config.minimum_flow > 0 { State.Minimum } else { State.Closed }
+
     Room {
       @config = config,
-      @state = State.Closed,
+      @state = state,
       @last_update = Instant.new,
       @exhaust = 0,
       @last_button_press = Option.None,
+      @motion_events = 0,
     }
   }
 
@@ -116,5 +128,12 @@ class pub Room {
       case Motion(_, count) if count > 1 -> {}
       case _ -> @last_update = Instant.new
     }
+  }
+
+  fn pub mut close {
+    let new_state =
+      if @config.minimum_flow > 0 { State.Minimum } else { State.Closed }
+
+    update(new_state)
   }
 }

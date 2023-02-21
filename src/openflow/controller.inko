@@ -4,6 +4,7 @@ import openflow::config::Config
 import openflow::hue::(Hue, Sensors)
 import openflow::itho::(Itho, Status)
 import openflow::logger::Logger
+import openflow::metrics::(Metric, Metrics)
 import openflow::net::(online?)
 import openflow::room::(Room, State)
 import std::process::(sleep)
@@ -54,6 +55,7 @@ class pub Controller {
   let @config: Config
   let @clock: Clock
   let @co2: Co2
+  let @metrics: Metrics
 
   fn pub static new(
     config: Config,
@@ -71,6 +73,7 @@ class pub Controller {
       @exhaust_speed = 0,
       @last_exhaust_update = Instant.new,
       @co2 = Co2.new(config.co2.sample_time.clone),
+      @metrics = try! Metrics.new(config.metrics.ip.clone, config.metrics.port),
       @config = config,
     }
   }
@@ -88,14 +91,8 @@ class pub Controller {
   fn pub mut iteration {
     let sensors = try! @hue.sensors
     let status = try! @itho.status
-    let old_co2 = @co2.value
 
-    @co2.add(status.co2)
-
-    if @co2.update and @co2.value != old_co2 {
-      logger.info("CO2 estimate updated to {@co2.value} ppm")
-    }
-
+    update_co2(status)
     update_rooms(status, sensors)
     ventilate_default_room
     apply_changes
@@ -129,9 +126,9 @@ class pub Controller {
     # ensure we start off with a clean state (i.e. in the event of a crash).
     @logger.info('Closing all exhausts')
 
-    @config.rooms.iter.each fn (room) {
-      @logger.info("Closing exhaust for room \"{room.name}\"")
-      try! @itho.set(room.exhaust, value: 0)
+    @rooms.iter_mut.each fn (room) {
+      @logger.info("Closing exhaust for {room.config.name}")
+      try! @itho.set(room.config.exhaust, value: 0)
       sleep(@config.exhaust.close_time)
     }
   }
@@ -144,7 +141,7 @@ class pub Controller {
 
     if schedule.active?(time) {
       if room.state.schedule?.false? {
-        logger.info("Enabling schedule \"{room.config.name}\"")
+        logger.info("Enabling schedule for {room.config.name}")
         room.update(State.Schedule)
       }
 
@@ -152,8 +149,8 @@ class pub Controller {
     }
 
     if room.state.schedule? {
-      logger.info("Disabling schedule for \"{room.config.name}\"")
-      room.update(State.Closed)
+      logger.info("Disabling schedule for {room.config.name}")
+      room.close
     }
 
     false
@@ -167,32 +164,41 @@ class pub Controller {
       .then fn (name) { status.humidity.get(name) }
       .unwrap_or(0)
 
+    if humidity > 0 {
+      @metrics.send(Metric.with('humidity') fn (m) {
+        m.tag('room', room.config.name)
+        m.field('percentage', humidity)
+      })
+    }
+
     if humidity >= @config.humidity.high {
       match room.state {
         case Humid -> room.update_time
         case Open or MaybeHumid -> {
           if room.stale?(@config.humidity.high_time) {
-            logger.info("The humidity in \"{room.config.name}\" is too high")
+            logger.info("The humidity in {room.config.name} is too high")
             room.update(State.Humid)
           }
         }
-        case Closed -> room.update(State.MaybeHumid)
-        case _ -> {}
+        case _ -> room.update(State.MaybeHumid)
       }
     } else if humidity > @config.humidity.low {
       match room.state {
-        case Closed if room.stale?(@config.humidity.low_time) -> {
-          logger.info("The humidity in \"{room.config.name}\" is increasing")
-          room.update(State.Open)
+        case Closed or Minimum -> {
+          if room.stale?(@config.humidity.low_time) {
+            logger.info("The humidity in {room.config.name} is increasing")
+            room.update(State.Open)
+          }
         }
+        case MaybeHumid -> room.close
         case Open or Humid -> room.update_time
         case _ -> {}
       }
     } else if humidity <= @config.humidity.low {
       match room.state {
-        case MaybeHumid -> room.update(State.Closed)
+        case MaybeHumid -> room.close
         case Humid if room.stale?(@config.humidity.low_time) -> {
-          logger.info("The humidity in \"{room.config.name}\" OK again")
+          logger.info("The humidity in {room.config.name} OK again")
           room.update(State.Open)
         }
         case _ -> {}
@@ -212,9 +218,16 @@ class pub Controller {
     }
 
     if sensors.motion[conf.id] {
+      room.motion_events = room.motion_events.wrapping_add(1)
+
+      @metrics.send(Metric.with('motion') fn (m) {
+        m.tag('room', room.config.name)
+        m.field('total', room.motion_events)
+      })
+
       match room.state {
-        case Closed -> {
-          logger.info("Motion detected in \"{room.config.name}\"")
+        case Closed or Minimum -> {
+          logger.info("Motion detected in {room.config.name}")
 
           let new_state = if conf.minutes == 1 {
             State.Open
@@ -227,10 +240,10 @@ class pub Controller {
         case Motion(min, count) if min != time.minute -> {
           let new_count = count + 1
           let new_state = if new_count == conf.minutes {
-            logger.info("Enabling ventilation for \"{room.config.name}\"")
+            logger.info("Enabling ventilation for {room.config.name}")
             State.Open
           } else {
-            logger.info("More motion detected for \"{room.config.name}\"")
+            logger.info("More motion detected for {room.config.name}")
             State.Motion(time.minute, new_count)
           }
 
@@ -251,15 +264,19 @@ class pub Controller {
         let reset = room.config.ping.iter.any? fn (ip) { online?(ip) }
 
         if reset {
+          logger.info(
+            "One or more hosts are online, resetting timer for \
+            {room.config.name}"
+          )
           room.update_time
         } else {
-          logger.info("Disabling ventilation for \"{room.config.name}\"")
-          room.update(State.Closed)
+          logger.info("Disabling ventilation for {room.config.name}")
+          room.close
         }
       }
       case Motion(_, _) if room.stale?(conf.time) -> {
-        logger.info("Not enough motion detected in \"{room.config.name}\"")
-        room.update(State.Closed)
+        logger.info("Not enough motion detected in {room.config.name}")
+        room.close
       }
       case _ -> {}
     }
@@ -273,6 +290,21 @@ class pub Controller {
     } else {
       false
     }
+  }
+
+  fn mut update_co2(status: ref Status) {
+    let old_co2 = @co2.value
+
+    @co2.add(status.co2)
+
+    if @co2.update and @co2.value != old_co2 {
+      logger.info("CO2 estimate updated to {@co2.value} ppm")
+    }
+
+    @metrics.send(Metric.with('co2') fn (m) {
+      m.field('ppm', status.co2)
+      m.field('bucket', @co2.value)
+    })
   }
 
   fn mut update_rooms(status: ref Status, sensors: ref Sensors) {
@@ -306,15 +338,15 @@ class pub Controller {
       match room.state {
         case Default -> room.update_time
         case _ -> {
-          logger.info("Enabling default ventilation for \"{room.config.name}\"")
+          logger.info("Enabling default ventilation for {room.config.name}")
           room.update(State.Default)
         }
       }
     } else {
       match room.state {
         case Default -> {
-          logger.info("Disabling ventilation for \"{room.config.name}\"")
-          room.update(State.Closed)
+          logger.info("Disabling ventilation for {room.config.name}")
+          room.close
         }
         case _ -> {}
       }
@@ -356,8 +388,11 @@ class pub Controller {
             extra_flow
               + if humid { room.config.flow / 2 } else { room.config.flow }
           }
+          case Motion(_, _) if room.config.minimum_flow > 0 -> {
+            room.config.minimum_flow
+          }
           case Humid -> @config.humidity.flow
-          case _ -> 0
+          case _ -> room.config.minimum_flow
         }
       }
       .to_array
@@ -378,16 +413,22 @@ class pub Controller {
         (flow.to_float / total_flow.to_float * EXHAUST_MAX).ceil.to_int
       }
 
-      if exhaust != room.exhaust {
-        logger.info(
-          "Changing exhaust setting for \"{room.config.name}\" from \
-          {room.exhaust} to {exhaust} ({flow} m3/h)"
-        )
-        room.exhaust = exhaust
+      if exhaust == room.exhaust { return }
 
-        try! @itho.set(setting: room.config.exhaust, value: exhaust)
-        sleep(@config.exhaust.close_time)
-      }
+      logger.info(
+        "Changing exhaust setting for {room.config.name} from \
+        {room.exhaust} to {exhaust} ({flow} m3/h)"
+      )
+      room.exhaust = exhaust
+
+      try! @itho.set(setting: room.config.exhaust, value: exhaust)
+      sleep(@config.exhaust.close_time)
+
+      @metrics.send(Metric.with('air_flow') fn (m) {
+        m.tag('room', room.config.name)
+        m.field('rate', flow)
+        m.field('setting', exhaust)
+      })
     }
 
     let new_speed = flow_percentage(total_flow)
@@ -402,6 +443,10 @@ class pub Controller {
       @exhaust_speed = new_speed
       @last_exhaust_update = Instant.new
     }
+
+    @metrics.send(Metric.with('exhaust_speed') fn (m) {
+      m.field('percentage', new_speed)
+    })
   }
 
   fn flow_percentage(flow: Int) -> Int {

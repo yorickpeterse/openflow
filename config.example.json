@@ -7,7 +7,7 @@
                 "minutes": 5,
                 "time": 900
             },
-            "name": "Living room",
+            "name": "living_room",
             "ping": ["192.168.1.10"],
             "flow": 50,
             "time": 900
@@ -19,7 +19,7 @@
                 "minutes": 5,
                 "time": 900
             },
-            "name": "Kitchen",
+            "name": "kitchen",
             "flow": 25,
             "time": 900
         },
@@ -30,13 +30,13 @@
                 "minutes": 5,
                 "time": 900
             },
-            "name": "Toilet",
+            "name": "toilet",
             "flow": 10,
             "time": 900
         },
         {
             "exhaust": 103,
-            "name": "Bedroom",
+            "name": "bedroom",
             "flow": 60,
             "schedule": "night",
             "time": 900
@@ -49,7 +49,8 @@
                 "time": 900
             },
             "humidity": "RH bathroom 1 (%)",
-            "name": "Bathroom",
+            "name": "bathroom",
+            "minimum_flow": 15,
             "flow": 15,
             "time": 900
         }
@@ -72,6 +73,10 @@
     "co2": {
         "target": 700,
         "sample_time": 900
+    },
+    "metrics": {
+        "ip": "127.0.0.1",
+        "port": 8089
     },
     "itho_api": "192.168.1.2",
     "hue_api": "192.168.1.3",

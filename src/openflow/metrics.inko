@@ -1,0 +1,111 @@
+# Recording metrics using VictoriaMetrics.
+#
+# This module provides types for sending metrics to a VictoriaMetrics/InfluxDB
+# database, using the InfluxDB line protocol over UDP.
+import std::io::Error
+import std::net::ip::IpAddress
+import std::net::socket::UdpSocket
+import std::string::(StringBuffer, ToString)
+
+# A type that can be converted to a metric value.
+trait pub Value {
+  # Serialises the value to a metric value string.
+  fn pub to_value_string -> String
+}
+
+impl Value for Int {
+  fn pub to_value_string -> String {
+    to_string
+  }
+}
+
+impl Value for Float {
+  fn pub to_value_string -> String {
+    to_string
+  }
+}
+
+# A metric to store in the metrics database.
+class pub Metric {
+  let @name: String
+  let @tags: Array[(String, String)]
+  let @fields: Array[(String, Value)]
+
+  fn pub static with(name: String, block: fn (mut Metric)) -> Metric {
+    let metric = new(name)
+
+    block.call(metric)
+    metric
+  }
+
+  fn pub static new(name: String) -> Metric {
+    Metric { @name = name, @tags = [], @fields = [] }
+  }
+
+  fn pub mut tag(name: String, value: String) {
+    @tags.push((name, value))
+  }
+
+  fn pub mut field(name: String, value: Value) {
+    @fields.push((name, value))
+  }
+}
+
+impl ToString for Metric {
+  fn pub to_string -> String {
+    let buf = StringBuffer.new
+
+    buf.push(@name)
+
+    if @tags.length > 0 {
+      buf.push(',')
+
+      @tags.iter.each_with_index fn (index, pair) {
+        if index > 0 { buf.push(',') }
+
+        buf.push(pair.0)
+        buf.push('=')
+        buf.push(pair.1.to_string)
+        buf.push('')
+      }
+    }
+
+    if @fields.length > 0 {
+      buf.push(' ')
+
+      @fields.iter.each_with_index fn (index, pair) {
+        if index > 0 { buf.push(',') }
+
+        buf.push(pair.0)
+        buf.push('=')
+        buf.push(pair.1.to_value_string)
+      }
+    }
+
+    buf.into_string
+  }
+}
+
+# A type for sending metrics to a server.
+class pub Metrics {
+  let @ip: IpAddress
+  let @port: Int
+  let @socket: UdpSocket
+
+  # Returns a new metrics client sending data to the given IP and port.
+  fn pub static new(ip: IpAddress, port: Int) !! Error -> Metrics {
+    Metrics {
+      @ip = ip,
+      @port = port,
+      @socket = try UdpSocket.new(ip: IpAddress.v4(0, 0, 0, 0), port: 0)
+    }
+  }
+
+  # Sends a metric to the backend.
+  fn pub mut send(metric: Metric) {
+    # Since we're using UDP we shouldn't encounter a failure when sending data.
+    # If we do it's likely the result of an incorrectly set up socket, so we
+    # just panic.
+    try! @socket.send_string_to(metric.to_string, @ip, @port)
+  }
+}

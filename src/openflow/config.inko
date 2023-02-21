@@ -4,6 +4,14 @@ import std::json::(self, Json)
 import std::net::ip::IpAddress
 import std::time::(DateTime, Duration)
 
+let LOWER_A = 97
+let LOWER_Z = 122
+let UPPER_A = 65
+let UPPER_Z = 90
+let UNDERSCORE = 95
+let ZERO = 48
+let NINE = 57
+
 fn array(object: mut Map[String, Json], key: String) !! String -> Array[Json] {
   match object.remove(key) {
     case Some(Array(v)) -> v
@@ -105,7 +113,10 @@ class pub Room {
   # Any IPs to ping to determine if a room should be ventilated.
   let pub @ping: Array[IpAddress]
 
-  # The desired flow rate in h3/hour.
+  # The minimum air flow in m3/hour.
+  let pub @minimum_flow: Int
+
+  # The desired flow rate in m3/hour.
   let pub @flow: Int
 
   # The amount of time to ventilate the room for.
@@ -113,6 +124,18 @@ class pub Room {
 
   fn pub static from_json(value: Map[String, Json]) !! String -> Room {
     let name = try string(value, 'name')
+    let name_valid = name.bytes.all? fn (byte) {
+      (byte >= LOWER_A and byte <= LOWER_Z)
+        or (byte >= UPPER_A and byte <= UPPER_Z)
+        or (byte >= ZERO and byte <= NINE)
+        or byte == UNDERSCORE
+    }
+
+    if name_valid.false? {
+      throw 'Room names can only contain characters in the range \
+        a-z, A-Z, 0-9, and _'
+    }
+
     let exhaust = try int(value, 'exhaust')
     let schedule = match value.remove('schedule') {
       case Some(String('night')) -> Option.Some(Schedule.Night)
@@ -133,6 +156,11 @@ class pub Room {
     let humidity = match value.remove('humidity') {
       case Some(String(val)) -> Option.Some(val)
       case _ -> Option.None
+    }
+
+    let min_flow = match value.remove('minimum_flow') {
+      case Some(Int(val)) -> val
+      case _ -> 0
     }
 
     let flow = match value.remove('flow') {
@@ -165,6 +193,7 @@ class pub Room {
       @temperature = temperature,
       @humidity = humidity
       @ping = ping,
+      @minimum_flow = min_flow,
       @flow = flow,
       @ventilation_time = ventilation_time,
     }
@@ -261,6 +290,19 @@ class pub Co2 {
   }
 }
 
+# Configuration settings for the metrics backend.
+class pub Metrics {
+  let pub @ip: IpAddress
+  let pub @port: Int
+
+  fn pub static from_json(value: Map[String, Json]) -> Metrics {
+    let ip = try ip(value, 'ip') else recover IpAddress.v4(127, 0, 0, 1)
+    let port = try int(value, 'port') else 8089
+
+    Metrics { @ip = ip, @port = port }
+  }
+}
+
 # Various configuration settings, such as the settings to control the
 # ventilation and the room-specific settings.
 class pub Config {
@@ -284,6 +326,9 @@ class pub Config {
 
   # Configuration settings related to the CO2 levels.
   let pub @co2: Co2
+
+  # Configuration settings for the metrics backend.
+  let pub @metrics: Metrics
 
   fn pub static load(path: IntoPath) !! String -> Config {
     let file = try {
@@ -333,6 +378,11 @@ class pub Config {
       case _ -> throw 'The "co2" object is required'
     }
 
+    let metrics = Metrics.from_json(match root.remove('metrics') {
+      case Some(Object(map)) -> map
+      case _ -> Map.new
+    })
+
     Config {
       @rooms = rooms,
       @itho_wifi_address = try ip(root, 'itho_api'),
@@ -341,6 +391,7 @@ class pub Config {
       @humidity = humidity,
       @exhaust = exhaust,
       @co2 = co2,
+      @metrics = metrics,
     }
   }
 }

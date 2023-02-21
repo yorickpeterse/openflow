@@ -1,6 +1,6 @@
 import openflow::clock::(Clock, TestClock)
 import openflow::config::(
-  Co2, Config, Exhaust, Humidity, Motion, Room, Schedule
+  Co2, Config, Exhaust, Humidity, Metrics, Motion, Room, Schedule
 )
 import openflow::controller::Controller
 import openflow::http::(Client, Request, Response, TestDriver)
@@ -65,7 +65,7 @@ fn config -> Config {
   Config {
     @rooms = [
       Room {
-        @name = 'Living room',
+        @name = 'living_room',
         @exhaust = 12,
         @schedule = Option.None,
         @motion = Option.Some(Motion {
@@ -76,22 +76,24 @@ fn config -> Config {
         @temperature = Option.None,
         @humidity = Option.None,
         @ping = [],
+        @minimum_flow = 0,
         @flow = 15,
         @ventilation_time = Duration.from_secs(10),
       },
       Room {
-        @name = 'Bedroom',
+        @name = 'bedroom',
         @exhaust = 13,
         @schedule = Option.Some(Schedule.Night),
         @motion = Option.None,
         @temperature = Option.None,
         @humidity = Option.None,
         @ping = [],
+        @minimum_flow = 0,
         @flow = 60,
         @ventilation_time = Duration.from_secs(10),
       },
       Room {
-        @name = 'Bathroom',
+        @name = 'bathroom',
         @exhaust = 14,
         @schedule = Option.None,
         @motion = Option.Some(Motion {
@@ -102,11 +104,12 @@ fn config -> Config {
         @temperature = Option.None,
         @humidity = Option.Some('RH foo'),
         @ping = [],
+        @minimum_flow = 0,
         @flow = 50,
         @ventilation_time = Duration.from_secs(10),
       },
       Room {
-        @name = 'Office',
+        @name = 'office',
         @exhaust = 15,
         @schedule = Option.None,
         @motion = Option.Some(Motion {
@@ -117,6 +120,7 @@ fn config -> Config {
         @temperature = Option.None,
         @humidity = Option.None,
         @ping = [],
+        @minimum_flow = 0,
         @flow = 15,
         @ventilation_time = Duration.from_secs(10),
       },
@@ -143,6 +147,10 @@ fn config -> Config {
       @target = 700,
       @sample_time = Duration.from_secs(900),
     },
+    @metrics = Metrics {
+      @ip = IpAddress.v4(0, 0, 0, 0),
+      @port = 8089
+    }
   }
 }
 
@@ -792,5 +800,90 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.equal(room.state, State.Closed)
+  }
+
+  t.test('Ventilating a room with a minimum flow') fn (t) {
+    let conf = config
+
+    conf.rooms[2].minimum_flow = 10
+
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms[2]
+
+    ctl.iteration
+
+    t.equal(room.state, State.Minimum)
+    t.true(updates.contains?((room.config.exhaust, 556)))
+  }
+
+  t.test('Ventilating a room with a minimum flow with high CO2 levels') fn (t) {
+    let conf = config
+
+    conf.rooms[2].minimum_flow = 10
+
+    let itho = itho(co2: 900, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms[2]
+
+    ctl.iteration
+
+    t.equal(room.state, State.Minimum)
+    t.true(updates.contains?((room.config.exhaust, 556)))
+  }
+
+  t.test('Detecting motion in a room with a minimum flow') fn (t) {
+    let conf = config
+
+    conf.rooms[2].minimum_flow = 10
+    conf.rooms[2].motion.as_mut.unwrap.id = 3
+
+    let itho = itho(co2: 700, humidity: 65)
+    let _ = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms[2]
+
+    ctl.iteration
+
+    t.equal(room.exhaust, 556)
+    t.equal(room.state, State.Motion(4, 1))
+  }
+
+  t.test('Ventilating a room with a minimum flow with increasing humidity') fn (t) {
+    let conf = config
+
+    conf.rooms[2].minimum_flow = 10
+
+    let itho = itho(co2: 700, humidity: 77)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms[2]
+
+    ctl.iteration
+
+    t.equal(room.state, State.MaybeHumid)
+    t.equal(room.exhaust, 556)
+    t.true(updates.contains?((room.config.exhaust, 556)))
+  }
+
+  t.test('Ventilating a room with a minimum flow that is too humid') fn (t) {
+    let conf = config
+
+    conf.rooms[2].minimum_flow = 10
+    conf.humidity.high_time = Duration.from_secs(0)
+
+    let itho = itho(co2: 700, humidity: 77)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms[2]
+
+    ctl.iteration
+    ctl.iteration
+
+    t.equal(room.state, State.Humid)
+    t.equal(room.exhaust, 5000)
+    t.true(updates.contains?((room.config.exhaust, 5000)))
   }
 }
