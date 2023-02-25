@@ -19,6 +19,16 @@ fn array(object: mut Map[String, Json], key: String) !! String -> Array[Json] {
   }
 }
 
+fn object(
+  object: mut Map[String, Json],
+  key: String
+) !! String -> Map[String, Json] {
+  match object.remove(key) {
+    case Some(Object(v)) -> v
+    case _ -> throw "The '{key}' value must be an object"
+  }
+}
+
 fn int(object: mut Map[String, Json], key: String) !! String -> Int {
   match object.remove(key) {
     case Some(Int(v)) -> v
@@ -122,8 +132,10 @@ class pub Room {
   # The amount of time to ventilate the room for.
   let pub @ventilation_time: Duration
 
-  fn pub static from_json(value: Map[String, Json]) !! String -> Room {
-    let name = try string(value, 'name')
+  fn pub static from_json(
+    name: String,
+    value: Map[String, Json]
+  ) !! String -> Room {
     let name_valid = name.bytes.all? fn (byte) {
       (byte >= LOWER_A and byte <= LOWER_Z)
         or (byte >= UPPER_A and byte <= UPPER_Z)
@@ -183,7 +195,7 @@ class pub Room {
       case _ -> []
     }
 
-    let ventilation_time = Duration.from_secs(try int(value, 'time'))
+    let ventilation_time = Duration.from_secs(try int(value, 'time') else 0)
 
     Room {
       @name = name,
@@ -197,6 +209,52 @@ class pub Room {
       @flow = flow,
       @ventilation_time = ventilation_time,
     }
+  }
+}
+
+class pub Button {
+  # The names of the rooms to ventilate when the button is pressed.
+  let pub @rooms: Array[String]
+
+  # The time to ventilate the rooms for.
+  let pub @time: Duration
+
+  fn static from_json(value: Map[String, Json]) -> Button {
+    let rooms = (try array(value, 'rooms') else [])
+      .into_iter
+      .select_map fn (val) {
+        match val { case String(v) -> Option.Some(v) case _ -> Option.None }
+      }
+      .to_array
+
+    let time = Duration.from_secs(try int(value, 'time') else 1800)
+
+    Button { @rooms = rooms, @time = time }
+  }
+}
+
+# Configuration details for a single RF remote.
+class pub Remote {
+  # The ID of the remote.
+  let pub @id: String
+
+  # The buttons that are registered.
+  let pub @buttons: Map[String, Button]
+
+  fn static from_json(value: Map[String, Json]) !! String -> Remote {
+    let id = try string(value, 'id')
+    let buttons = try { object(value, 'buttons') }
+      .into_iter
+      .reduce(Map.new) fn (map, entry) {
+        match entry {
+          case { @key = k, @value = Object(v) } -> map[k] = Button.from_json(v)
+          case _ -> {}
+        }
+
+        map
+      }
+
+    Remote { @id = id, @buttons = buttons }
   }
 }
 
@@ -307,7 +365,7 @@ class pub Metrics {
 # ventilation and the room-specific settings.
 class pub Config {
   # Rooms to ventilate.
-  let pub @rooms: Array[Room]
+  let pub @rooms: Map[String, Room]
 
   # The IP address of the Ith WiFi add-on API.
   let pub @itho_wifi_address: uni IpAddress
@@ -329,6 +387,9 @@ class pub Config {
 
   # Configuration settings for the metrics backend.
   let pub @metrics: Metrics
+
+  # The configuration details of an optional RF remote.
+  let pub @remote: Option[Remote]
 
   fn pub static load(path: IntoPath) !! String -> Config {
     let file = try {
@@ -352,15 +413,22 @@ class pub Config {
       case _ -> throw 'The top-level JSON value must be an object'
     }
 
-    let rooms = []
-    let rooms_iter = try { array(root, 'rooms') }.into_iter
+    let rooms = Map.new
+    let rooms_iter = try { object(root, 'rooms') }.into_iter
 
     loop {
       match rooms_iter.next {
-        case Some(Object(map)) -> rooms.push(try Room.from_json(map))
+        case Some({ @key = name, @value = Object(map) }) -> {
+          rooms[name] = try Room.from_json(name, map)
+        }
         case Some(_) -> throw "The 'rooms' setting can only contain objects"
         case None -> break
       }
+    }
+
+    let remote = match root.remove('remote') {
+      case Some(Object(map)) -> Option.Some(try Remote.from_json(map))
+      case _ -> Option.None
     }
 
     let humidity = match root.remove('humidity') {
@@ -392,6 +460,7 @@ class pub Config {
       @exhaust = exhaust,
       @co2 = co2,
       @metrics = metrics,
+      @remote = remote,
     }
   }
 }

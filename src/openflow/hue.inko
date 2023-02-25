@@ -2,34 +2,6 @@ import openflow::http::(Client, Error, Request, Response, retry)
 import std::json::(self, Json)
 import std::time::(DateTime, Duration)
 
-fn digit(input: String, byte: Int) -> Int {
-  input.byte(byte) - 48
-}
-
-fn parse_utc_date(input: String) -> DateTime {
-  let year = (digit(input, 0) * 1000)
-    + (digit(input, 1) * 100)
-    + (digit(input, 2) * 10)
-    + digit(input, 3)
-
-  let month = (digit(input, 5) * 10) + digit(input, 6)
-  let day = (digit(input, 8) * 10) + digit(input, 9)
-  let hour = (digit(input, 11) * 10) + digit(input, 12)
-  let minute = (digit(input, 14) * 10) + digit(input, 15)
-  let second = (digit(input, 17) * 10) + digit(input, 18)
-
-  DateTime {
-    @year = year,
-    @month = month,
-    @day = day,
-    @hour = hour,
-    @minute = minute,
-    @second = second,
-    @sub_second = 0.0,
-    @utc_offset = 0,
-  }
-}
-
 # The time after which a request times out.
 let TIMEOUT = 30
 

@@ -1,6 +1,7 @@
 import openflow::clock::(Clock, TestClock)
 import openflow::config::(
-  Co2, Config, Exhaust, Humidity, Metrics, Motion, Room, Schedule
+  Button, Co2, Config, Exhaust, Humidity, Metrics, Motion, Room, Remote,
+  Schedule
 )
 import openflow::controller::Controller
 import openflow::http::(Client, Request, Response, TestDriver)
@@ -124,7 +125,13 @@ fn config -> Config {
         @flow = 15,
         @ventilation_time = Duration.from_secs(10),
       },
-    ],
+    ]
+      .into_iter
+      .reduce(Map.new) fn (map, room) {
+        map[room.name] = room
+        map
+      },
+    @remote = Option.None,
     @humidity = Humidity {
       @high = 75,
       @low = 70,
@@ -247,17 +254,12 @@ fn hour(hour: Int) -> TestClock {
   })
 }
 
-fn button_time -> DateTime {
-  DateTime {
-    @year = 2023,
-    @month = 2,
-    @day = 16,
-    @hour = 14,
-    @minute = 10,
-    @second = 15,
-    @sub_second = 0.0,
-    @utc_offset = 0,
-  }
+fn remote(time: Duration) -> Remote {
+  let buttons = Map.new
+
+  buttons['cook30'] = Button { @rooms = ['living_room'], @time = time.clone }
+  buttons['timer1'] = Button { @rooms = ['bathroom'], @time = time }
+  Remote { @id = 'example', @buttons = buttons }
 }
 
 fn pub tests(t: mut Tests) {
@@ -265,7 +267,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 1, humidity: 1)
     let updates = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(23))
-    let room = ctl.rooms[1]
+    let room = ctl.rooms['bedroom']
 
     ctl.iteration
 
@@ -278,7 +280,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 73)
     let updates = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[1]
+    let room = ctl.rooms['bedroom']
 
     room.state = State.Schedule
     room.exhaust = 500
@@ -293,7 +295,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 73)
     let _ = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(23))
-    let room = ctl.rooms[1]
+    let room = ctl.rooms['bedroom']
     let before = Instant.new
 
     room.state = State.Schedule
@@ -309,7 +311,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 80)
     let _ = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     ctl.iteration
 
@@ -320,7 +322,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 80)
     let _ = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     room.state = State.Open
     ctl.iteration
@@ -332,7 +334,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 80)
     let _ = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     ctl.iteration
 
@@ -352,7 +354,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 80)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     room.state = State.MaybeHumid
     ctl.iteration
@@ -366,7 +368,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 80)
     let _ = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
     let before = Instant.new + Duration.from_secs(10)
 
     room.state = State.Humid
@@ -384,7 +386,7 @@ fn pub tests(t: mut Tests) {
       let itho = itho(co2: 700, humidity: humidity)
       let _ = track_settings(itho)
       let ctl = controller(config, itho, hue, hour(14))
-      let room = ctl.rooms[2]
+      let room = ctl.rooms['bathroom']
 
       room.state = State.MaybeHumid
       ctl.iteration
@@ -401,7 +403,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 65)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     room.state = State.Humid
     room.exhaust = 5000
@@ -416,7 +418,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 71)
     let _ = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     ctl.iteration
 
@@ -431,7 +433,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 71)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     ctl.iteration
 
@@ -452,7 +454,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 71)
     let _ = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     room.update(State.Humid)
 
@@ -468,7 +470,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 65)
     let _ = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
     let before = Instant.new + Duration.from_secs(10)
 
     room.state = State.Open
@@ -484,7 +486,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 65)
     let _ = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[3]
+    let room = ctl.rooms['office']
 
     ctl.iteration
 
@@ -494,12 +496,12 @@ fn pub tests(t: mut Tests) {
   t.test('A room with motion detected that should start ventilation right away') fn (t) {
     let conf = config
 
-    conf.rooms[3].motion.as_mut.unwrap.minutes = 1
+    conf.rooms['office'].motion.as_mut.unwrap.minutes = 1
 
     let itho = itho(co2: 700, humidity: 65)
     let _ = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[3]
+    let room = ctl.rooms['office']
 
     ctl.iteration
 
@@ -510,7 +512,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 65)
     let _ = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[3]
+    let room = ctl.rooms['office']
 
     ctl.iteration
     ctl.iteration
@@ -522,7 +524,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 65)
     let _ = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[3]
+    let room = ctl.rooms['office']
 
     room.state = State.Motion(3, 1)
     ctl.iteration
@@ -534,7 +536,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 65)
     let updates = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[3]
+    let room = ctl.rooms['office']
 
     room.state = State.Motion(3, 4)
     ctl.iteration
@@ -547,7 +549,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 65)
     let _ = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[3]
+    let room = ctl.rooms['office']
     let before = Instant.new + Duration.from_secs(10)
 
     room.state = State.Open
@@ -562,12 +564,12 @@ fn pub tests(t: mut Tests) {
   t.test('A room that is ventilated but is now vacant') fn (t) {
     let conf = config
 
-    conf.rooms[2].ventilation_time = Duration.from_secs(0)
+    conf.rooms['bathroom'].ventilation_time = Duration.from_secs(0)
 
     let itho = itho(co2: 700, humidity: 65)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     room.state = State.Open
     room.exhaust = 2778
@@ -581,13 +583,13 @@ fn pub tests(t: mut Tests) {
   t.test('A vacant room with an IP responding to a ping') fn (t) {
     let conf = config
 
-    conf.rooms[2].ventilation_time = Duration.from_secs(0)
-    conf.rooms[2].ping.push(IpAddress.v4(127, 0, 0, 1))
+    conf.rooms['bathroom'].ventilation_time = Duration.from_secs(0)
+    conf.rooms['bathroom'].ping.push(IpAddress.v4(127, 0, 0, 1))
 
     let itho = itho(co2: 700, humidity: 65)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
     let before = room.last_update.clone
 
     room.state = State.Open
@@ -602,12 +604,12 @@ fn pub tests(t: mut Tests) {
   t.test('A room with not enough motion events') fn (t) {
     let conf = config
 
-    conf.rooms[2].motion.as_mut.unwrap.time = Duration.from_secs(0)
+    conf.rooms['bathroom'].motion.as_mut.unwrap.time = Duration.from_secs(0)
 
     let itho = itho(co2: 700, humidity: 65)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     room.state = State.Motion(1, 1)
     ctl.iteration
@@ -619,7 +621,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 65)
     let updates = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[0]
+    let room = ctl.rooms['living_room']
 
     ctl.iteration
 
@@ -635,15 +637,15 @@ fn pub tests(t: mut Tests) {
 
     ctl.iteration
 
-    t.equal(ctl.rooms[0].state, State.Closed)
+    t.equal(ctl.rooms['living_room'].state, State.Closed)
   }
 
   t.test('The first room is closed when another room needs ventilating') fn (t) {
     let itho = itho(co2: 700, humidity: 65)
     let updates = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let living_room = ctl.rooms[0]
-    let bedroom = ctl.rooms[1]
+    let living_room = ctl.rooms['living_room']
+    let bedroom = ctl.rooms['bedroom']
 
     ctl.iteration
     t.equal(living_room.state, State.Default)
@@ -661,7 +663,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 65)
     let updates = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(23))
-    let room = ctl.rooms[1]
+    let room = ctl.rooms['bedroom']
 
     ctl.iteration
 
@@ -676,7 +678,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 1200, humidity: 65)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(23))
-    let room = ctl.rooms[1]
+    let room = ctl.rooms['bedroom']
 
     ctl.iteration
 
@@ -692,8 +694,8 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 1200, humidity: 80)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(23))
-    let bathroom = ctl.rooms[2]
-    let bedroom = ctl.rooms[1]
+    let bathroom = ctl.rooms['bathroom']
+    let bedroom = ctl.rooms['bedroom']
 
     bathroom.state = State.Humid
     bathroom.exhaust = 4167
@@ -711,7 +713,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 60)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(23))
-    let bedroom = ctl.rooms[1]
+    let bedroom = ctl.rooms['bedroom']
 
     ctl.iteration
 
@@ -721,12 +723,12 @@ fn pub tests(t: mut Tests) {
   t.test('The exhaust speed is always greater than the minimum flow') fn (t) {
     let conf = config
 
-    conf.rooms[1].flow = 5
+    conf.rooms['bedroom'].flow = 5
 
     let itho = itho(co2: 700, humidity: 60)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(23))
-    let bedroom = ctl.rooms[1]
+    let bedroom = ctl.rooms['bedroom']
 
     ctl.iteration
 
@@ -737,7 +739,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 60)
     let updates = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(23))
-    let bedroom = ctl.rooms[1]
+    let bedroom = ctl.rooms['bedroom']
 
     ctl.iteration
     ctl.iteration
@@ -750,8 +752,8 @@ fn pub tests(t: mut Tests) {
     let updates = track_settings(itho)
     let clock = CycleClock.new
     let ctl = controller(config, itho, hue, clock)
-    let bedroom = ctl.rooms[1]
-    let bathroom = ctl.rooms[2]
+    let bedroom = ctl.rooms['bedroom']
+    let bathroom = ctl.rooms['bathroom']
 
     bathroom.state = State.Humid
     bathroom.exhaust = 5000
@@ -774,7 +776,7 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 700, humidity: 65)
     let updates = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(14))
-    let room = ctl.rooms[3]
+    let room = ctl.rooms['office']
 
     room.state = State.Default
     room.exhaust = 834
@@ -787,13 +789,13 @@ fn pub tests(t: mut Tests) {
   t.test('Handling a room with a motion time equal to the ventilation time') fn (t) {
     let conf = config
 
-    conf.rooms[2].ventilation_time = Duration.from_secs(0)
-    conf.rooms[2].motion.as_mut.unwrap.time = Duration.from_secs(0)
+    conf.rooms['bathroom'].ventilation_time = Duration.from_secs(0)
+    conf.rooms['bathroom'].motion.as_mut.unwrap.time = Duration.from_secs(0)
 
     let itho = itho(co2: 700, humidity: 65)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     room.state = State.Motion(4, 1)
 
@@ -805,12 +807,12 @@ fn pub tests(t: mut Tests) {
   t.test('Ventilating a room with a minimum flow') fn (t) {
     let conf = config
 
-    conf.rooms[2].minimum_flow = 10
+    conf.rooms['bathroom'].minimum_flow = 10
 
     let itho = itho(co2: 700, humidity: 65)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     ctl.iteration
 
@@ -821,12 +823,12 @@ fn pub tests(t: mut Tests) {
   t.test('Ventilating a room with a minimum flow with high CO2 levels') fn (t) {
     let conf = config
 
-    conf.rooms[2].minimum_flow = 10
+    conf.rooms['bathroom'].minimum_flow = 10
 
     let itho = itho(co2: 900, humidity: 65)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     ctl.iteration
 
@@ -837,13 +839,13 @@ fn pub tests(t: mut Tests) {
   t.test('Detecting motion in a room with a minimum flow') fn (t) {
     let conf = config
 
-    conf.rooms[2].minimum_flow = 10
-    conf.rooms[2].motion.as_mut.unwrap.id = 3
+    conf.rooms['bathroom'].minimum_flow = 10
+    conf.rooms['bathroom'].motion.as_mut.unwrap.id = 3
 
     let itho = itho(co2: 700, humidity: 65)
     let _ = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     ctl.iteration
 
@@ -854,12 +856,12 @@ fn pub tests(t: mut Tests) {
   t.test('Ventilating a room with a minimum flow with increasing humidity') fn (t) {
     let conf = config
 
-    conf.rooms[2].minimum_flow = 10
+    conf.rooms['bathroom'].minimum_flow = 10
 
     let itho = itho(co2: 700, humidity: 77)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     ctl.iteration
 
@@ -871,13 +873,13 @@ fn pub tests(t: mut Tests) {
   t.test('Ventilating a room with a minimum flow that is too humid') fn (t) {
     let conf = config
 
-    conf.rooms[2].minimum_flow = 10
+    conf.rooms['bathroom'].minimum_flow = 10
     conf.humidity.high_time = Duration.from_secs(0)
 
     let itho = itho(co2: 700, humidity: 77)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(14))
-    let room = ctl.rooms[2]
+    let room = ctl.rooms['bathroom']
 
     ctl.iteration
     ctl.iteration
@@ -885,5 +887,180 @@ fn pub tests(t: mut Tests) {
     t.equal(room.state, State.Humid)
     t.equal(room.exhaust, 5000)
     t.true(updates.contains?((room.config.exhaust, 5000)))
+  }
+
+  t.test('Handling a non-default button state when starting up') fn (t) {
+    let conf = config
+
+    conf.remote = Option.Some(remote(Duration.from_secs(5)))
+
+    let itho = itho(co2: 700, humidity: 70)
+
+    itho.request(
+      matches: fn (req) {
+        match req.queries.get('get') {
+          case Some('remotesinfo') -> true
+          case _ -> false
+        }
+      },
+      then: fn (_) {
+        Response.ok('{"example": {"timestamp":123,"lastcmd":13}}'.to_byte_array)
+      }
+    )
+
+    let _ = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms['living_room']
+
+    ctl.iteration
+
+    t.equal(room.state, State.Default)
+  }
+
+  t.test('Ignoring unsupported remote states') fn (t) {
+    let conf = config
+
+    conf.remote = Option.Some(remote(Duration.from_secs(5)))
+
+    let itho = itho(co2: 700, humidity: 70)
+
+    itho.request(
+      matches: fn (req) {
+        match req.queries.get('get') {
+          case Some('remotesinfo') -> true
+          case _ -> false
+        }
+      },
+      then: fn (_) {
+        Response.ok('{"example": {"timestamp":123,"lastcmd":0}}'.to_byte_array)
+      }
+    )
+
+    let _ = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms['living_room']
+
+    ctl.iteration
+
+    t.equal(room.state, State.Default)
+  }
+
+  t.test('Ventilating a room in response to a remote') fn (t) {
+    let conf = config
+
+    conf.remote = Option.Some(remote(Duration.from_secs(5)))
+
+    let itho = itho(co2: 700, humidity: 70)
+
+    itho.request(
+      matches: fn (req) {
+        match req.queries.get('get') {
+          case Some('remotesinfo') -> true
+          case _ -> false
+        }
+      },
+      then: fn (_) {
+        let time = Instant.new.to_int
+        let body = "\{\"example\": \{\"timestamp\":{time},\"lastcmd\":13}}"
+
+        Response.ok(body.to_byte_array)
+      }
+    )
+
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms['living_room']
+
+    ctl.iteration
+    ctl.iteration
+
+    t.equal(room.state, State.Button(State.Default))
+    t.true(updates.contains?((room.config.exhaust, 834)))
+  }
+
+  t.test('Changing which rooms to ventilate in response to a remote') fn (t) {
+    let conf = config
+
+    conf.remote = Option.Some(remote(Duration.from_secs(5)))
+
+    let itho = itho(co2: 700, humidity: 70)
+    let counts = [true]
+
+    itho.request(
+      matches: fn (req) {
+        match req.queries.get('get') {
+          case Some('remotesinfo') -> true
+          case _ -> false
+        }
+      },
+      then: fn (_) {
+        let body = match counts.length {
+          case 1 -> '{"example": {"timestamp":1,"lastcmd":0}}'
+          case 2 -> '{"example": {"timestamp":2,"lastcmd":13}}'
+          case _ -> '{"example": {"timestamp":3,"lastcmd":8}}'
+        }
+
+        counts.push(true)
+        Response.ok(body.to_byte_array)
+      }
+    )
+
+    let _ = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room1 = ctl.rooms['living_room']
+    let room2 = ctl.rooms['bathroom']
+
+    ctl.iteration
+
+    ctl.iteration
+    t.equal(room1.state, State.Button(State.Default))
+
+    ctl.iteration
+    t.equal(room1.state, State.Closed)
+    t.equal(room2.state, State.Button(State.Closed))
+  }
+
+  t.test('Stopping ventilation when a remote timer expires') fn (t) {
+    let conf = config
+
+    conf.remote = Option.Some(remote(Duration.from_secs(0)))
+
+    let itho = itho(co2: 700, humidity: 70)
+    let counts = [true]
+
+    itho.request(
+      matches: fn (req) {
+        match req.queries.get('get') {
+          case Some('remotesinfo') -> true
+          case _ -> false
+        }
+      },
+      then: fn (_) {
+        let body = match counts.length {
+          case 1 -> '{"example": {"timestamp":1,"lastcmd":0}}'
+          case _ -> '{"example": {"timestamp":2,"lastcmd":13}}'
+        }
+
+        counts.push(true)
+        Response.ok(body.to_byte_array)
+      }
+    )
+
+    let _ = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms['living_room']
+
+    ctl.iteration
+
+    ctl.iteration
+    t.equal(room.state, State.Button(State.Default))
+
+    # This disables the ventilation in response to the timer expiring.
+    ctl.iteration
+    t.equal(room.state, State.Default)
+
+    # This is to ensure the ventilation remains disabled.
+    ctl.iteration
+    t.equal(room.state, State.Default)
   }
 }

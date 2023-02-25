@@ -2,17 +2,13 @@ import openflow::clock::Clock
 import openflow::co2::Co2
 import openflow::config::Config
 import openflow::hue::(Hue, Sensors)
-import openflow::itho::(Itho, Status)
+import openflow::itho::(Itho, RemoteStatus, Status)
 import openflow::logger::Logger
 import openflow::metrics::(Metric, Metrics)
 import openflow::net::(online?)
 import openflow::room::(Room, State)
 import std::process::(sleep)
 import std::time::(DateTime, Duration, Instant)
-
-# The amount of time (in seconds) to wait after enabling manual mode, in order
-# to give the exhausts/servos time to close.
-let MANUAL_WAIT_TIME = 60
 
 # The maximum value an exhaust setting can be set to to control how much it's
 # opened.
@@ -28,6 +24,26 @@ let CO2_ADD_FLOW = 10
 # speed is increased.
 let CO2_FLOW_INCREMENT = 100
 
+# The state of an RF remote.
+class pub Remote {
+  # The current status of the remote.
+  let pub @status: RemoteStatus
+
+  # The timestamp of when the last command was received.
+  let pub @timestamp: Int
+
+  # The time after which the remote should be reset to its initial state.
+  let pub @deadline: Instant
+
+  fn pub static new -> Remote {
+    Remote {
+      @status = RemoteStatus.Low,
+      @timestamp = 0,
+      @deadline = Instant.new,
+    }
+  }
+}
+
 # A type responsible with controlling the ventilation system, monitoring
 # sensors, etc.
 class pub Controller {
@@ -37,7 +53,7 @@ class pub Controller {
   # each `Room` contains a reference to a `openflow::config::Room`.
   #
   # This field is public so we can access the room states in our tests.
-  let pub @rooms: Array[Room]
+  let pub @rooms: Map[String, Room]
 
   # The last known speed of the exhaust fan.
   #
@@ -56,6 +72,7 @@ class pub Controller {
   let @clock: Clock
   let @co2: Co2
   let @metrics: Metrics
+  let @remote: Remote
 
   fn pub static new(
     config: Config,
@@ -67,13 +84,17 @@ class pub Controller {
     Controller {
       @itho = itho,
       @hue = hue,
-      @rooms = config.rooms.iter.map fn (cfg) { Room.new(cfg) }.to_array,
+      @rooms = config.rooms.iter.reduce(Map.new) fn (map, entry) {
+        map[entry.key] = Room.new(entry.value)
+        map
+      },
       @logger = logger,
       @clock = clock,
       @exhaust_speed = 0,
       @last_exhaust_update = Instant.new,
       @co2 = Co2.new(config.co2.sample_time.clone),
       @metrics = try! Metrics.new(config.metrics.ip.clone, config.metrics.port),
+      @remote = Remote.new,
       @config = config,
     }
   }
@@ -93,6 +114,7 @@ class pub Controller {
     let status = try! @itho.status
 
     update_co2(status)
+    check_remotes
     update_rooms(status, sensors)
     ventilate_default_room
     apply_changes
@@ -107,8 +129,11 @@ class pub Controller {
     @logger.info('Enabling manual control')
     try! @itho.set(@config.exhaust.manual_setting, value: 1)
 
+    let wait =
+      Duration.from_nanos(@rooms.length * @config.exhaust.close_time.to_nanos)
+
     @logger.info('Waiting for all exhausts to close')
-    sleep(Duration.from_secs(MANUAL_WAIT_TIME))
+    sleep(wait)
     false
   }
 
@@ -126,7 +151,7 @@ class pub Controller {
     # ensure we start off with a clean state (i.e. in the event of a crash).
     @logger.info('Closing all exhausts')
 
-    @rooms.iter_mut.each fn (room) {
+    @rooms.values.each fn (room) {
       @logger.info("Closing exhaust for {room.config.name}")
       try! @itho.set(room.config.exhaust, value: 0)
       sleep(@config.exhaust.close_time)
@@ -307,10 +332,66 @@ class pub Controller {
     })
   }
 
+  fn mut check_remotes {
+    let conf = match @config.remote { case Some(val) -> val case _ -> return }
+    let remotes = try! @itho.remotes
+    let remote =
+      match remotes.remove(conf.id) { case Some(val) -> val case _ -> return }
+
+    # When starting up we ignore the current button state. This way if you
+    # restart say six hours after pressing the Cook30 button, we don't start
+    # ventilating according to that button again.
+    if @remote.timestamp == 0 {
+      @remote.timestamp = remote.timestamp
+      return
+    }
+
+    if remote.timestamp == @remote.timestamp {
+      let reset = match @remote.status {
+        case Low -> false
+        case _ -> @remote.deadline.remaining.to_nanos <= 0
+      }
+
+      if reset {
+        logger.info("The {@remote.status} timer expired")
+        @rooms.iter_mut.each fn (kv) { kv.value.reset_button }
+        @remote.status = RemoteStatus.Low
+      }
+
+      return
+    }
+
+    @remote.status = remote.status.clone
+    @remote.timestamp = remote.timestamp
+
+    match @remote.status {
+      case Low -> {
+        logger.info("Resetting the remote to its default state")
+        @rooms.iter_mut.each fn (entry) { entry.value.reset_button }
+        return
+      }
+      case state -> match conf.buttons.get(state.name) {
+        case Some(button) -> {
+          @rooms.iter_mut.each fn (entry) { entry.value.reset_button }
+          logger.info("Ventilating rooms for the {@remote.status} button")
+          @remote.deadline = button.time.to_instant
+          button.rooms.iter.each fn (name) {
+            let room = @rooms[name]
+
+            room.update(State.Button(room.state.clone))
+          }
+        }
+        case _ -> {}
+      }
+    }
+  }
+
   fn mut update_rooms(status: ref Status, sensors: ref Sensors) {
     let time = @clock.now
 
-    @rooms.iter_mut.each fn (room) {
+    @rooms.iter_mut.each fn (entry) {
+      let room = entry.value
+
       # If the schedule is active, it takes priority over the remaining inputs.
       if check_schedule(room, time) { return }
 
@@ -325,14 +406,14 @@ class pub Controller {
     # No ventilation can result in stale/dirty air building up. As such, if we
     # don't detect the need for ventilating anywhere we'll just ventilate the
     # first room.
-    let ventilate_first = @rooms.iter.all? fn (room) {
-      match room.state {
-        case Open or Humid or Schedule -> false
+    let ventilate_first = @rooms.iter.all? fn (entry) {
+      match entry.value.state {
+        case Open or Humid or Schedule or Button(_) -> false
         case _ -> true
       }
     }
 
-    let room = @rooms[0]
+    let room = @rooms[@rooms.keys.next.unwrap]
 
     if ventilate_first {
       match room.state {
@@ -354,8 +435,8 @@ class pub Controller {
   }
 
   fn mut apply_changes {
-    let humid = @rooms.iter.any? fn (room) {
-      match room.state { case Humid -> true, case _ -> false }
+    let humid = @rooms.iter.any? fn (entry) {
+      match entry.value.state { case Humid -> true, case _ -> false }
     }
 
     let extra_flow = if @co2.value > @config.co2.target and humid.false? {
@@ -372,10 +453,10 @@ class pub Controller {
     }
 
     let room_flows = @rooms
-      .iter
+      .values
       .map fn (room) {
         match room.state {
-          case Schedule or Open or Default -> {
+          case Schedule or Open or Default or Button(_) -> {
             # When a room is humid the exhaust speed is increased to a high
             # speed. This can result in excessive noise in other rooms. To
             # prevent this from happening we reduce the flow rate of non humid
@@ -405,7 +486,8 @@ class pub Controller {
       total_flow = @config.exhaust.min_flow
     }
 
-    @rooms.iter_mut.each_with_index fn (index, room) {
+    @rooms.iter_mut.each_with_index fn (index, entry) {
+      let room = entry.value
       let flow = room_flows[index]
       let exhaust = if flow >= total_flow {
         EXHAUST_MAX.to_int

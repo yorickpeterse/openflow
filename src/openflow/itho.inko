@@ -1,7 +1,11 @@
 import openflow::http::(Client, Error, Request, Response, retry)
+import std::clone::Clone
+import std::cmp::Equal
+import std::fmt::(Format, Formatter)
 import std::int::ToInt
 import std::json
 import std::process::(sleep)
+import std::string::ToString
 import std::time::Duration
 
 # The path to the API endpoint.
@@ -10,6 +14,93 @@ let PATH = '/api.html'
 # The time after which a request times out, excluding retries.
 let TIMEOUT = 60
 
+# A type describing the status of an RF remote.
+class pub enum RemoteStatus {
+  case Unknown
+  case Low
+  case High
+  case Cook30
+  case Cook60
+  case Timer1
+  case Timer2
+  case Timer3
+
+  fn pub name -> String {
+    match self {
+      case Unknown -> 'unknown'
+      case Low -> 'low'
+      case High -> 'high'
+      case Cook30 -> 'cook30'
+      case Cook60 -> 'cook60'
+      case Timer1 -> 'timer1'
+      case Timer2 -> 'timer2'
+      case Timer3 -> 'timer3'
+    }
+  }
+}
+
+impl Equal for RemoteStatus {
+  fn pub ==(other: ref RemoteStatus) -> Bool {
+    match (self, other) {
+      case (Unknown, Unknown) -> true
+      case (Low, Low) -> true
+      case (High, High) -> true
+      case (Cook30, Cook30) -> true
+      case (Cook60, Cook60) -> true
+      case (Timer1, Timer1) -> true
+      case (Timer2, Timer2) -> true
+      case (Timer3, Timer3) -> true
+      case _ -> false
+    }
+  }
+}
+
+impl ToString for RemoteStatus {
+  fn pub to_string -> String {
+    match self {
+      case Unknown -> 'Unknown'
+      case Low -> 'Low'
+      case High -> 'High'
+      case Cook30 -> 'Cook30'
+      case Cook60 -> 'Cook60'
+      case Timer1 -> 'Timer1'
+      case Timer2 -> 'Timer2'
+      case Timer3 -> 'Timer3'
+    }
+  }
+}
+
+impl Format for RemoteStatus {
+  fn pub fmt(formatter: mut Formatter) {
+    formatter.write(to_string)
+  }
+}
+
+impl Clone for RemoteStatus {
+  fn pub clone -> RemoteStatus {
+    match self {
+      case Unknown -> RemoteStatus.Unknown
+      case Low -> RemoteStatus.Low
+      case High -> RemoteStatus.High
+      case Cook30 -> RemoteStatus.Cook30
+      case Cook60 -> RemoteStatus.Cook60
+      case Timer1 -> RemoteStatus.Timer1
+      case Timer2 -> RemoteStatus.Timer2
+      case Timer3 -> RemoteStatus.Timer3
+    }
+  }
+}
+
+class pub Remote {
+  # The current status of the remote.
+  let pub @status: RemoteStatus
+
+  # The time at which the command was received.
+  let pub @timestamp: Int
+}
+
+# A type containing various statistics reported by the Itho WiFi module, such as
+# the CO2 levels and the humidity.
 class pub Status {
   # The CO2 concentration in the plenum.
   let pub @co2: Int
@@ -127,6 +218,50 @@ class pub Itho {
     }
 
     Status { @co2 = co2, @exhaust_speed = exhaust_speed, @humidity = humidity }
+  }
+
+  fn pub mut remotes !! String -> Map[String, Remote] {
+    let request = Request.get(PATH)
+    let timeout = Duration.from_secs(TIMEOUT)
+
+    request.query('get', 'remotesinfo')
+
+    let resp = try {
+      retry(@retry_wait_time) fn { try execute(request, timeout) }
+    } else (err) {
+      throw err.to_string
+    }
+
+    let body = resp.body.drain_to_string
+    let root = match try json.parse(body) else (e) throw e.to_string {
+      case Object(map) -> map
+      case _ -> throw 'Expected the status to be a JSON object'
+    }
+
+    root.into_iter.reduce(Map.new) fn (map, entry) {
+      let obj = match entry.value {
+        case Object(obj) -> obj
+        case _ -> return map
+      }
+
+      let status = match obj.remove('lastcmd') {
+        case Some(Int(6)) -> RemoteStatus.High
+        case Some(Int(13)) -> RemoteStatus.Cook30
+        case Some(Int(14)) -> RemoteStatus.Cook60
+        case Some(Int(8)) -> RemoteStatus.Timer1
+        case Some(Int(9)) -> RemoteStatus.Timer2
+        case Some(Int(10)) -> RemoteStatus.Timer3
+        case _ -> RemoteStatus.Low
+      }
+
+      let timestamp = match obj.remove('timestamp') {
+        case Some(Int(val)) -> val
+        case _ -> 0
+      }
+
+      map[entry.key] = Remote { @status = status, @timestamp = timestamp }
+      map
+    }
   }
 
   fn mut execute(

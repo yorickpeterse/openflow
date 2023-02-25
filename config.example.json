@@ -1,47 +1,43 @@
 {
-    "rooms": [
-        {
+    "rooms": {
+        "living_room": {
             "exhaust": 99,
             "motion": {
                 "id": 8,
                 "minutes": 5,
                 "time": 900
             },
-            "name": "living_room",
             "ping": ["192.168.1.10"],
             "flow": 50,
             "time": 900
         },
-        {
+        "kitchen": {
             "exhaust": 101,
             "motion": {
                 "id": 11,
                 "minutes": 5,
                 "time": 900
             },
-            "name": "kitchen",
             "flow": 25,
             "time": 900
         },
-        {
+        "toilet": {
             "exhaust": 102,
             "motion": {
                 "id": 2,
                 "minutes": 5,
                 "time": 900
             },
-            "name": "toilet",
             "flow": 10,
             "time": 900
         },
-        {
+        "bedroom": {
             "exhaust": 103,
-            "name": "bedroom",
             "flow": 60,
             "schedule": "night",
             "time": 900
         },
-        {
+        "bathroom": {
             "exhaust": 104,
             "motion": {
                 "id": 5,
@@ -49,12 +45,32 @@
                 "time": 900
             },
             "humidity": "RH bathroom 1 (%)",
-            "name": "bathroom",
             "minimum_flow": 15,
             "flow": 15,
             "time": 900
         }
-    ],
+    },
+    "remote": {
+        "id": "kitchen",
+        "buttons": {
+            "high": {
+                "rooms": ["attic"],
+                "time": 10800
+            },
+            "cook30": {
+                "rooms": ["extractor"],
+                "time": 3600
+            },
+            "cook60": {
+                "rooms": ["extractor"],
+                "time": 7200
+            },
+            "timer1": {
+                "rooms": ["kitchen", "living_room"],
+                "time": 10800
+            }
+        }
+    },
     "humidity": {
         "high": 80,
         "low": 75,

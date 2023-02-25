@@ -1,6 +1,6 @@
 import openflow::http::(Client, Driver, Request, Error, TestDriver, Response)
 import std::io::(Error as IoError)
-import openflow::itho::Itho
+import openflow::itho::(Itho, RemoteStatus)
 import std::test::Tests
 import std::time::(Duration, ToInstant)
 
@@ -28,6 +28,52 @@ impl Driver for ErrorDriver {
 }
 
 fn pub tests(t: mut Tests) {
+  t.test('RemoteStatus.name') fn (t) {
+    t.equal(RemoteStatus.Unknown.name, 'unknown')
+    t.equal(RemoteStatus.Low.name, 'low')
+    t.equal(RemoteStatus.High.name, 'high')
+    t.equal(RemoteStatus.Cook30.name, 'cook30')
+    t.equal(RemoteStatus.Cook60.name, 'cook60')
+    t.equal(RemoteStatus.Timer1.name, 'timer1')
+    t.equal(RemoteStatus.Timer2.name, 'timer2')
+    t.equal(RemoteStatus.Timer3.name, 'timer3')
+  }
+
+  t.test('RemoteStatus.==') fn (t) {
+    t.equal(RemoteStatus.Unknown, RemoteStatus.Unknown)
+    t.equal(RemoteStatus.Low, RemoteStatus.Low)
+    t.equal(RemoteStatus.High, RemoteStatus.High)
+    t.equal(RemoteStatus.Cook30, RemoteStatus.Cook30)
+    t.equal(RemoteStatus.Cook60, RemoteStatus.Cook60)
+    t.equal(RemoteStatus.Timer1, RemoteStatus.Timer1)
+    t.equal(RemoteStatus.Timer2, RemoteStatus.Timer2)
+    t.equal(RemoteStatus.Timer3, RemoteStatus.Timer3)
+    t.not_equal(RemoteStatus.Low, RemoteStatus.High)
+  }
+
+  t.test('RemoteStatus.to_string') fn (t) {
+    t.equal(RemoteStatus.Unknown.to_string, 'Unknown')
+    t.equal(RemoteStatus.Low.to_string, 'Low')
+    t.equal(RemoteStatus.High.to_string, 'High')
+    t.equal(RemoteStatus.Cook30.to_string, 'Cook30')
+    t.equal(RemoteStatus.Cook60.to_string, 'Cook60')
+    t.equal(RemoteStatus.Timer1.to_string, 'Timer1')
+    t.equal(RemoteStatus.Timer2.to_string, 'Timer2')
+    t.equal(RemoteStatus.Timer3.to_string, 'Timer3')
+  }
+
+  t.test('RemoteStatus.clone') fn (t) {
+    t.equal(RemoteStatus.Unknown.clone, RemoteStatus.Unknown)
+    t.equal(RemoteStatus.Low.clone, RemoteStatus.Low)
+    t.equal(RemoteStatus.High.clone, RemoteStatus.High)
+    t.equal(RemoteStatus.Cook30.clone, RemoteStatus.Cook30)
+    t.equal(RemoteStatus.Cook60.clone, RemoteStatus.Cook60)
+    t.equal(RemoteStatus.Timer1.clone, RemoteStatus.Timer1)
+    t.equal(RemoteStatus.Timer2.clone, RemoteStatus.Timer2)
+    t.equal(RemoteStatus.Timer3.clone, RemoteStatus.Timer3)
+    t.not_equal(RemoteStatus.Low.clone, RemoteStatus.High)
+  }
+
   t.test('Itho.set') fn (t) {
     let driver = TestDriver.new
 
@@ -213,5 +259,50 @@ fn pub tests(t: mut Tests) {
     itho.retry_wait_time = Duration.from_secs(0)
 
     t.equal(try! { itho.status }.co2, 500)
+  }
+
+  t.test('Itho.remotes with a valid response') fn (t) {
+    let driver = TestDriver.new
+
+    driver.request(
+      matches: fn (req) { req.queries.get('get').some? },
+      then: fn (_) {
+        Response.ok(
+          '{
+            "kitchen": {
+              "lastcmd": 13,
+              "lastcmdmsg": "IthoCook30",
+              "timestamp": 42
+            }
+          }'
+            .to_byte_array
+        )
+      }
+    )
+
+    let client = Client.with_driver(driver)
+    let itho = Itho.new(client)
+    let remotes = try! itho.remotes
+    let remote = remotes['kitchen']
+
+    t.true(match remote.status { case Cook30 -> true, case _ -> false })
+    t.equal(remote.timestamp, 42)
+  }
+
+  t.test('Itho.remotes with a network timeout') fn (t) {
+    let driver = ErrorDriver
+      .new('{"kitchen": { "lastcmd": 13, "timestamp": 42 }}') fn {
+        throw Error.Network(IoError.TimedOut)
+      }
+    let client = Client.with_driver(driver)
+    let itho = Itho.new(client)
+
+    itho.retry_wait_time = Duration.from_secs(0)
+
+    let remotes = try! itho.remotes
+    let remote = remotes['kitchen']
+
+    t.true(match remote.status { case Cook30 -> true, case _ -> false })
+    t.equal(remote.timestamp, 42)
   }
 }

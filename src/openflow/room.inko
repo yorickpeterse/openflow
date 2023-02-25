@@ -1,4 +1,5 @@
 import openflow::config::(Room as Config)
+import std::clone::Clone
 import std::cmp::Equal
 import std::fmt::(Format, Formatter)
 import std::time::(DateTime, Duration, Instant)
@@ -28,6 +29,11 @@ class pub enum State {
   # The room is ventilated because no other rooms need ventilation.
   case Default
 
+  # The room is ventilated in response to an RF remote button.
+  #
+  # The wrapped value is the state to revert to when the timer expires.
+  case Button(State)
+
   # A motion sensor detected movement, and we may need to ventilate the room if
   # motion continues.
   #
@@ -54,6 +60,7 @@ impl Equal for State {
       case (Minimum, Minimum) -> true
       case (Default, Default) -> true
       case (Motion(l1, l2), Motion(r1, r2)) -> l1 == r1 and l2 == r2
+      case (Button(a), Button(b)) -> a == b
       case _ -> false
     }
   }
@@ -70,6 +77,27 @@ impl Format for State {
       case Minimum -> formatter.write('Minimum')
       case Default -> formatter.write('Default')
       case Motion(a, b) -> formatter.write("Motion({a}, {b})")
+      case Button(state) -> {
+        formatter.write('Button(')
+        state.fmt(formatter)
+        formatter.write(')')
+      }
+    }
+  }
+}
+
+impl Clone for State {
+  fn pub clone -> State {
+    match self {
+      case Closed -> State.Closed
+      case Schedule -> State.Schedule
+      case MaybeHumid -> State.MaybeHumid
+      case Humid -> State.Humid
+      case Open -> State.Open
+      case Minimum -> State.Minimum
+      case Default -> State.Default
+      case Motion(a, b) -> State.Motion(a, b)
+      case Button(old) -> State.Button(old.clone)
     }
   }
 }
@@ -135,5 +163,9 @@ class pub Room {
       if @config.minimum_flow > 0 { State.Minimum } else { State.Closed }
 
     update(new_state)
+  }
+
+  fn pub mut reset_button {
+    match @state { case Button(old) -> update(old.clone), case _ -> {} }
   }
 }

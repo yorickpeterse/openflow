@@ -53,6 +53,11 @@ for a long time, and in general being more reliable and efficient.
 - Inko `master`, as we use some changes not yet released
 - A bunch of Philips Hue motion sensors, connected to a Philips Hue bridge
 
+If your Itho WiFi add-on has a CC1101 module attached, you can also use the
+official Itho Daalderop RF remotes to control ventilation in rooms. This
+requires that you set it up per the add-on's documentation, then add it to your
+`config.json`; see `config.example.json` for an example.
+
 # Installation
 
 Assuming the WiFi module is set up, you'll need to determine what the setting
