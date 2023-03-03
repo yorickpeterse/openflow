@@ -203,6 +203,7 @@ class pub Controller {
           if room.stale?(@config.humidity.high_time) {
             logger.info("The humidity in {room.config.name} is too high")
             room.update(State.Humid)
+            room.humid_at = Instant.new
           }
         }
         case _ -> room.update(State.MaybeHumid)
@@ -222,9 +223,25 @@ class pub Controller {
     } else if humidity <= @config.humidity.low {
       match room.state {
         case MaybeHumid -> room.close
-        case Humid if room.stale?(@config.humidity.low_time) -> {
-          logger.info("The humidity in {room.config.name} OK again")
-          room.update(State.Open)
+        case Humid -> {
+          # This ensures we ventilate for at least X minutes, then for an
+          # additional Y minutes after going below the low threshold. This
+          # approach is taken based on an observation of my own bathroom: when
+          # starting a shower the humidity increases, then drops when the
+          # ventilation is increased, after which it gradually climbs back up.
+          # This drop and the climb back up to around 70-75% humidity takes
+          # 15-20 minutes.
+          #
+          # The minimum time requirement ensures we don't stop ventilation
+          # during that gap, while the low time ensures we don't keep
+          # ventilating too long after reaching the low threshold, but also
+          # don't stop right away as that may lead to humidity increasing again.
+          if room.humid_at.elapsed >= @config.humidity.min_time
+            and room.stale?(@config.humidity.low_time)
+          {
+            logger.info("The humidity in {room.config.name} OK again")
+            room.update(State.Open)
+          }
         }
         case _ -> {}
       }

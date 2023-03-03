@@ -271,6 +271,9 @@ class pub Humidity {
   # considered dry enough.
   let pub @low: Int
 
+  # The minimum amount of time a humid room should be ventilated for.
+  let pub @min_time: Duration
+
   # The amount of time to wait after the high threshold is exceeded, before
   # ventilating a room.
   let pub @high_time: Duration
@@ -285,6 +288,7 @@ class pub Humidity {
   fn pub static from_json(value: Map[String, Json]) !! String -> Humidity {
     let high = try int(value, 'high')
     let low = try int(value, 'low')
+    let min_time = Duration.from_secs(try int(value, 'min_time'))
     let low_time = Duration.from_secs(try int(value, 'low_time'))
     let high_time = Duration.from_secs(try int(value, 'high_time'))
     let flow = try int(value, 'flow')
@@ -292,6 +296,7 @@ class pub Humidity {
     Humidity {
       @high = high,
       @low = low,
+      @min_time = min_time,
       @low_time = low_time,
       @high_time = high_time,
       @flow = flow,

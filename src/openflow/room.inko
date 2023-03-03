@@ -116,6 +116,12 @@ class pub Room {
   # The timestamp of the last button press, if any.
   let pub @last_button_press: Option[DateTime]
 
+  # The timestamp at which the room was marked as humid
+  #
+  # This value is only relevant if the state is `Humid`, otherwise it may be an
+  # outdated value.
+  let pub @humid_at: Instant
+
   # The total number of motion events detected.
   let pub @motion_events: Int
 
@@ -126,15 +132,17 @@ class pub Room {
   let pub @exhaust: Int
 
   fn pub static new(config: ref Config) -> Room {
+    let now = Instant.new
     let state =
       if config.minimum_flow > 0 { State.Minimum } else { State.Closed }
 
     Room {
       @config = config,
       @state = state,
-      @last_update = Instant.new,
+      @last_update = now.clone,
       @exhaust = 0,
       @last_button_press = Option.None,
+      @humid_at = now,
       @motion_events = 0,
     }
   }

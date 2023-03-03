@@ -75,8 +75,9 @@
         "high": 80,
         "low": 75,
         "high_time": 60,
-        "low_time": 900,
-        "flow": 200
+        "low_time": 600,
+        "min_time": 1800,
+        "flow": 250
     },
     "exhaust": {
         "manual_setting": 111,

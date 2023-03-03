@@ -137,6 +137,7 @@ fn config -> Config {
       @low = 70,
       @low_time = Duration.from_secs(1),
       @high_time = Duration.from_secs(1),
+      @min_time = Duration.from_secs(1),
       @flow = 150,
     },
     @exhaust = Exhaust {
@@ -399,6 +400,7 @@ fn pub tests(t: mut Tests) {
     let conf = config
 
     conf.humidity.low_time = Duration.from_secs(0)
+    conf.humidity.min_time = Duration.from_secs(0)
 
     let itho = itho(co2: 700, humidity: 65)
     let updates = track_settings(itho)
@@ -412,6 +414,25 @@ fn pub tests(t: mut Tests) {
     t.equal(room.state, State.Open)
     t.equal(room.exhaust, 2778)
     t.true(updates.contains?((room.config.exhaust, room.exhaust)))
+  }
+
+  t.test('A room that has dried up but needs more ventilation time') fn (t) {
+    let conf = config
+
+    conf.humidity.low_time = Duration.from_secs(0)
+    conf.humidity.min_time = Duration.from_secs(10)
+
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let room = ctl.rooms['bathroom']
+
+    room.state = State.Humid
+    room.exhaust = 5000
+    ctl.iteration
+
+    t.equal(room.state, State.Humid)
+    t.equal(room.exhaust, 5000)
   }
 
   t.test('A room with increasing humidity after not enough time has passed') fn (t) {
