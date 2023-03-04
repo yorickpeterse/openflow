@@ -58,7 +58,7 @@ fn ip(object: mut Map[String, Json], key: String) !! String -> uni IpAddress {
 
 # Configuration details for a fixed ventilation schedule.
 class pub enum Schedule {
-  # Ventilation should be enabled between 23:00 and 11:00.
+  # Ventilation should be enabled at night.
   #
   # This schedule is meant for bedrooms that are used at night, as these pretty
   # much always need ventilation when in use.
@@ -73,7 +73,7 @@ class pub enum Schedule {
   # Returns `true` if the schedule is/should be active.
   fn pub active?(time: ref DateTime) -> Bool {
     match self {
-      case Night -> time.hour == 23 or time.hour < 11
+      case Night -> time.hour < 11
       case Morning -> time.hour == 6
     }
   }
