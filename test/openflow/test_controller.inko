@@ -12,6 +12,7 @@ import openflow::room::State
 import std::io::Write
 import std::json::Json
 import std::net::ip::IpAddress
+import std::set::Set
 import std::test::Tests
 import std::time::(DateTime, Duration, Instant)
 
@@ -153,6 +154,12 @@ fn config -> Config {
     @hue_user = 'foo',
     @co2 = Co2 {
       @target = 700,
+      @rooms = ['living_room', 'bedroom', 'bathroom']
+        .into_iter
+        .reduce(Set.new) fn (set, val) {
+          set.insert(val)
+          set
+        }
       @sample_time = Duration.from_secs(900),
     },
     @metrics = Metrics {
@@ -699,11 +706,20 @@ fn pub tests(t: mut Tests) {
     let itho = itho(co2: 1200, humidity: 65)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(23))
-    let room = ctl.rooms['bedroom']
+    let bedroom = ctl.rooms['bedroom']
+    let office = ctl.rooms['office']
 
+    office.update(State.Open)
     ctl.iteration
 
-    t.equal(updates, [(room.config.exhaust, room.exhaust), (SPEED, 32)])
+    t.equal(
+      updates,
+      [
+        (bedroom.config.exhaust, 4400),
+        (office.config.exhaust, 600),
+        (SPEED, 36)
+      ]
+    )
   }
 
   t.test('No extra flow is added when a room is humid') fn (t) {

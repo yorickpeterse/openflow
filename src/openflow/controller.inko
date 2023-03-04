@@ -483,8 +483,13 @@ class pub Controller {
             # While this results in reduced ventilation in said rooms, in
             # practise this only is the case for 30-45 minutes, so it shouldn't
             # pose any problems.
-            extra_flow
-              + if humid { room.config.flow / 2 } else { room.config.flow }
+            if humid {
+              room.config.flow / 2
+            } else if @config.co2.rooms.contains?(room.config.name) {
+              room.config.flow + extra_flow
+            } else {
+              room.config.flow
+            }
           }
           case Motion(_, _) if room.config.minimum_flow > 0 -> {
             room.config.minimum_flow

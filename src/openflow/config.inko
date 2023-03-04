@@ -2,6 +2,7 @@ import std::fs::file::ReadOnlyFile
 import std::fs::path::IntoPath
 import std::json::(self, Json)
 import std::net::ip::IpAddress
+import std::set::Set
 import std::time::(DateTime, Duration)
 
 let LOWER_A = 97
@@ -342,12 +343,23 @@ class pub Co2 {
   # The target/desired CO2 concentration.
   let pub @target: Int
 
+  # The rooms to ventilate accordint to the CO2 levels.
+  let pub @rooms: Set[String]
+
   # The amount of time to gather samples before calculating a new CO2 estimate.
   let pub @sample_time: Duration
 
   fn pub static from_json(value: Map[String, Json]) !! String -> Co2 {
+    let rooms = try { array(value, 'rooms') }
+      .into_iter
+      .reduce(Set.new) fn (set, val) {
+        match val { case String(val) -> set.insert(val), case _ -> false }
+        set
+      }
+
     Co2 {
       @target = try int(value, 'target'),
+      @rooms = rooms,
       @sample_time = Duration.from_secs(try int(value, 'sample_time')),
     }
   }
