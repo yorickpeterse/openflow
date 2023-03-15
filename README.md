@@ -93,7 +93,7 @@ To make this process easier, a Docker/Podman container is provided. You can use
 it as follows (I'm using `podman` here, but `docker` should also work):
 
 ```bash
-podman pull registry.gitlab.com/yorickpeterse/openflow/openflow:main
+podman pull ghcr.io/yorickpeterse/openflow:main
 podman run \
     --memory 64m \
     --rm \

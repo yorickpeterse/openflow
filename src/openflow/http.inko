@@ -459,7 +459,7 @@ impl Driver for DefaultDriver {
     # This is a hack to ensure we drop the guard before the socket (due to it
     # being moved in a `Read`).
     #
-    # Tracking issue: https://gitlab.com/inko-lang/inko/-/issues/304
+    # Tracking issue: https://github.com/inko-lang/inko/issues/359
     let guard = guard
 
     try ResponseParser.new(reader).parse

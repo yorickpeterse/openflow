@@ -2,7 +2,7 @@ FROM alpine:3 AS builder
 
 # Build Inko from source.
 RUN apk add --update make libffi libffi-dev rust cargo build-base git
-RUN git clone https://gitlab.com/inko-lang/inko.git /inko
+RUN git clone https://github.com/inko-lang/inko.git /inko
 WORKDIR /inko
 
 # For some reason the Makefile produces permission denied errors. This has
