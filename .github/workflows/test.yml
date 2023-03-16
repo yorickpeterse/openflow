@@ -45,21 +45,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/inko-lang/containers:alpine
+      image: ghcr.io/inko-lang/inko:main
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Rust information
-        run: |
-          rustc --version
-          cargo --version
-
-      - name: Install Inko
-        run: bash scripts/install_inko.sh
-
-      - name: Inko information
-        run: inko/target/release/inko --version
-
-      - name: Run tests
-        run: inko/target/release/inko test
+      - uses: actions/checkout@v3
+      - run: inko --version
+      - run: inko test
