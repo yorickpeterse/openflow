@@ -472,7 +472,7 @@ class pub Controller {
     let room_flows = @rooms
       .values
       .map fn (room) {
-        match room.state {
+        let base = match room.state {
           case Schedule or Open or Default or Button(_) -> {
             # When a room is humid the exhaust speed is increased to a high
             # speed. This can result in excessive noise in other rooms. To
@@ -497,6 +497,8 @@ class pub Controller {
           case Humid -> @config.humidity.flow
           case _ -> room.config.minimum_flow
         }
+
+        (base.to_float * room.config.flow_correction).ceil.to_int
       }
       .to_array
 

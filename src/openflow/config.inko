@@ -30,6 +30,13 @@ fn object(
   }
 }
 
+fn float(object: mut Map[String, Json], key: String) !! String -> Float {
+  match object.remove(key) {
+    case Some(Float(v)) -> v
+    case _ -> throw "The '{key}' value must be an float"
+  }
+}
+
 fn int(object: mut Map[String, Json], key: String) !! String -> Int {
   match object.remove(key) {
     case Some(Int(v)) -> v
@@ -130,6 +137,26 @@ class pub Room {
   # The desired flow rate in m3/hour.
   let pub @flow: Int
 
+  # The value to multiply the flow by to obtain the true air flow.
+  #
+  # Given a configured air flow of X m3/h, the actual air flow may end up lower
+  # due to the distance from the exhaust to the ventilation system, the amount
+  # of corners the duct has to take, the material of the duct, etc.
+  #
+  # This value is multiplied with the flow to correct for such variables.
+  # Obtaining these values is done as follows:
+  #
+  # 1. Set the ventilation system to a fixed exhaust speed.
+  # 2. Close all exhausts, except the one you want to measure.
+  # 3. Using an anemometer, measure the amount of air flowing through the
+  #    exhaust (in m3/h).
+  # 4. Do this for all the exhausts.
+  # 5. Take the maximum value across the exhausts, then for each exhaust/room
+  #    derive this value using the formula `1 + (1 - (flow / max))`, then round
+  #    it up slightly (e.g. to the nearest multiple of 0.05) to account for
+  #    measurement errors.
+  let pub @flow_correction: Float
+
   # The amount of time to ventilate the room for.
   let pub @ventilation_time: Duration
 
@@ -197,6 +224,7 @@ class pub Room {
     }
 
     let ventilation_time = Duration.from_secs(try int(value, 'time') else 0)
+    let flow_correction = try float(value, 'flow_correction') else 1.0
 
     Room {
       @name = name,
@@ -209,6 +237,7 @@ class pub Room {
       @minimum_flow = min_flow,
       @flow = flow,
       @ventilation_time = ventilation_time,
+      @flow_correction = flow_correction,
     }
   }
 }

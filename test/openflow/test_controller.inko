@@ -80,6 +80,7 @@ fn config -> Config {
         @ping = [],
         @minimum_flow = 0,
         @flow = 15,
+        @flow_correction = 1.0,
         @ventilation_time = Duration.from_secs(10),
       },
       Room {
@@ -92,6 +93,7 @@ fn config -> Config {
         @ping = [],
         @minimum_flow = 0,
         @flow = 60,
+        @flow_correction = 1.0,
         @ventilation_time = Duration.from_secs(10),
       },
       Room {
@@ -108,6 +110,7 @@ fn config -> Config {
         @ping = [],
         @minimum_flow = 0,
         @flow = 50,
+        @flow_correction = 1.0,
         @ventilation_time = Duration.from_secs(10),
       },
       Room {
@@ -124,6 +127,7 @@ fn config -> Config {
         @ping = [],
         @minimum_flow = 0,
         @flow = 15,
+        @flow_correction = 1.1,
         @ventilation_time = Duration.from_secs(10),
       },
     ]
@@ -715,9 +719,9 @@ fn pub tests(t: mut Tests) {
     t.equal(
       updates,
       [
-        (bedroom.config.exhaust, 4500),
-        (office.config.exhaust, 500),
-        (SPEED, 43)
+        (bedroom.config.exhaust, 4441),
+        (office.config.exhaust, 560),
+        (SPEED, 44)
       ]
     )
   }
@@ -816,11 +820,11 @@ fn pub tests(t: mut Tests) {
     let room = ctl.rooms['office']
 
     room.state = State.Default
-    room.exhaust = 834
+    room.exhaust = 945
     ctl.iteration
 
     t.equal(room.state, State.Open)
-    t.equal(room.exhaust, 834)
+    t.equal(room.exhaust, 945)
   }
 
   t.test('Handling a room with a motion time equal to the ventilation time') fn (t) {
