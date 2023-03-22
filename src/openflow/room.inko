@@ -113,9 +113,6 @@ class pub Room {
   # The last time the state of this room was updated.
   let pub @last_update: Instant
 
-  # The timestamp of the last button press, if any.
-  let pub @last_button_press: Option[DateTime]
-
   # The timestamp at which the room was marked as humid
   #
   # This value is only relevant if the state is `Humid`, otherwise it may be an
@@ -141,7 +138,6 @@ class pub Room {
       @state = state,
       @last_update = now.clone,
       @exhaust = 0,
-      @last_button_press = Option.None,
       @humid_at = now,
       @motion_events = 0,
     }
