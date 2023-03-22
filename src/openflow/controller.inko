@@ -12,7 +12,7 @@ import std::time::(DateTime, Duration, Instant)
 
 # The maximum value an exhaust setting can be set to to control how much it's
 # opened.
-let EXHAUST_MAX = 5000.0
+let EXHAUST_MAX = 4000.0
 
 # The flow rate (in m3/hour) to add to every room to compensate for higher CO2
 # levels.
