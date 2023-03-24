@@ -273,14 +273,7 @@ class pub Controller {
       }
     } else if humidity > @config.humidity.low {
       match room.state {
-        case Closed or Minimum -> {
-          if room.stale?(@config.humidity.low_time) {
-            logger.info("The humidity in {room.config.name} is increasing")
-            room.update(RoomState.Open)
-          }
-        }
-        case MaybeHumid -> room.close
-        case Open or Humid -> room.update_time
+        case Humid -> room.update_time
         case _ -> {}
       }
     } else if humidity <= @config.humidity.low {
