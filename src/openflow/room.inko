@@ -1,7 +1,9 @@
+import openflow::co2::Co2
 import openflow::config::(Room as Config)
 import std::clone::Clone
 import std::cmp::Equal
-import std::fmt::(Format, Formatter)
+import std::fmt::(DefaultFormatter, Format, Formatter)
+import std::string::ToString
 import std::time::(DateTime, Duration, Instant)
 
 # The state of a ventilation exhaust.
@@ -41,11 +43,25 @@ class pub enum State {
   # is the total number of minutes in which motion is detected.
   case Motion(Int, Int)
 
+  # The room's CO2 levels are being measured.
+  #
+  # The wrapped value is the state to transition back to after sampling.
+  case Co2(State)
+
+  fn pub closed? -> Bool {
+    match self { case Closed -> true, case _ -> false }
+  }
+
   fn pub schedule? -> Bool {
-    match self {
-      case Schedule -> true
-      case _ -> false
-    }
+    match self { case Schedule -> true, case _ -> false }
+  }
+
+  fn pub humid? -> Bool {
+    match self { case Humid -> true, case _ -> false }
+  }
+
+  fn pub co2? -> Bool {
+    match self { case Co2(_) -> true, case _ -> false }
   }
 }
 
@@ -61,6 +77,7 @@ impl Equal for State {
       case (Default, Default) -> true
       case (Motion(l1, l2), Motion(r1, r2)) -> l1 == r1 and l2 == r2
       case (Button(a), Button(b)) -> a == b
+      case (Co2(a), Co2(b)) -> a == b
       case _ -> false
     }
   }
@@ -82,7 +99,21 @@ impl Format for State {
         state.fmt(formatter)
         formatter.write(')')
       }
+      case Co2(state) -> {
+        formatter.write('Co2(')
+        state.fmt(formatter)
+        formatter.write(')')
+      }
     }
+  }
+}
+
+impl ToString for State {
+  fn pub to_string -> String {
+    let formatter: Formatter = DefaultFormatter.new
+
+    fmt(formatter)
+    formatter.into_string
   }
 }
 
@@ -98,6 +129,7 @@ impl Clone for State {
       case Default -> State.Default
       case Motion(a, b) -> State.Motion(a, b)
       case Button(old) -> State.Button(old.clone)
+      case Co2(old) -> State.Co2(old.clone)
     }
   }
 }
@@ -106,6 +138,9 @@ impl Clone for State {
 class pub Room {
   # The configuration settings for this room.
   let pub @config: ref Config
+
+  # The CO2 concentration of this room.
+  let pub @co2: Co2
 
   # The current state of the exhaust.
   let pub @state: State
@@ -134,6 +169,7 @@ class pub Room {
       if config.minimum_flow > 0 { State.Minimum } else { State.Closed }
 
     Room {
+      @co2 = Co2.new,
       @config = config,
       @state = state,
       @last_update = now.clone,

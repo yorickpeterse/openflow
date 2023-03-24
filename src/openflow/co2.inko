@@ -9,6 +9,9 @@ let LOW = 500
 # the last bucket.
 let HIGH = 1200
 
+# The size/ppm per bucket.
+let SIZE = 100
+
 # The number of buckets to use for the CO2 histogram.
 #
 # CO2 levels are divided into the following buckets:
@@ -33,22 +36,13 @@ class pub Co2 {
   # reported.
   let @histogram: Histogram
 
-  # The last time the histogram's values were reset.
-  let @last_update: Instant
-
   # The current estimated CO2 level in parts-per-million (ppm).
   let @value: Int
 
-  # The amount of time in between updates to the calculated CO2 value.
-  let @interval: Duration
-
-  # Returns a new `Co2` that updates the value at the given interval.
-  fn pub static new(interval: Duration) -> Co2 {
+  fn pub static new -> Co2 {
     Co2 {
       @histogram = Histogram.new(BUCKETS),
-      @last_update = Instant.new,
       @value = 0,
-      @interval = interval,
     }
   }
 
@@ -59,10 +53,7 @@ class pub Co2 {
 
   # Updates the CO2 estimate if necessary.
   fn pub mut update -> Bool {
-    if @last_update.elapsed < @interval and @value > 0 { return false }
-
     @value = LOW + (@histogram.largest * 100)
-    @last_update = Instant.new
     @histogram.reset
     true
   }
@@ -72,7 +63,11 @@ class pub Co2 {
     let bucket = if co2 <= LOW {
       0
     } else if co2 <= HIGH {
-      co2 - LOW / 100
+      # Values such as 740 are rounded down to 700, while values such as 760 are
+      # rounded up to 800. This ensures CO2 values are assigned to more accurate
+      # buckets, instead of always being assigned to the lower bucket (as
+      # integer division rounds down).
+      (co2 - LOW) + (SIZE - 1 / 2) / SIZE
     } else {
       MAX_BUCKET
     }

@@ -82,6 +82,7 @@ fn config -> Config {
         @flow = 15,
         @flow_correction = 1.0,
         @ventilation_time = Duration.from_secs(10),
+        @co2 = true,
       },
       Room {
         @name = 'bedroom',
@@ -95,6 +96,7 @@ fn config -> Config {
         @flow = 60,
         @flow_correction = 1.0,
         @ventilation_time = Duration.from_secs(10),
+        @co2 = true,
       },
       Room {
         @name = 'bathroom',
@@ -112,6 +114,7 @@ fn config -> Config {
         @flow = 50,
         @flow_correction = 1.0,
         @ventilation_time = Duration.from_secs(10),
+        @co2 = true,
       },
       Room {
         @name = 'office',
@@ -129,6 +132,7 @@ fn config -> Config {
         @flow = 15,
         @flow_correction = 1.1,
         @ventilation_time = Duration.from_secs(10),
+        @co2 = false,
       },
     ]
       .into_iter
@@ -158,18 +162,15 @@ fn config -> Config {
     @hue_user = 'foo',
     @co2 = Co2 {
       @target = 700,
-      @rooms = ['living_room', 'bedroom', 'bathroom']
-        .into_iter
-        .reduce(Set.new) fn (set, val) {
-          set.insert(val)
-          set
-        }
+      @metrics_interval = Duration.from_secs(60),
+      @sample_interval = Duration.from_secs(1800),
       @sample_time = Duration.from_secs(900),
+      @increase = 10
     },
     @metrics = Metrics {
       @ip = IpAddress.v4(0, 0, 0, 0),
       @port = 8089
-    }
+    },
   }
 }
 
@@ -702,10 +703,12 @@ fn pub tests(t: mut Tests) {
     t.equal(updates, [(room.config.exhaust, room.exhaust), (SPEED, 26)])
   }
 
-  t.test('Increasing the flow when CO2 levels are high') fn (t) {
+  t.test('Adjusting ventilation based on the CO2 levels') fn (t) {
     let conf = config
 
     conf.co2.sample_time = Duration.from_secs(0)
+    conf.co2.sample_interval = Duration.from_secs(0)
+    conf.exhaust.reduce_wait_time = Duration.from_secs(0)
 
     let itho = itho(co2: 1200, humidity: 65)
     let updates = track_settings(itho)
@@ -713,15 +716,38 @@ fn pub tests(t: mut Tests) {
     let bedroom = ctl.rooms['bedroom']
     let office = ctl.rooms['office']
 
+    bedroom.update(State.Open)
     office.update(State.Open)
-    ctl.iteration
+
+    ctl.iteration # This iteration schedules the rooms
 
     t.equal(
       updates,
       [
-        (bedroom.config.exhaust, 3553),
-        (office.config.exhaust, 448),
-        (SPEED, 44)
+        (bedroom.config.exhaust, 2667)
+        (office.config.exhaust, 756),
+        (SPEED, 26)
+      ]
+    )
+
+    updates.clear
+    ctl.iteration # This iteration processes the first room
+
+    t.true(match bedroom.state { case Co2(Open) -> true, case _ -> false })
+    t.equal(updates, [(office.config.exhaust, 0)])
+
+    updates.clear
+    ctl.iteration # This iteration applies the CO2 changes
+
+    t.equal(bedroom.state, State.Open)
+    t.equal(bedroom.co2.value, 1200)
+    t.equal(office.co2.value, 0)
+    t.equal(
+      updates,
+      [
+        (bedroom.config.exhaust, 3365),
+        (office.config.exhaust, 636),
+        (SPEED, 31)
       ]
     )
   }

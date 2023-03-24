@@ -2,7 +2,6 @@ import std::fs::file::ReadOnlyFile
 import std::fs::path::IntoPath
 import std::json::(self, Json)
 import std::net::ip::IpAddress
-import std::set::Set
 import std::time::(DateTime, Duration)
 
 let LOWER_A = 97
@@ -41,6 +40,13 @@ fn int(object: mut Map[String, Json], key: String) !! String -> Int {
   match object.remove(key) {
     case Some(Int(v)) -> v
     case _ -> throw "The '{key}' value must be an integer"
+  }
+}
+
+fn bool(object: mut Map[String, Json], key: String) !! String -> Bool {
+  match object.remove(key) {
+    case Some(Bool(v)) -> v
+    case _ -> throw "The '{key}' value must be a boolean"
   }
 }
 
@@ -160,6 +166,9 @@ class pub Room {
   # The amount of time to ventilate the room for.
   let pub @ventilation_time: Duration
 
+  # If the air flow should be adjusted in response to the CO2 levels.
+  let pub @co2: Bool
+
   fn pub static from_json(
     name: String,
     value: Map[String, Json]
@@ -225,6 +234,7 @@ class pub Room {
 
     let ventilation_time = Duration.from_secs(try int(value, 'time') else 0)
     let flow_correction = try float(value, 'flow_correction') else 1.0
+    let co2 = try bool(value, 'co2') else false
 
     Room {
       @name = name,
@@ -238,6 +248,7 @@ class pub Room {
       @flow = flow,
       @ventilation_time = ventilation_time,
       @flow_correction = flow_correction,
+      @co2 = co2,
     }
   }
 }
@@ -372,24 +383,39 @@ class pub Co2 {
   # The target/desired CO2 concentration.
   let pub @target: Int
 
-  # The rooms to ventilate accordint to the CO2 levels.
-  let pub @rooms: Set[String]
+  # The interval at which to send metrics.
+  let pub @metrics_interval: Duration
+
+  # The interval at which to sample the CO2 levels
+  let pub @sample_interval: Duration
 
   # The amount of time to gather samples before calculating a new CO2 estimate.
   let pub @sample_time: Duration
 
+  # The percentage to increase ventilation speeds by when CO2 levels are too
+  # high.
+  #
+  # If CO2 levels are above the target value, then for every increment above the
+  # target we add this percentage to the base speed of a room. So if the base
+  # speed is 40 m3/, we're 3 increments above the target, and this value is set
+  # to 20%, then we add 60% resulting in a speed of 64 m3/h.
+  #
+  # This results in a linear increase of speed relative to the CO2 levels.
+  let pub @increase: Int
+
   fn pub static from_json(value: Map[String, Json]) !! String -> Co2 {
-    let rooms = try { array(value, 'rooms') }
-      .into_iter
-      .reduce(Set.new) fn (set, val) {
-        match val { case String(val) -> set.insert(val), case _ -> false }
-        set
-      }
+    let increase = try int(value, 'increase')
+
+    if increase < 0 or increase > 100 {
+      throw 'The CO2 increase must be between 0 and 100'
+    }
 
     Co2 {
       @target = try int(value, 'target'),
-      @rooms = rooms,
+      @metrics_interval = Duration.from_secs(try int(value, 'metrics_interval')),
+      @sample_interval = Duration.from_secs(try int(value, 'sample_interval')),
       @sample_time = Duration.from_secs(try int(value, 'sample_time')),
+      @increase = increase,
     }
   }
 }

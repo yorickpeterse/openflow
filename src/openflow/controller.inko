@@ -6,17 +6,15 @@ import openflow::itho::(Itho, RemoteStatus, Status)
 import openflow::logger::Logger
 import openflow::metrics::(Metric, Metrics)
 import openflow::net::(online?)
-import openflow::room::(Room, State)
+import openflow::room::(Room, State as RoomState)
+import std::cmp::(min, max)
 import std::process::(sleep)
+import std::string::ToString
 import std::time::(DateTime, Duration, Instant)
 
 # The maximum value an exhaust setting can be set to to control how much it's
 # opened.
 let EXHAUST_MAX = 4000.0
-
-# The flow rate (in m3/hour) to add to every room to compensate for higher CO2
-# levels.
-let CO2_ADD_FLOW = 15
 
 # The amount of ppm for a single CO2 flow increment.
 #
@@ -42,18 +40,49 @@ class pub Remote {
       @deadline = Instant.new,
     }
   }
+
+  fn active? -> Bool {
+    match @status { case Low -> false, case _ -> true }
+  }
+}
+
+# The internal state of a Controller.
+#
+# This type is used for a few states that can't be active at the same time. For
+# example, we don't allow sampling of CO2 levels while there are humid rooms.
+class enum State {
+  # The default state of the controller.
+  case Default
+
+  # One or more rooms are humid.
+  case Humid
+
+  # We're sampling the CO2 levels of a room.
+  case Co2
+
+  fn humid? -> Bool {
+    match self { case Humid -> true, case _ -> false }
+  }
+
+  fn co2? -> Bool {
+    match self { case Co2 -> true, case _ -> false }
+  }
+}
+
+impl ToString for State {
+  fn pub to_string -> String {
+    match self {
+      case Default -> 'Default'
+      case Humid -> 'Humid'
+      case Co2 -> 'Co2'
+    }
+  }
 }
 
 # A type responsible with controlling the ventilation system, monitoring
 # sensors, etc.
 class pub Controller {
-  # The rooms to monitor along with their state and configuration settings.
-  #
-  # This field must come first so it's dropped before the `Config` field, as
-  # each `Room` contains a reference to a `openflow::config::Room`.
-  #
-  # This field is public so we can access the room states in our tests.
-  let pub @rooms: Map[String, Room]
+  let @state: State
 
   # The last known speed of the exhaust fan.
   #
@@ -65,14 +94,44 @@ class pub Controller {
   # The last time the exhaust speed was updated.
   let @last_exhaust_update: Instant
 
+  # The last time we finished sampling rooms for their CO2 levels.
+  let @last_co2_update: Instant
+
+  # The last time we logged CO2 metrics.
+  let @last_co2_metrics: Instant
+
+  # The rooms to schedule for sampling of CO2 levels.
+  let @co2_scheduled_rooms: Array[mut Room]
+
+  # The rooms to monitor along with their state and configuration settings.
+  #
+  # This field must come before the `@config` field, as each `Room` has a
+  # reference to data in the `Config` object. Placing it before the mentioned
+  # field ensures these references are dropped before the values they point to.
+  #
+  # This field is public so we can access the room states in our tests.
+  let pub @rooms: Map[String, Room]
+
+  # The API client for interacting with the Itho device.
   let @itho: Itho
+
+  # The API client for interacting with the Philips Hue bridge.
   let @hue: Hue
+
+  # The logger to use for informational messages, warnings, etc.
   let @logger: Logger
-  let @config: Config
+
+  # A clock used for obtaining the current system time.
   let @clock: Clock
-  let @co2: Co2
+
+  # The metrics data to use for recording data such as the CO2 levels over time.
   let @metrics: Metrics
+
+  # The state of an attached RF remote.
   let @remote: Remote
+
+  # The global configuration settings
+  let @config: Config
 
   fn pub static new(
     config: Config,
@@ -82,6 +141,7 @@ class pub Controller {
     logger: Logger,
   ) -> Controller {
     Controller {
+      @state = State.Default,
       @itho = itho,
       @hue = hue,
       @rooms = config.rooms.iter.reduce(Map.new) fn (map, entry) {
@@ -92,7 +152,9 @@ class pub Controller {
       @clock = clock,
       @exhaust_speed = 0,
       @last_exhaust_update = Instant.new,
-      @co2 = Co2.new(config.co2.sample_time.clone),
+      @last_co2_update = Instant.new,
+      @last_co2_metrics = Instant.new,
+      @co2_scheduled_rooms = [],
       @metrics = try! Metrics.new(config.metrics.ip.clone, config.metrics.port),
       @remote = Remote.new,
       @config = config,
@@ -114,6 +176,7 @@ class pub Controller {
     let status = try! @itho.status
 
     update_co2(status)
+    send_co2_metrics(status)
     check_remotes
     update_rooms(status, sensors)
     ventilate_default_room
@@ -165,9 +228,9 @@ class pub Controller {
     }
 
     if schedule.active?(time) {
-      if room.state.schedule?.false? {
+      if room.state.closed? {
         logger.info("Enabling schedule for {room.config.name}")
-        room.update(State.Schedule)
+        room.update(RoomState.Schedule)
       }
 
       return true
@@ -202,18 +265,18 @@ class pub Controller {
         case Open or MaybeHumid -> {
           if room.stale?(@config.humidity.high_time) {
             logger.info("The humidity in {room.config.name} is too high")
-            room.update(State.Humid)
+            room.update(RoomState.Humid)
             room.humid_at = Instant.new
           }
         }
-        case _ -> room.update(State.MaybeHumid)
+        case _ -> room.update(RoomState.MaybeHumid)
       }
     } else if humidity > @config.humidity.low {
       match room.state {
         case Closed or Minimum -> {
           if room.stale?(@config.humidity.low_time) {
             logger.info("The humidity in {room.config.name} is increasing")
-            room.update(State.Open)
+            room.update(RoomState.Open)
           }
         }
         case MaybeHumid -> room.close
@@ -240,7 +303,7 @@ class pub Controller {
             and room.stale?(@config.humidity.low_time)
           {
             logger.info("The humidity in {room.config.name} OK again")
-            room.update(State.Open)
+            room.update(RoomState.Open)
           }
         }
         case _ -> {}
@@ -272,9 +335,9 @@ class pub Controller {
           logger.info("Motion detected in {room.config.name}")
 
           let new_state = if conf.minutes == 1 {
-            State.Open
+            RoomState.Open
           } else {
-            State.Motion(time.minute, 1)
+            RoomState.Motion(time.minute, 1)
           }
 
           room.update(new_state)
@@ -283,16 +346,23 @@ class pub Controller {
           let new_count = count + 1
           let new_state = if new_count == conf.minutes {
             logger.info("Enabling ventilation for {room.config.name}")
-            State.Open
+            RoomState.Open
           } else {
             logger.info("More motion detected for {room.config.name}")
-            State.Motion(time.minute, new_count)
+            RoomState.Motion(time.minute, new_count)
           }
 
           room.update(new_state)
         }
         case Open -> room.update_time
-        case Default -> room.update(State.Open)
+        case Default -> {
+          logger.info(
+            "Motion detected in {room.config.name} while default ventilation \
+              is applied, enabling regular ventilation"
+          )
+
+          room.update(RoomState.Open)
+        }
         case _ -> {}
       }
 
@@ -324,29 +394,96 @@ class pub Controller {
     }
   }
 
-  fn update_exhaust_speed?(new_speed: Int) -> Bool {
-    if new_speed > @exhaust_speed {
-      true
-    } else if new_speed < @exhaust_speed {
-      @last_exhaust_update.elapsed >= @config.exhaust.reduce_wait_time
-    } else {
-      false
+  fn mut update_co2(status: ref Status) {
+    # We postpone sampling in these cases as doing so could mess up ventilation
+    # (e.g. by reducing the speed of the bathroom or kitchen extractor fan).
+    if @remote.active? or @state.humid? { return }
+
+    let sampling = @rooms.iter_mut.any? fn (entry) {
+      let room = entry.value
+
+      match room.state {
+        case Co2(old_state) -> {
+          room.co2.add(status.co2)
+
+          if room.last_update.elapsed <= @config.co2.sample_time {
+            true
+          } else {
+            room.co2.update
+            room.update(old_state.clone)
+            logger.info(
+              "Updated CO2 levels for {room.config.name} to {room.co2.value} ppm"
+            )
+
+            # We update the time here so we don't start to immediately sample
+            # again after sampling the last room.
+            @last_co2_update = Instant.new
+            false
+          }
+        }
+        case _ -> false
+      }
+    }
+
+    if sampling { return }
+
+    loop {
+      let room = match @co2_scheduled_rooms.pop {
+        case Some(room) -> room
+        case _ -> break
+      }
+
+      match room.state {
+        case Schedule or Open or Default -> {
+          logger.info("Sampling CO2 {room.config.name}, state was {room.state}")
+          @state = State.Co2
+
+          # For rooms using motion sensors this effectively resets the motion
+          # timeout. In practise this shouldn't pose much of a problem though,
+          # because in the worst case we just ventilate a room for a little
+          # longer than we're supposed to.
+          room.update(RoomState.Co2(room.state.clone))
+          return
+        }
+        case _ -> {
+          logger.info("Not sampling {room.config.name} as ventilation stopped")
+        }
+      }
+    }
+
+    if @state.co2? {
+      logger.info('Finished sampling all rooms, resetting the controller state')
+      @state = State.Default
+    }
+
+    if @last_co2_update.elapsed < @config.co2.sample_interval { return }
+
+    @rooms.iter_mut.select fn (e) { e.value.config.co2 }.each fn (entry) {
+      let room = entry.value
+
+      match room.state {
+        case Schedule or Open or Default -> {
+          logger.info("Scheduling {room.config.name} for CO2 sampling")
+          @co2_scheduled_rooms.push(room)
+        }
+        case _ -> {}
+      }
     }
   }
 
-  fn mut update_co2(status: ref Status) {
-    let old_co2 = @co2.value
+  fn mut send_co2_metrics(status: ref Status) {
+    if @last_co2_metrics.elapsed <= @config.co2.metrics_interval { return }
 
-    @co2.add(status.co2)
+    @metrics.send(Metric.with('co2') fn (m) { m.field('ppm', status.co2) })
 
-    if @co2.update and @co2.value != old_co2 {
-      logger.info("CO2 estimate updated to {@co2.value} ppm")
+    @rooms.values.select fn (r) { r.co2.value > 0 }.each fn (room) {
+      @metrics.send(Metric.with('co2_room') fn (m) {
+        m.tag('room', room.config.name)
+        m.field('ppm', room.co2.value)
+      })
     }
 
-    @metrics.send(Metric.with('co2') fn (m) {
-      m.field('ppm', status.co2)
-      m.field('bucket', @co2.value)
-    })
+    @last_co2_metrics = Instant.new
   }
 
   fn mut check_remotes {
@@ -395,7 +532,7 @@ class pub Controller {
           button.rooms.iter.each fn (name) {
             let room = @rooms[name]
 
-            room.update(State.Button(room.state.clone))
+            room.update(RoomState.Button(room.state.clone))
           }
         }
         case _ -> {}
@@ -417,6 +554,41 @@ class pub Controller {
 
       check_motion(sensors, room, time)
     }
+
+    if @rooms.values.any?(fn (r) { r.state.humid? }).false? {
+      if @state.humid? {
+        logger.info('No humid rooms left, resetting the controller state')
+        @state = State.Default
+      }
+
+      return
+    } else if @state.humid? {
+      return
+    }
+
+    # We don't allow sampling while there are humid rooms, as sampling could
+    # prevent ventilating such rooms. Even if we did allow it, it would distort
+    # the statistics such that sampling is useless.
+    if @state.co2? { stop_co2_sampling }
+
+    logger.info('Setting the controller state to Humid')
+    @state = State.Humid
+  }
+
+  fn mut stop_co2_sampling {
+    logger.info('Stopping CO2 sampling as one or more rooms are humid')
+
+    @rooms.iter_mut.each fn (entry) {
+      let room = entry.value
+
+      match room.state {
+        case Co2(old) -> room.update(old.clone)
+        case _ -> {}
+      }
+    }
+
+    @co2_scheduled_rooms.clear
+    @last_co2_update = Instant.new
   }
 
   fn mut ventilate_default_room {
@@ -425,7 +597,7 @@ class pub Controller {
     # first room.
     let ventilate_first = @rooms.iter.all? fn (entry) {
       match entry.value.state {
-        case Open or Humid or Schedule or Button(_) -> false
+        case Open or Humid or Schedule or Button(_) or Co2(_) -> false
         case _ -> true
       }
     }
@@ -437,13 +609,13 @@ class pub Controller {
         case Default -> room.update_time
         case _ -> {
           logger.info("Enabling default ventilation for {room.config.name}")
-          room.update(State.Default)
+          room.update(RoomState.Default)
         }
       }
     } else {
       match room.state {
         case Default -> {
-          logger.info("Disabling ventilation for {room.config.name}")
+          logger.info("Disabling default ventilation for {room.config.name}")
           room.close
         }
         case _ -> {}
@@ -451,64 +623,64 @@ class pub Controller {
     }
   }
 
-  fn mut apply_changes {
-    let humid = @rooms.iter.any? fn (entry) {
-      match entry.value.state { case Humid -> true, case _ -> false }
-    }
-
-    let extra_flow = if @co2.value > @config.co2.target and humid.false? {
-      # As CO2 levels rise, we gradually increase the air flow in rooms that are
-      # ventilated. in an attempt to keep the CO2 levels stable.
-      #
-      # If one or more rooms are humid we don't do this, as in such a case we're
-      # already ventilating one or more rooms at a very high speed, and chances
-      # are that CO2 increases originate from the same room anyway (i.e a person
-      # taking a shower).
-      @co2.value - @config.co2.target / CO2_FLOW_INCREMENT * CO2_ADD_FLOW
-    } else {
-      0
-    }
-
-    let room_flows = @rooms
+  fn air_flow_per_room -> Array[Int] {
+    @rooms
       .values
       .map fn (room) {
         let base = match room.state {
-          case Schedule or Open or Default or Button(_) -> {
-            # When a room is humid the exhaust speed is increased to a high
-            # speed. This can result in excessive noise in other rooms. To
-            # prevent this from happening we reduce the flow rate of non humid
-            # rooms, reducing how far the exhaust is opened, and thereby
-            # hopefully keeping noise levels at a minimum.
-            #
-            # While this results in reduced ventilation in said rooms, in
-            # practise this only is the case for 30-45 minutes, so it shouldn't
-            # pose any problems.
-            if humid {
-              room.config.flow / 2
-            } else if @config.co2.rooms.contains?(room.config.name) {
+          case Co2(_) or Button(_) -> room.config.flow
+          case Schedule or Open or Default -> match @state {
+            # The only way we can get accurate per-room CO2 readings is to
+            # temporarily disable ventilation of rooms we're not sampling.
+            case Co2 -> 0
+
+            # Humid rooms are typically ventilated at a high speed (e.g. 150
+            # m3/h). Depending on how many other rooms are also ventilated, this
+            # may result in a lot of noise, and potentially a lack of capacity
+            # for the humid room. To handle this we temporarily reduce the
+            # ventilation capacity of non-humid rooms.
+            case Humid -> room.config.flow / 2
+
+            case Default if room.co2.value > @config.co2.target -> {
+              let percent = room.co2.value
+                - @config.co2.target
+                / CO2_FLOW_INCREMENT
+                * @config.co2.increase
+
+              let extra_flow = room.config.flow * percent / 100
+
               room.config.flow + extra_flow
-            } else {
-              room.config.flow
             }
+            case Default -> room.config.flow
           }
           case Motion(_, _) if room.config.minimum_flow > 0 -> {
             room.config.minimum_flow
           }
           case Humid -> @config.humidity.flow
-          case _ -> room.config.minimum_flow
+          case _ -> if @state.co2? { 0 } else { room.config.minimum_flow }
         }
 
         (base.to_float * room.config.flow_correction).ceil.to_int
       }
       .to_array
+  }
 
-    let mut total_flow = room_flows.iter.reduce(0) fn (sum, val) { sum + val }
+  fn mut apply_changes {
+    let room_flows = air_flow_per_room
+    let total_flow = max(
+      @config.exhaust.min_flow,
+      min(
+        room_flows.iter.reduce(0, fn (sum, val) { sum + val }),
+        @config.exhaust.max_flow
+      )
+    )
 
-    if total_flow > @config.exhaust.max_flow {
-      total_flow = @config.exhaust.max_flow
-    } else if total_flow < @config.exhaust.min_flow {
-      total_flow = @config.exhaust.min_flow
-    }
+    let new_speed = flow_percentage(total_flow)
+
+    # Speed reductions are applied first, while increases are applied last. This
+    # ensures we don't produce excessive air noise while the exhaust valves are
+    # adjusted.
+    if new_speed < @exhaust_speed { update_exhaust_speed(new_speed) }
 
     @rooms.iter_mut.each_with_index fn (index, entry) {
       let room = entry.value
@@ -537,22 +709,27 @@ class pub Controller {
       sleep(@config.exhaust.close_time)
     }
 
-    let new_speed = flow_percentage(total_flow)
+    if new_speed > @exhaust_speed { update_exhaust_speed(new_speed) }
 
-    if update_exhaust_speed?(new_speed) {
-      logger.info(
-        "Changing exhaust speed from {@exhaust_speed}% to \
-        {new_speed}% ({total_flow} m3/h)"
-      )
-      try! @itho.set(setting: @config.exhaust.speed_setting, value: new_speed)
-      sleep(@config.exhaust.close_time)
-      @exhaust_speed = new_speed
-      @last_exhaust_update = Instant.new
+    @metrics.send(
+      Metric.with('exhaust_speed') fn (m) { m.field('percentage', new_speed) }
+    )
+  }
+
+  fn mut update_exhaust_speed(new_speed: Int) {
+    if new_speed < @exhaust_speed
+      and @last_exhaust_update.elapsed < @config.exhaust.reduce_wait_time
+    {
+      return
     }
 
-    @metrics.send(Metric.with('exhaust_speed') fn (m) {
-      m.field('percentage', new_speed)
-    })
+    logger
+      .info("Changing exhaust speed from {@exhaust_speed}% to {new_speed}%")
+
+    try! @itho.set(setting: @config.exhaust.speed_setting, value: new_speed)
+    sleep(@config.exhaust.close_time)
+    @exhaust_speed = new_speed
+    @last_exhaust_update = Instant.new
   }
 
   fn flow_percentage(flow: Int) -> Int {

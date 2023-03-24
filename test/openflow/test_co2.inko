@@ -4,31 +4,8 @@ import std::test::Tests
 import std::time::Duration
 
 fn pub tests(t: mut Tests) {
-  t.test('Co2.update on the first call without any samples') fn (t) {
-    let co2 = Co2.new(Duration.from_secs(900))
-
-    t.true(co2.update)
-    t.equal(co2.value, 500)
-  }
-
-  t.test('Co2.update on the first call with samples') fn (t) {
-    let co2 = Co2.new(Duration.from_secs(900))
-
-    co2.add(850)
-    t.true(co2.update)
-    t.equal(co2.value, 800)
-  }
-
-  t.test('Co2.update only updates after enough time has passed') fn (t) {
-    let co2 = Co2.new(Duration.from_millis(10))
-
-    sleep(Duration.from_millis(15))
-    t.true(co2.update)
-    t.false(co2.update)
-  }
-
   t.test('Co2.update with values less than the smallest bucket') fn (t) {
-    let co2 = Co2.new(Duration.from_secs(0))
+    let co2 = Co2.new
 
     co2.update
     t.equal(co2.value, 500)
@@ -38,8 +15,27 @@ fn pub tests(t: mut Tests) {
     t.equal(co2.value, 500)
   }
 
-  t.test('Co2.update when updates are necessary') fn (t) {
-    let co2 = Co2.new(Duration.from_secs(0))
+  t.test('Co2.update without any samples') fn (t) {
+    let co2 = Co2.new
+
+    t.true(co2.update)
+    t.equal(co2.value, 500)
+  }
+
+  t.test('Co2.update with values in between buckets') fn (t) {
+    let co2 = Co2.new
+
+    co2.add(760)
+    co2.update
+    t.equal(co2.value, 800)
+
+    co2.add(740)
+    co2.update
+    t.equal(co2.value, 700)
+  }
+
+  t.test('Co2.update with samples') fn (t) {
+    let co2 = Co2.new
 
     co2.add(710)
     co2.add(780)
