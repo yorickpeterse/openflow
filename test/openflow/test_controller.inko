@@ -752,6 +752,23 @@ fn pub tests(t: mut Tests) {
     )
   }
 
+  t.test('Sampling of CO2 levels for a room with minimum ventilation') fn (t) {
+    let conf = config
+
+    conf.co2.sample_interval = Duration.from_secs(0)
+
+    let itho = itho(co2: 1200, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(2))
+    let bedroom = ctl.rooms['bedroom']
+
+    bedroom.update(State.Minimum)
+    ctl.iteration
+    ctl.iteration
+
+    t.true(match bedroom.state { case Co2(Minimum) -> true, case _ -> false })
+  }
+
   t.test('No extra flow is added when a room is humid') fn (t) {
     let conf = config
 

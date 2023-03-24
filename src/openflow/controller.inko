@@ -434,7 +434,7 @@ class pub Controller {
       }
 
       match room.state {
-        case Schedule or Open or Default -> {
+        case Schedule or Open or Default or Minimum -> {
           logger.info("Sampling CO2 {room.config.name}, state was {room.state}")
           @state = State.Co2
 
@@ -462,7 +462,7 @@ class pub Controller {
       let room = entry.value
 
       match room.state {
-        case Schedule or Open or Default -> {
+        case Schedule or Open or Default or Minimum -> {
           logger.info("Scheduling {room.config.name} for CO2 sampling")
           @co2_scheduled_rooms.push(room)
         }
