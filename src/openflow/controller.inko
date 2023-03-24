@@ -467,7 +467,7 @@ class pub Controller {
 
     @metrics.send(Metric.with('co2') fn (m) { m.field('ppm', status.co2) })
 
-    @rooms.values.select fn (r) { r.co2.value > 0 }.each fn (room) {
+    @rooms.values.select fn (r) { r.config.co2 }.each fn (room) {
       @metrics.send(Metric.with('co2_room') fn (m) {
         m.tag('room', room.config.name)
         m.field('ppm', room.co2.value)
