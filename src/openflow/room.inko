@@ -1,5 +1,5 @@
-import openflow::co2::Co2
-import openflow::config::(Room as Config)
+import openflow::co2::(SIZE, Co2)
+import openflow::config::(Room as RoomConfig, Co2 as Co2Config)
 import std::clone::Clone
 import std::cmp::Equal
 import std::fmt::(DefaultFormatter, Format, Formatter)
@@ -137,7 +137,7 @@ impl Clone for State {
 # The state of a room to ventilate.
 class pub Room {
   # The configuration settings for this room.
-  let pub @config: ref Config
+  let pub @config: ref RoomConfig
 
   # The CO2 concentration of this room.
   let pub @co2: Co2
@@ -163,7 +163,7 @@ class pub Room {
   # first changing a room from "closed" to "open".
   let pub @exhaust: Int
 
-  fn pub static new(config: ref Config) -> Room {
+  fn pub static new(config: ref RoomConfig) -> Room {
     let now = Instant.new
     let state =
       if config.minimum_flow > 0 { State.Minimum } else { State.Closed }
@@ -207,5 +207,12 @@ class pub Room {
 
   fn pub mut reset_button {
     match @state { case Button(old) -> update(old.clone), case _ -> {} }
+  }
+
+  fn pub calculate_flow(co2_config: ref Co2Config) -> Int {
+    let percent = @co2.value - co2_config.target / SIZE * co2_config.increase
+    let extra_flow = @config.flow * percent / 100
+
+    @config.flow + extra_flow
   }
 }

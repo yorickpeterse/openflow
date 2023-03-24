@@ -16,12 +16,6 @@ import std::time::(DateTime, Duration, Instant)
 # opened.
 let EXHAUST_MAX = 4000.0
 
-# The amount of ppm for a single CO2 flow increment.
-#
-# For every such increment the CO2 levels are above the threshold, ventilation
-# speed is increased.
-let CO2_FLOW_INCREMENT = 100
-
 # The state of an RF remote.
 class pub Remote {
   # The current status of the remote.
@@ -621,7 +615,8 @@ class pub Controller {
       .values
       .map fn (room) {
         let base = match room.state {
-          case Co2(_) or Button(_) -> room.config.flow
+          case Co2(_) -> room.calculate_flow(@config.co2)
+          case Button(_) -> room.config.flow
           case Schedule or Open or Default -> match @state {
             # The only way we can get accurate per-room CO2 readings is to
             # temporarily disable ventilation of rooms we're not sampling.
@@ -635,14 +630,7 @@ class pub Controller {
             case Humid -> room.config.flow / 2
 
             case Default if room.co2.value > @config.co2.target -> {
-              let percent = room.co2.value
-                - @config.co2.target
-                / CO2_FLOW_INCREMENT
-                * @config.co2.increase
-
-              let extra_flow = room.config.flow * percent / 100
-
-              room.config.flow + extra_flow
+              room.calculate_flow(@config.co2)
             }
             case Default -> room.config.flow
           }
