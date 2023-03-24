@@ -766,7 +766,7 @@ fn pub tests(t: mut Tests) {
 
     ctl.iteration # Apply changes
 
-    t.equal(bedroom.co2.value, 500)
+    t.equal(bedroom.co2.value, 0)
     t.equal(updates, [])
   }
 
