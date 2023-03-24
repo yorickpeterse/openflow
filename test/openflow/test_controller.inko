@@ -709,10 +709,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration # This iteration processes the first room
 
     t.true(match bedroom.state { case Co2(Open) -> true, case _ -> false })
-    t.equal(
-      updates,
-      [(bedroom.config.exhaust, 800), (office.config.exhaust, 0)]
-    )
+    t.equal(updates, [(office.config.exhaust, 0)])
 
     updates.clear
     ctl.iteration # This iteration applies the CO2 changes

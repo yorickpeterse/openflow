@@ -1,0 +1,46 @@
+import openflow::config::(Room as RoomConfig)
+import openflow::room::Room
+import std::test::Tests
+import std::time::Duration
+
+fn config -> RoomConfig {
+  RoomConfig {
+    @name = 'living_room',
+    @exhaust = 12,
+    @schedule = Option.None,
+    @motion = Option.None,
+    @temperature = Option.None,
+    @humidity = Option.None,
+    @ping = [],
+    @minimum_flow = 0,
+    @flow = 15,
+    @flow_correction = 1.0,
+    @ventilation_time = Duration.from_secs(10),
+    @co2 = true,
+  }
+}
+
+fn pub tests(t: mut Tests) {
+  t.test('Room.calculate_flow') fn (t) {
+    let conf = config
+    let room = Room.new(conf)
+
+    t.equal(room.calculate_flow(700, 20), 15)
+
+    room.co2.add(400)
+    room.co2.update
+    t.equal(room.calculate_flow(700, 20), 15)
+
+    room.co2.add(700)
+    room.co2.update
+    t.equal(room.calculate_flow(700, 20), 15)
+
+    room.co2.add(800)
+    room.co2.update
+    t.equal(room.calculate_flow(700, 20), 18)
+
+    room.co2.add(1000)
+    room.co2.update
+    t.equal(room.calculate_flow(700, 20), 24)
+  }
+}

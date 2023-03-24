@@ -4,6 +4,7 @@ import openflow::test_histogram
 import openflow::test_http
 import openflow::test_hue
 import openflow::test_itho
+import openflow::test_room
 import std::env
 import std::test::Tests
 
@@ -17,6 +18,7 @@ class async Main {
     test_http.tests(tests)
     test_hue.tests(tests)
     test_itho.tests(tests)
+    test_room.tests(tests)
 
     tests.pattern = env.arguments.into_iter.next
     tests.run

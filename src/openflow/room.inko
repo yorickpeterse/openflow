@@ -209,8 +209,10 @@ class pub Room {
     match @state { case Button(old) -> update(old.clone), case _ -> {} }
   }
 
-  fn pub calculate_flow(co2_config: ref Co2Config) -> Int {
-    let percent = @co2.value - co2_config.target / SIZE * co2_config.increase
+  fn pub calculate_flow(target: Int, increase: Int) -> Int {
+    if @co2.value <= target { return @config.flow }
+
+    let percent = @co2.value - target / SIZE * increase
     let extra_flow = @config.flow * percent / 100
 
     @config.flow + extra_flow

@@ -615,7 +615,9 @@ class pub Controller {
       .values
       .map fn (room) {
         let base = match room.state {
-          case Co2(_) -> room.calculate_flow(@config.co2)
+          case Co2(_) -> {
+            room.calculate_flow(@config.co2.target, @config.co2.increase)
+          }
           case Button(_) -> room.config.flow
           case Schedule or Open or Default -> match @state {
             # The only way we can get accurate per-room CO2 readings is to
@@ -630,7 +632,7 @@ class pub Controller {
             case Humid -> room.config.flow / 2
 
             case Default if room.co2.value > @config.co2.target -> {
-              room.calculate_flow(@config.co2)
+              room.calculate_flow(@config.co2.target, @config.co2.increase)
             }
             case Default -> room.config.flow
           }
