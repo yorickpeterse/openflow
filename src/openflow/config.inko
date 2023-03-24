@@ -392,6 +392,16 @@ class pub Co2 {
   # The amount of time to gather samples before calculating a new CO2 estimate.
   let pub @sample_time: Duration
 
+  # The amount of time to wait before collecting CO2 levels when sampling is
+  # enabled.
+  #
+  # When sampling a room it can take 2-3 minutes for the CO2 levels in the
+  # plenum to reach those of the room that's sampled. If we collect measurements
+  # during this time, we may end up with less accurate CO2 levels.
+  #
+  # To handle this we first wait this amount of time before collecting samples.
+  let pub @sample_wait_time: Duration
+
   # The percentage to increase ventilation speeds by when CO2 levels are too
   # high.
   #
@@ -415,6 +425,7 @@ class pub Co2 {
       @metrics_interval = Duration.from_secs(try int(value, 'metrics_interval')),
       @sample_interval = Duration.from_secs(try int(value, 'sample_interval')),
       @sample_time = Duration.from_secs(try int(value, 'sample_time')),
+      @sample_wait_time = Duration.from_secs(try int(value, 'sample_wait_time')),
       @increase = increase,
     }
   }

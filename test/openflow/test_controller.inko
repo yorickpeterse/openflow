@@ -165,6 +165,7 @@ fn config -> Config {
       @metrics_interval = Duration.from_secs(60),
       @sample_interval = Duration.from_secs(1800),
       @sample_time = Duration.from_secs(900),
+      @sample_wait_time = Duration.from_secs(0),
       @increase = 10
     },
     @metrics = Metrics {
@@ -742,6 +743,31 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.true(match bedroom.state { case Co2(Minimum) -> true, case _ -> false })
+  }
+
+  t.test('Sampling of CO2 levels while waiting for them to stabilise') fn (t) {
+    let conf = config
+
+    conf.co2.sample_time = Duration.from_secs(0)
+    conf.co2.sample_interval = Duration.from_secs(0)
+    conf.co2.sample_wait_time = Duration.from_secs(10)
+
+    let itho = itho(co2: 1200, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(2))
+    let bedroom = ctl.rooms['bedroom']
+
+    bedroom.update(State.Open)
+    ctl.iteration # Schedule
+    updates.clear
+
+    ctl.iteration # Process
+    updates.clear
+
+    ctl.iteration # Apply changes
+
+    t.equal(bedroom.co2.value, 500)
+    t.equal(updates, [])
   }
 
   t.test('No extra flow is added when a room is humid') fn (t) {

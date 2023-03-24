@@ -391,9 +391,13 @@ class pub Controller {
 
       match room.state {
         case Co2(old_state) -> {
-          room.co2.add(status.co2)
+          let elapsed = room.last_update.elapsed
+          let total_time =
+            @config.co2.sample_wait_time + @config.co2.sample_time
 
-          if room.last_update.elapsed <= @config.co2.sample_time {
+          if elapsed > @config.co2.sample_wait_time { room.co2.add(status.co2) }
+
+          if elapsed <= total_time {
             true
           } else {
             room.co2.update

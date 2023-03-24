@@ -94,6 +94,7 @@
     "target": 700,
     "metrics_interval": 60,
     "sample_time": 300,
+    "sample_wait_time": 120,
     "sample_interval": 3600,
     "increase": 25
   },
