@@ -660,6 +660,18 @@ class pub Controller {
   }
 
   fn air_flow_per_room -> Array[Int] {
+    let active = @rooms
+      .values
+      .select fn (room) {
+        match room.state {
+          case Button(_) or Co2(_) or Schedule or Open or Default or Humid -> {
+            true
+          }
+          case _ -> false
+        }
+      }
+      .count
+
     @rooms
       .values
       .map fn (room) {
@@ -681,7 +693,15 @@ class pub Controller {
             case Humid -> room.config.flow / 2
 
             case Default -> {
-              room.calculate_flow(@config.co2.target, @config.co2.increase)
+              let val =
+                room.calculate_flow(@config.co2.target, @config.co2.increase)
+
+              # If only a single room is actively ventilated we want to
+              # ventilate it using _at least_ the configured flow. If we use a
+              # lower flow we may produce _more_ noise as an excess/unused
+              # amount of air flow is squeezed through a smaller exhaust
+              # opening.
+              if active == 1 { max(val, room.config.flow) } else { val }
             }
           }
           case Motion(_, _) if room.config.minimum_flow > 0 -> {

@@ -439,7 +439,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.equal(room.state, State.Open)
-    t.equal(room.exhaust, 1112)
+    t.equal(room.exhaust, 2223)
     t.true(updates.contains?((room.config.exhaust, room.exhaust)))
   }
 
@@ -621,7 +621,7 @@ fn pub tests(t: mut Tests) {
 
     t.equal(room.state, State.Open)
     t.not_equal(room.last_update, before)
-    t.equal(room.exhaust, 1112)
+    t.equal(room.exhaust, 2223)
   }
 
   t.test('A room with not enough motion events') fn (t) {
@@ -649,7 +649,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.equal(room.state, State.Default)
-    t.equal(room.exhaust, 312)
+    t.equal(room.exhaust, 667)
     t.true(updates.contains?((room.config.exhaust, room.exhaust)))
   }
 
@@ -883,7 +883,7 @@ fn pub tests(t: mut Tests) {
 
     ctl.iteration
 
-    t.equal(updates, [(bedroom.config.exhaust, 89), (SPEED, 26)])
+    t.equal(updates, [(bedroom.config.exhaust, 223), (SPEED, 26)])
   }
 
   t.test('The exhaust is only updated when there is a speed change') fn (t) {
@@ -895,7 +895,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
     ctl.iteration
 
-    t.equal(updates, [(bedroom.config.exhaust, 1334), (SPEED, 26)])
+    t.equal(updates, [(bedroom.config.exhaust, 2667), (SPEED, 26)])
   }
 
   t.test('The exhaust speed is only reduced after a period of time') fn (t) {
@@ -934,7 +934,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.equal(room.state, State.Open)
-    t.equal(room.exhaust, 356)
+    t.equal(room.exhaust, 756)
   }
 
   t.test('Handling a room with a motion time equal to the ventilation time') fn (t) {
