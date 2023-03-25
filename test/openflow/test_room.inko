@@ -9,7 +9,6 @@ fn config -> RoomConfig {
     @exhaust = 12,
     @schedule = Option.None,
     @motion = Option.None,
-    @temperature = Option.None,
     @humidity = Option.None,
     @ping = [],
     @minimum_flow = 0,

@@ -128,9 +128,6 @@ class pub Room {
   # The motion sensor for this room along with its settings.
   let pub @motion: Option[Motion]
 
-  # The ID of the temperature sensor attached to this room.
-  let pub @temperature: Option[Int]
-
   # The name of the Itho humidity sensor attached to this room.
   let pub @humidity: Option[String]
 
@@ -197,11 +194,6 @@ class pub Room {
       case _ -> Option.None
     }
 
-    let temperature = match value.remove('temperature') {
-      case Some(Int(val)) -> Option.Some(val)
-      case _ -> Option.None
-    }
-
     let humidity = match value.remove('humidity') {
       case Some(String(val)) -> Option.Some(val)
       case _ -> Option.None
@@ -241,7 +233,6 @@ class pub Room {
       @schedule = schedule,
       @exhaust = exhaust,
       @motion = motion,
-      @temperature = temperature,
       @humidity = humidity
       @ping = ping,
       @minimum_flow = min_flow,
