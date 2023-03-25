@@ -439,7 +439,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.equal(room.state, State.Open)
-    t.equal(room.exhaust, 2223)
+    t.equal(room.exhaust, 2300)
     t.true(updates.contains?((room.config.exhaust, room.exhaust)))
   }
 
@@ -616,12 +616,12 @@ fn pub tests(t: mut Tests) {
     let before = room.last_update.clone
 
     room.state = State.Open
-    room.exhaust = 2223
+    room.exhaust = 2300
     ctl.iteration
 
     t.equal(room.state, State.Open)
     t.not_equal(room.last_update, before)
-    t.equal(room.exhaust, 2223)
+    t.equal(room.exhaust, 2300)
   }
 
   t.test('A room with not enough motion events') fn (t) {
@@ -649,7 +649,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.equal(room.state, State.Default)
-    t.equal(room.exhaust, 667)
+    t.equal(room.exhaust, 700)
     t.true(updates.contains?((room.config.exhaust, room.exhaust)))
   }
 
@@ -714,8 +714,8 @@ fn pub tests(t: mut Tests) {
     t.equal(
       updates,
       [
-        (bedroom.config.exhaust, 1334)
-        (office.config.exhaust, 356),
+        (bedroom.config.exhaust, 1400)
+        (office.config.exhaust, 400),
         (SPEED, 26)
       ]
     )
@@ -727,7 +727,7 @@ fn pub tests(t: mut Tests) {
     t.equal(
       updates,
       [
-        (bedroom.config.exhaust, 2667),
+        (bedroom.config.exhaust, 2700),
         (office.config.exhaust, 0)
       ]
     )
@@ -741,8 +741,8 @@ fn pub tests(t: mut Tests) {
     t.equal(
       updates,
       [
-        (bedroom.config.exhaust, 3674),
-        (office.config.exhaust, 327),
+        (bedroom.config.exhaust, 3700),
+        (office.config.exhaust, 400),
         (SPEED, 29)
       ]
     )
@@ -769,8 +769,8 @@ fn pub tests(t: mut Tests) {
     t.equal(
       updates,
       [
-        (living_room.config.exhaust, 312)
-        (bathroom.config.exhaust, 1112),
+        (living_room.config.exhaust, 400)
+        (bathroom.config.exhaust, 1200),
         (SPEED, 26)
       ]
     )
@@ -780,7 +780,7 @@ fn pub tests(t: mut Tests) {
 
     t.equal(
       updates,
-      [(living_room.config.exhaust, 0), (bathroom.config.exhaust, 2223)]
+      [(living_room.config.exhaust, 0), (bathroom.config.exhaust, 2300)]
     )
     t.true(match bathroom.state { case Co2(Open) -> true, case _ -> false })
 
@@ -789,7 +789,7 @@ fn pub tests(t: mut Tests) {
 
     t.equal(
       updates,
-      [(living_room.config.exhaust, 667), (bathroom.config.exhaust, 0)]
+      [(living_room.config.exhaust, 700), (bathroom.config.exhaust, 0)]
     )
     t.true(match living_room.state { case Co2(Open) -> true, case _ -> false })
   }
@@ -849,10 +849,10 @@ fn pub tests(t: mut Tests) {
     let bedroom = ctl.rooms['bedroom']
 
     bathroom.state = State.Humid
-    bathroom.exhaust = 3334
+    bathroom.exhaust = 3400
     ctl.iteration
 
-    t.equal(updates, [(bedroom.config.exhaust, 667), (SPEED, 52)])
+    t.equal(updates, [(bedroom.config.exhaust, 700), (SPEED, 52)])
   }
 
   t.test('The exhaust speed is limited to the maximum flow') fn (t) {
@@ -883,7 +883,7 @@ fn pub tests(t: mut Tests) {
 
     ctl.iteration
 
-    t.equal(updates, [(bedroom.config.exhaust, 223), (SPEED, 26)])
+    t.equal(updates, [(bedroom.config.exhaust, 300), (SPEED, 26)])
   }
 
   t.test('The exhaust is only updated when there is a speed change') fn (t) {
@@ -895,7 +895,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
     ctl.iteration
 
-    t.equal(updates, [(bedroom.config.exhaust, 2667), (SPEED, 26)])
+    t.equal(updates, [(bedroom.config.exhaust, 2700), (SPEED, 26)])
   }
 
   t.test('The exhaust speed is only reduced after a period of time') fn (t) {
@@ -914,8 +914,8 @@ fn pub tests(t: mut Tests) {
     t.equal(
       updates,
       [
-        (bedroom.config.exhaust, 667),
-        (bathroom.config.exhaust, 3334),
+        (bedroom.config.exhaust, 700),
+        (bathroom.config.exhaust, 3400),
         (SPEED, 52),
         (bedroom.config.exhaust, 0),
         (bathroom.config.exhaust, 4000),
@@ -934,7 +934,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.equal(room.state, State.Open)
-    t.equal(room.exhaust, 756)
+    t.equal(room.exhaust, 800)
   }
 
   t.test('Handling a room with a motion time equal to the ventilation time') fn (t) {
@@ -968,7 +968,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.equal(room.state, State.Minimum)
-    t.true(updates.contains?((room.config.exhaust, 445)))
+    t.true(updates.contains?((room.config.exhaust, 500)))
   }
 
   t.test('Ventilating a room with a minimum flow with high CO2 levels') fn (t) {
@@ -984,7 +984,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.equal(room.state, State.Minimum)
-    t.true(updates.contains?((room.config.exhaust, 445)))
+    t.true(updates.contains?((room.config.exhaust, 500)))
   }
 
   t.test('Rooms using the morning schedule are not sampled') fn (t) {
@@ -1024,7 +1024,7 @@ fn pub tests(t: mut Tests) {
 
     ctl.iteration
 
-    t.equal(room.exhaust, 445)
+    t.equal(room.exhaust, 500)
     t.equal(room.state, State.Motion(4, 1))
   }
 
@@ -1041,8 +1041,8 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.equal(room.state, State.MaybeHumid)
-    t.equal(room.exhaust, 445)
-    t.true(updates.contains?((room.config.exhaust, 445)))
+    t.equal(room.exhaust, 500)
+    t.true(updates.contains?((room.config.exhaust, 500)))
   }
 
   t.test('Ventilating a room with a minimum flow that is too humid') fn (t) {
@@ -1150,7 +1150,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.equal(room.state, State.Button(State.Default))
-    t.true(updates.contains?((room.config.exhaust, 667)))
+    t.true(updates.contains?((room.config.exhaust, 700)))
   }
 
   t.test('Changing which rooms to ventilate in response to a remote') fn (t) {

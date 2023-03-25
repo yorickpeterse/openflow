@@ -107,4 +107,17 @@ fn pub tests(t: mut Tests) {
     t.equal(room.calculate_minimum_flow(co2: false), 10)
     t.equal(room.calculate_minimum_flow(co2: true), 0)
   }
+
+  t.test('Room.calculate_exhaust_setting') fn (t) {
+    let conf = config
+    let room = Room.new(conf)
+
+    t.equal(room.calculate_exhaust_setting(flow: 0, total_flow: 70), 0)
+    t.equal(room.calculate_exhaust_setting(flow: 30, total_flow: 70), 1800)
+    t.equal(room.calculate_exhaust_setting(flow: 31, total_flow: 70), 1800)
+    t.equal(room.calculate_exhaust_setting(flow: 32, total_flow: 70), 1900)
+    t.equal(room.calculate_exhaust_setting(flow: 40, total_flow: 70), 2300)
+    t.equal(room.calculate_exhaust_setting(flow: 70, total_flow: 70), 4000)
+    t.equal(room.calculate_exhaust_setting(flow: 100, total_flow: 70), 4000)
+  }
 }

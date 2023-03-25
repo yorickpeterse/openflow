@@ -6,6 +6,10 @@ import std::fmt::(DefaultFormatter, Format, Formatter)
 import std::string::ToString
 import std::time::(DateTime, Duration, Instant)
 
+# The maximum value an exhaust setting can be set to to control how much it's
+# opened.
+let EXHAUST_MAX = 4000.0
+
 # The state of a ventilation exhaust.
 class pub enum State {
   # The exhaust is closed.
@@ -233,6 +237,17 @@ class pub Room {
 
   fn pub calculate_minimum_flow(co2: Bool) -> Int {
     if co2 { 0 } else { @config.minimum_flow }
+  }
+
+  fn pub calculate_exhaust_setting(flow: Int, total_flow: Int) -> Int {
+    if flow >= total_flow { return EXHAUST_MAX.to_int }
+    if flow == 0 { return 0 }
+
+    let raw = (flow.to_float / total_flow.to_float * EXHAUST_MAX).ceil.to_int
+
+    # To reduce the amount of micro adjustments of the exhaust motors, we round
+    # the setting values up to the nearest multiple of 100, so 625 becomes 700.
+    raw + 100 / 100 * 100
   }
 
   fn pub sample_co2?(target: Int) -> Bool {

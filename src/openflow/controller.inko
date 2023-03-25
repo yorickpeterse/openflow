@@ -12,10 +12,6 @@ import std::process::(sleep)
 import std::string::ToString
 import std::time::(DateTime, Duration, Instant)
 
-# The maximum value an exhaust setting can be set to to control how much it's
-# opened.
-let EXHAUST_MAX = 4000.0
-
 # The state of an RF remote.
 class pub Remote {
   # The current status of the remote.
@@ -736,11 +732,7 @@ class pub Controller {
     @rooms.iter_mut.each_with_index fn (index, entry) {
       let room = entry.value
       let flow = room_flows[index]
-      let exhaust = if flow >= total_flow {
-        EXHAUST_MAX.to_int
-      } else {
-        (flow.to_float / total_flow.to_float * EXHAUST_MAX).ceil.to_int
-      }
+      let exhaust = room.calculate_exhaust_setting(flow, total_flow)
 
       @metrics.send(Metric.with('air_flow') fn (m) {
         m.tag('room', room.config.name)
