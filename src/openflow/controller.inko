@@ -488,7 +488,7 @@ class pub Controller {
       .values
       .select fn (room) {
         match room.state {
-          case Open or Schedule or Default -> true
+          case Open or Schedule or Default or Button(_) -> true
           case _ -> false
         }
       }
@@ -565,6 +565,8 @@ class pub Controller {
 
             room.update(RoomState.Button(room.state.clone))
           }
+
+          stop_co2_sampling
         }
         case _ -> {}
       }
@@ -600,20 +602,23 @@ class pub Controller {
     # We don't allow sampling while there are humid rooms, as sampling could
     # prevent ventilating such rooms. Even if we did allow it, it would distort
     # the statistics such that sampling is useless.
-    if @state.co2? { stop_co2_sampling }
+    stop_co2_sampling
 
     logger.info('Setting the controller state to Humid')
     @state = State.Humid
   }
 
   fn mut stop_co2_sampling {
-    logger.info('Stopping CO2 sampling as one or more rooms are humid')
+    if @state.co2?.false? { return }
+
+    logger.info('Forcefully stopping CO2 sampling')
 
     @rooms.iter_mut.each fn (entry) {
       let room = entry.value
 
       match room.state {
         case Co2(old) -> room.update(old.clone)
+        case ScheduleCo2 -> room.update(RoomState.Closed)
         case _ -> {}
       }
     }
