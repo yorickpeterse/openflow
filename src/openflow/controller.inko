@@ -222,9 +222,12 @@ class pub Controller {
     }
 
     if schedule.active?(time) {
-      if room.state.closed? {
-        logger.info("Enabling schedule for {room.config.name}")
-        room.update(RoomState.Schedule)
+      match room.state {
+        case Closed or Minimum -> {
+          logger.info("Enabling schedule for {room.config.name}")
+          room.update(RoomState.Schedule)
+        }
+        case _ -> {}
       }
 
       return true

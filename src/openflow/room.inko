@@ -48,10 +48,6 @@ class pub enum State {
   # The wrapped value is the state to transition back to after sampling.
   case Co2(State)
 
-  fn pub closed? -> Bool {
-    match self { case Closed -> true, case _ -> false }
-  }
-
   fn pub schedule? -> Bool {
     match self { case Schedule -> true, case _ -> false }
   }
