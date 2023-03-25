@@ -162,6 +162,8 @@ class pub Controller {
     reset_exhaust_speed
 
     if close_manually { close_exhausts }
+
+    schedule_initial_co2_sampling
   }
 
   # Runs a single iteration of the work loop.
@@ -235,7 +237,7 @@ class pub Controller {
 
     if room.state.schedule? {
       logger.info("Disabling schedule for {room.config.name}")
-      room.close
+      room.update(RoomState.Closed)
     }
 
     false
@@ -275,7 +277,7 @@ class pub Controller {
       }
     } else if humidity <= @config.humidity.low {
       match room.state {
-        case MaybeHumid -> room.close
+        case MaybeHumid -> room.update(RoomState.Closed)
         case Humid -> {
           # This ensures we ventilate for at least X minutes, then for an
           # additional Y minutes after going below the low threshold. This
@@ -373,14 +375,24 @@ class pub Controller {
           room.update_time
         } else {
           logger.info("Disabling ventilation for {room.config.name}")
-          room.close
+          room.update(RoomState.Closed)
         }
       }
       case Motion(_, _) if room.stale?(conf.time) -> {
         logger.info("Not enough motion detected in {room.config.name}")
-        room.close
+        room.update(RoomState.Closed)
       }
       case _ -> {}
+    }
+  }
+
+  fn mut schedule_initial_co2_sampling {
+    @rooms.iter_mut.select fn (e) { e.value.config.co2 }.each fn (entry) {
+      let room = entry.value
+
+      @logger.info("Scheduling {room.config.name} for initial CO2 sampling")
+      room.update(RoomState.InitialCo2)
+      @co2_scheduled_rooms.push(room)
     }
   }
 
@@ -433,11 +445,16 @@ class pub Controller {
         logger.info("Sampling CO2 {room.config.name}, state was {room.state}")
         @state = State.Co2
 
+        let old_state = match room.state {
+          case InitialCo2 -> RoomState.Closed
+          case state -> state.clone
+        }
+
         # For rooms using motion sensors this effectively resets the motion
         # timeout. In practise this shouldn't pose much of a problem though,
         # because in the worst case we just ventilate a room for a little longer
         # than we're supposed to.
-        room.update(RoomState.Co2(room.state.clone))
+        room.update(RoomState.Co2(old_state))
         return
       } else {
         logger.info("Not sampling {room.config.name} as ventilation stopped")
@@ -606,7 +623,7 @@ class pub Controller {
       match room.state {
         case Default -> {
           logger.info("Disabling default ventilation for {room.config.name}")
-          room.close
+          room.update(RoomState.Closed)
         }
         case _ -> {}
       }

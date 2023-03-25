@@ -62,4 +62,32 @@ fn pub tests(t: mut Tests) {
     conf.schedule = Option.Some(Schedule.Night)
     t.true(room.sample_co2?)
   }
+
+  t.test('Room.update') fn (t) {
+    let conf = config
+    let room = Room.new(conf)
+    let updated = room.last_update
+
+    room.update(State.Open)
+    t.equal(room.state, State.Open)
+    t.greater(room.last_update, updated)
+
+    conf.minimum_flow = 10
+    room.update(State.Closed)
+    t.equal(room.state, State.Minimum)
+  }
+
+  t.test('Room.update with a new Motion state') fn (t) {
+    let conf = config
+    let room = Room.new(conf)
+    let first_update = room.last_update
+
+    room.update(State.Motion(1, 1))
+    t.greater(room.last_update, first_update)
+
+    let updated = room.last_update
+
+    room.update(State.Motion(1, 2))
+    t.equal(room.last_update, updated)
+  }
 }

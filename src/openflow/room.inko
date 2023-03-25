@@ -43,6 +43,9 @@ class pub enum State {
   # is the total number of minutes in which motion is detected.
   case Motion(Int, Int)
 
+  # The room's initial CO2 levels should be measured.
+  case InitialCo2
+
   # The room's CO2 levels are being measured.
   #
   # The wrapped value is the state to transition back to after sampling.
@@ -74,6 +77,7 @@ impl Equal for State {
       case (Motion(l1, l2), Motion(r1, r2)) -> l1 == r1 and l2 == r2
       case (Button(a), Button(b)) -> a == b
       case (Co2(a), Co2(b)) -> a == b
+      case (InitialCo2, InitialCo2) -> true
       case _ -> false
     }
   }
@@ -100,6 +104,7 @@ impl Format for State {
         state.fmt(formatter)
         formatter.write(')')
       }
+      case InitialCo2 -> formatter.write('InitialCo2')
     }
   }
 }
@@ -126,6 +131,7 @@ impl Clone for State {
       case Motion(a, b) -> State.Motion(a, b)
       case Button(old) -> State.Button(old.clone)
       case Co2(old) -> State.Co2(old.clone)
+      case InitialCo2 -> State.InitialCo2
     }
   }
 }
@@ -184,7 +190,12 @@ class pub Room {
   }
 
   fn pub mut update(state: State) {
-    @state = state
+    # `match ref` is needed here due to
+    # https://github.com/inko-lang/inko/issues/509.
+    @state = match ref state {
+      case Closed if @config.minimum_flow > 0 -> State.Minimum
+      case _ -> state
+    }
 
     match @state {
       # Additional pending states shouldn't change the update timestamp,
@@ -192,13 +203,6 @@ class pub Room {
       case Motion(_, count) if count > 1 -> {}
       case _ -> @last_update = Instant.new
     }
-  }
-
-  fn pub mut close {
-    let new_state =
-      if @config.minimum_flow > 0 { State.Minimum } else { State.Closed }
-
-    update(new_state)
   }
 
   fn pub mut reset_button {
@@ -237,7 +241,7 @@ class pub Room {
       # We don't sample rooms running in the "Minimum" state, as this state is
       # meant for e.g. a bathroom during the day to prevent build-up of humidity
       # and smells, and the speed should always be fixed.
-      case Open or Default -> true
+      case Open or Default or InitialCo2 -> true
       case _ -> false
     }
   }
