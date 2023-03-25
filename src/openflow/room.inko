@@ -210,7 +210,15 @@ class pub Room {
   }
 
   fn pub calculate_flow(target: Int, increase: Int) -> Int {
-    if @co2.value <= target { return @config.flow }
+    if @co2.value < target {
+      # If the CO2 levels are below the target we reduce the ventilation speed,
+      # as running at full speed isn't necessary in this case. This in turn
+      # should reduce excessive noise when multiple rooms are ventilated, but
+      # the CO2 levels are perfectly fine.
+      return @config.flow / 2
+    } else if @co2.value == target {
+      return @config.flow
+    }
 
     let percent = @co2.value - target / SIZE * increase
     let extra_flow = @config.flow * percent / 100

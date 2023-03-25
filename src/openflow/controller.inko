@@ -635,10 +635,9 @@ class pub Controller {
             # ventilation capacity of non-humid rooms.
             case Humid -> room.config.flow / 2
 
-            case Default if room.co2.value > @config.co2.target -> {
+            case Default -> {
               room.calculate_flow(@config.co2.target, @config.co2.increase)
             }
-            case Default -> room.config.flow
           }
           case Motion(_, _) if room.config.minimum_flow > 0 -> {
             room.config.minimum_flow

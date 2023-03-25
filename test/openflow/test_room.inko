@@ -25,11 +25,11 @@ fn pub tests(t: mut Tests) {
     let conf = config
     let room = Room.new(conf)
 
-    t.equal(room.calculate_flow(700, 20), 15)
+    t.equal(room.calculate_flow(700, 20), 7)
 
     room.co2.add(400)
     room.co2.update
-    t.equal(room.calculate_flow(700, 20), 15)
+    t.equal(room.calculate_flow(700, 20), 7)
 
     room.co2.add(700)
     room.co2.update
