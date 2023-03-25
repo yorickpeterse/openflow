@@ -391,7 +391,7 @@ class pub Controller {
       let room = entry.value
 
       @logger.info("Scheduling {room.config.name} for initial CO2 sampling")
-      room.update(RoomState.InitialCo2)
+      room.update(RoomState.ScheduleCo2)
       @co2_scheduled_rooms.push(room)
     }
   }
@@ -441,12 +441,12 @@ class pub Controller {
 
       # We have to check again as the room's state might've changed since it was
       # scheduled.
-      if room.sample_co2? {
+      if room.sample_co2?(@config.co2.target) {
         logger.info("Sampling CO2 {room.config.name}, state was {room.state}")
         @state = State.Co2
 
         let old_state = match room.state {
-          case InitialCo2 -> RoomState.Closed
+          case ScheduleCo2 -> RoomState.Closed
           case state -> state.clone
         }
 
@@ -471,7 +471,7 @@ class pub Controller {
     @rooms.iter_mut.each fn (entry) {
       let room = entry.value
 
-      if room.sample_co2? {
+      if room.sample_co2?(@config.co2.target) {
         logger.info("Scheduling {room.config.name} for CO2 sampling")
         @co2_scheduled_rooms.push(room)
       }

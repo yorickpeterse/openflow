@@ -1213,19 +1213,19 @@ fn pub tests(t: mut Tests) {
 
     ctl.prepare
 
-    t.equal(living_room.state, State.InitialCo2)
-    t.equal(bedroom.state, State.InitialCo2)
-    t.equal(bathroom.state, State.InitialCo2)
+    t.equal(living_room.state, State.ScheduleCo2)
+    t.equal(bedroom.state, State.ScheduleCo2)
+    t.equal(bathroom.state, State.ScheduleCo2)
 
     ctl.iteration
 
-    t.equal(living_room.state, State.InitialCo2)
-    t.equal(bedroom.state, State.InitialCo2)
+    t.equal(living_room.state, State.ScheduleCo2)
+    t.equal(bedroom.state, State.ScheduleCo2)
     t.true(match bathroom.state { case Co2(Closed) -> true, case _ -> false })
 
     ctl.iteration
 
-    t.equal(living_room.state, State.InitialCo2)
+    t.equal(living_room.state, State.ScheduleCo2)
     t.true(match bedroom.state { case Co2(Closed) -> true, case _ -> false })
     t.equal(bathroom.state, State.Closed)
 

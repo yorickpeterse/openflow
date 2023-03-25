@@ -47,20 +47,25 @@ fn pub tests(t: mut Tests) {
     let conf = config
     let room = Room.new(conf)
 
-    t.false(room.sample_co2?)
+    t.false(room.sample_co2?(700))
 
     room.update(State.Open)
-    t.true(room.sample_co2?)
+    t.true(room.sample_co2?(700))
 
     room.update(State.Minimum)
-    t.false(room.sample_co2?)
+    t.false(room.sample_co2?(700))
+
+    room.update(State.Closed)
+    room.co2.add(800)
+    room.co2.update
+    t.true(room.sample_co2?(700))
 
     room.update(State.Schedule)
     conf.schedule = Option.Some(Schedule.Morning)
-    t.false(room.sample_co2?)
+    t.false(room.sample_co2?(700))
 
     conf.schedule = Option.Some(Schedule.Night)
-    t.true(room.sample_co2?)
+    t.true(room.sample_co2?(700))
   }
 
   t.test('Room.update') fn (t) {

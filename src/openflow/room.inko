@@ -43,8 +43,8 @@ class pub enum State {
   # is the total number of minutes in which motion is detected.
   case Motion(Int, Int)
 
-  # The room's initial CO2 levels should be measured.
-  case InitialCo2
+  # The room's CO2 levels should be measured.
+  case ScheduleCo2
 
   # The room's CO2 levels are being measured.
   #
@@ -77,7 +77,7 @@ impl Equal for State {
       case (Motion(l1, l2), Motion(r1, r2)) -> l1 == r1 and l2 == r2
       case (Button(a), Button(b)) -> a == b
       case (Co2(a), Co2(b)) -> a == b
-      case (InitialCo2, InitialCo2) -> true
+      case (ScheduleCo2, ScheduleCo2) -> true
       case _ -> false
     }
   }
@@ -104,7 +104,7 @@ impl Format for State {
         state.fmt(formatter)
         formatter.write(')')
       }
-      case InitialCo2 -> formatter.write('InitialCo2')
+      case ScheduleCo2 -> formatter.write('ScheduleCo2')
     }
   }
 }
@@ -131,7 +131,7 @@ impl Clone for State {
       case Motion(a, b) -> State.Motion(a, b)
       case Button(old) -> State.Button(old.clone)
       case Co2(old) -> State.Co2(old.clone)
-      case InitialCo2 -> State.InitialCo2
+      case ScheduleCo2 -> State.ScheduleCo2
     }
   }
 }
@@ -231,7 +231,7 @@ class pub Room {
     calculate_extra_flow(target, increase)
   }
 
-  fn pub sample_co2? -> Bool {
+  fn pub sample_co2?(target: Int) -> Bool {
     if @config.co2.false? { return false }
 
     match @state {
@@ -243,10 +243,18 @@ class pub Room {
         case Some(Night) -> true
         case None -> false
       }
+
       # We don't sample rooms running in the "Minimum" state, as this state is
       # meant for e.g. a bathroom during the day to prevent build-up of humidity
       # and smells, and the speed should always be fixed.
-      case Open or Default or InitialCo2 -> true
+      case Open or Default or ScheduleCo2 -> true
+
+      # Enabling CO2 sampling while the CO2 levels are too high makes it a
+      # little easier to monitor how they change over time. For example, for a
+      # bedroom with the Night schedule this gives us a few extra data points
+      # during the day, instead of the monitored value staying at e.g. 800 ppm
+      # for 12 hours.
+      case Closed if @co2.value > target -> true
       case _ -> false
     }
   }
