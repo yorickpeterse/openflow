@@ -95,4 +95,16 @@ fn pub tests(t: mut Tests) {
     room.update(State.Motion(1, 2))
     t.equal(room.last_update, updated)
   }
+
+  t.test('Room.calculate_minimum_flow') fn (t) {
+    let conf = config
+    let room = Room.new(conf)
+
+    t.equal(room.calculate_minimum_flow(co2: false), 0)
+
+    conf.minimum_flow = 10
+
+    t.equal(room.calculate_minimum_flow(co2: false), 10)
+    t.equal(room.calculate_minimum_flow(co2: true), 0)
+  }
 }

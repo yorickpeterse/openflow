@@ -656,10 +656,10 @@ class pub Controller {
             }
           }
           case Motion(_, _) if room.config.minimum_flow > 0 -> {
-            room.config.minimum_flow
+            room.calculate_minimum_flow(@state.co2?)
           }
           case Humid -> @config.humidity.flow
-          case _ -> if @state.co2? { 0 } else { room.config.minimum_flow }
+          case _ -> room.calculate_minimum_flow(@state.co2?)
         }
 
         (base.to_float * room.config.flow_correction).ceil.to_int
