@@ -220,10 +220,15 @@ class pub Room {
       return @config.flow
     }
 
-    let percent = @co2.value - target / SIZE * increase
-    let extra_flow = @config.flow * percent / 100
+    calculate_extra_flow(target, increase)
+  }
 
-    @config.flow + extra_flow
+  fn pub calculate_co2_flow(target: Int, increase: Int) -> Int {
+    # For CO2 sampling we limit the minimum speed to the configured flow, as
+    # this ensures we get accurate samples as fast as possible.
+    if @co2.value <= target { return @config.flow }
+
+    calculate_extra_flow(target, increase)
   }
 
   fn pub sample_co2? -> Bool {
@@ -244,5 +249,12 @@ class pub Room {
       case Open or Default or InitialCo2 -> true
       case _ -> false
     }
+  }
+
+  fn calculate_extra_flow(target: Int, increase: Int) -> Int {
+    let percent = @co2.value - target / SIZE * increase
+    let extra_flow = @config.flow * percent / 100
+
+    @config.flow + extra_flow
   }
 }

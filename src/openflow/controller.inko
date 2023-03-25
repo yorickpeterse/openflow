@@ -636,7 +636,7 @@ class pub Controller {
       .map fn (room) {
         let base = match room.state {
           case Co2(_) -> {
-            room.calculate_flow(@config.co2.target, @config.co2.increase)
+            room.calculate_co2_flow(@config.co2.target, @config.co2.increase)
           }
           case Button(_) -> room.config.flow
           case Schedule or Open or Default -> match @state {
