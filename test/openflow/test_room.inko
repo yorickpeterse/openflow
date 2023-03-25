@@ -1,5 +1,5 @@
-import openflow::config::(Room as RoomConfig)
-import openflow::room::Room
+import openflow::config::(Room as RoomConfig, Schedule)
+import openflow::room::(Room, State)
 import std::test::Tests
 import std::time::Duration
 
@@ -42,5 +42,25 @@ fn pub tests(t: mut Tests) {
     room.co2.add(1000)
     room.co2.update
     t.equal(room.calculate_flow(700, 20), 24)
+  }
+
+  t.test('Room.sample_co2?') fn (t) {
+    let conf = config
+    let room = Room.new(conf)
+
+    t.false(room.sample_co2?)
+
+    room.update(State.Open)
+    t.true(room.sample_co2?)
+
+    room.update(State.Minimum)
+    t.false(room.sample_co2?)
+
+    room.update(State.Schedule)
+    conf.schedule = Option.Some(Schedule.Morning)
+    t.false(room.sample_co2?)
+
+    conf.schedule = Option.Some(Schedule.Night)
+    t.true(room.sample_co2?)
   }
 }

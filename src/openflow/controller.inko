@@ -424,21 +424,20 @@ class pub Controller {
         case _ -> break
       }
 
-      match room.state {
-        case Schedule or Open or Default or Minimum -> {
-          logger.info("Sampling CO2 {room.config.name}, state was {room.state}")
-          @state = State.Co2
+      # We have to check again as the room's state might've changed since it was
+      # scheduled.
+      if room.sample_co2? {
+        logger.info("Sampling CO2 {room.config.name}, state was {room.state}")
+        @state = State.Co2
 
-          # For rooms using motion sensors this effectively resets the motion
-          # timeout. In practise this shouldn't pose much of a problem though,
-          # because in the worst case we just ventilate a room for a little
-          # longer than we're supposed to.
-          room.update(RoomState.Co2(room.state.clone))
-          return
-        }
-        case _ -> {
-          logger.info("Not sampling {room.config.name} as ventilation stopped")
-        }
+        # For rooms using motion sensors this effectively resets the motion
+        # timeout. In practise this shouldn't pose much of a problem though,
+        # because in the worst case we just ventilate a room for a little longer
+        # than we're supposed to.
+        room.update(RoomState.Co2(room.state.clone))
+        return
+      } else {
+        logger.info("Not sampling {room.config.name} as ventilation stopped")
       }
     }
 
@@ -449,15 +448,12 @@ class pub Controller {
 
     if @last_co2_update.elapsed < @config.co2.sample_interval { return }
 
-    @rooms.iter_mut.select fn (e) { e.value.config.co2 }.each fn (entry) {
+    @rooms.iter_mut.each fn (entry) {
       let room = entry.value
 
-      match room.state {
-        case Schedule or Open or Default or Minimum -> {
-          logger.info("Scheduling {room.config.name} for CO2 sampling")
-          @co2_scheduled_rooms.push(room)
-        }
-        case _ -> {}
+      if room.sample_co2? {
+        logger.info("Scheduling {room.config.name} for CO2 sampling")
+        @co2_scheduled_rooms.push(room)
       }
     }
   }

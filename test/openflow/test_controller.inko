@@ -742,7 +742,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
     ctl.iteration
 
-    t.true(match bedroom.state { case Co2(Minimum) -> true, case _ -> false })
+    t.equal(bedroom.state, State.Minimum)
   }
 
   t.test('Sampling of CO2 levels while waiting for them to stabilise') fn (t) {
@@ -919,6 +919,30 @@ fn pub tests(t: mut Tests) {
 
     t.equal(room.state, State.Minimum)
     t.true(updates.contains?((room.config.exhaust, 445)))
+  }
+
+  t.test('Rooms using the morning schedule are not sampled') fn (t) {
+    let conf = config
+
+    conf.co2.sample_time = Duration.from_secs(0)
+    conf.co2.sample_interval = Duration.from_secs(0)
+    conf.co2.sample_wait_time = Duration.from_secs(0)
+    conf.rooms['bathroom'].schedule = Option.Some(Schedule.Morning)
+
+    let itho = itho(co2: 1200, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(6))
+    let bedroom = ctl.rooms['bedroom']
+    let bathroom = ctl.rooms['bathroom']
+
+    bathroom.update(State.Schedule)
+    bedroom.update(State.Open)
+
+    ctl.iteration # Schedule the rooms to sample
+    ctl.iteration # Pick up a room to sample
+
+    t.true(match bedroom.state { case Co2(Open) -> true, case _ -> false })
+    t.equal(bathroom.state, State.Schedule)
   }
 
   t.test('Detecting motion in a room with a minimum flow') fn (t) {

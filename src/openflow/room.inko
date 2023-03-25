@@ -225,4 +225,24 @@ class pub Room {
 
     @config.flow + extra_flow
   }
+
+  fn pub sample_co2? -> Bool {
+    if @config.co2.false? { return false }
+
+    match @state {
+      case Schedule -> match @config.schedule {
+        # We don't sample rooms running the morning schedule as there's no point
+        # in doing so, as this schedule is meant for "preparing" a room for the
+        # day (e.g. by getting rid of unwanted smells or stale air).
+        case Some(Morning) -> false
+        case Some(Night) -> true
+        case None -> false
+      }
+      # We don't sample rooms running in the "Minimum" state, as this state is
+      # meant for e.g. a bathroom during the day to prevent build-up of humidity
+      # and smells, and the speed should always be fixed.
+      case Open or Default -> true
+      case _ -> false
+    }
+  }
 }
