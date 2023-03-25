@@ -737,7 +737,7 @@ fn pub tests(t: mut Tests) {
 
     t.equal(bedroom.state, State.Open)
     t.equal(bedroom.co2.value, 1200)
-    t.equal(office.co2.value, 400)
+    t.equal(office.co2.value, 0)
     t.equal(
       updates,
       [
@@ -832,7 +832,7 @@ fn pub tests(t: mut Tests) {
 
     ctl.iteration # Apply changes
 
-    t.equal(bedroom.co2.value, 400)
+    t.equal(bedroom.co2.value, 0)
     t.equal(updates, [])
   }
 
