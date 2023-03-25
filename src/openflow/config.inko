@@ -380,6 +380,10 @@ class pub Co2 {
   # The interval at which to sample the CO2 levels
   let pub @sample_interval: Duration
 
+  # Half of the configured sample interval, used when only a few rooms are
+  # ventilated.
+  let pub @half_sample_interval: Duration
+
   # The amount of time to gather samples before calculating a new CO2 estimate.
   let pub @sample_time: Duration
 
@@ -411,10 +415,13 @@ class pub Co2 {
       throw 'The CO2 increase must be between 0 and 100'
     }
 
+    let interval = try int(value, 'sample_interval')
+
     Co2 {
       @target = try int(value, 'target'),
       @metrics_interval = Duration.from_secs(try int(value, 'metrics_interval')),
-      @sample_interval = Duration.from_secs(try int(value, 'sample_interval')),
+      @sample_interval = Duration.from_secs(interval),
+      @half_sample_interval = Duration.from_secs(interval / 2),
       @sample_time = Duration.from_secs(try int(value, 'sample_time')),
       @sample_wait_time = Duration.from_secs(try int(value, 'sample_wait_time')),
       @increase = increase,

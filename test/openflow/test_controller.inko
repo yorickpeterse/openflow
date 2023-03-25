@@ -160,6 +160,7 @@ fn config -> Config {
       @target = 700,
       @metrics_interval = Duration.from_secs(60),
       @sample_interval = Duration.from_secs(1800),
+      @half_sample_interval = Duration.from_secs(900),
       @sample_time = Duration.from_secs(900),
       @sample_wait_time = Duration.from_secs(0),
       @increase = 10
@@ -745,6 +746,52 @@ fn pub tests(t: mut Tests) {
         (SPEED, 29)
       ]
     )
+  }
+
+  t.test('Sampling of CO2 levels when only two rooms are ventilated') fn (t) {
+    let conf = config
+
+    conf.co2.sample_time = Duration.from_secs(0)
+    conf.co2.sample_wait_time = Duration.from_secs(0)
+    conf.co2.half_sample_interval = Duration.from_secs(0)
+
+    let itho = itho(co2: 1200, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(conf, itho, hue, hour(14))
+    let living_room = ctl.rooms['living_room']
+    let bathroom = ctl.rooms['bathroom']
+
+    living_room.update(State.Open)
+    bathroom.update(State.Open)
+
+    ctl.iteration # Schedule the rooms
+
+    t.equal(
+      updates,
+      [
+        (living_room.config.exhaust, 312)
+        (bathroom.config.exhaust, 1112),
+        (SPEED, 26)
+      ]
+    )
+
+    updates.clear
+    ctl.iteration # Process a room
+
+    t.equal(
+      updates,
+      [(living_room.config.exhaust, 0), (bathroom.config.exhaust, 2223)]
+    )
+    t.true(match bathroom.state { case Co2(Open) -> true, case _ -> false })
+
+    updates.clear
+    ctl.iteration # Process another room
+
+    t.equal(
+      updates,
+      [(living_room.config.exhaust, 667), (bathroom.config.exhaust, 0)]
+    )
+    t.true(match living_room.state { case Co2(Open) -> true, case _ -> false })
   }
 
   t.test('Sampling of CO2 levels for a room with minimum ventilation') fn (t) {

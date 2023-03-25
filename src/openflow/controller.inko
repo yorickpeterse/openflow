@@ -466,7 +466,7 @@ class pub Controller {
       @state = State.Default
     }
 
-    if @last_co2_update.elapsed < @config.co2.sample_interval { return }
+    if sample_co2?.false? { return }
 
     @rooms.iter_mut.each fn (entry) {
       let room = entry.value
@@ -476,6 +476,27 @@ class pub Controller {
         @co2_scheduled_rooms.push(room)
       }
     }
+  }
+
+  fn sample_co2? -> Bool {
+    let last_sample = @last_co2_update.elapsed
+
+    if last_sample >= @config.co2.sample_interval { return true }
+    if last_sample < @config.co2.half_sample_interval { return false }
+
+    let open = @rooms
+      .values
+      .select fn (room) {
+        match room.state {
+          case Open or Schedule or Default -> true
+          case _ -> false
+        }
+      }
+      .count
+
+    # If only one or two rooms are ventilated we can sample more often, as in
+    # such a case sampling takes very little time.
+    open == 1 or open == 2
   }
 
   fn mut send_co2_metrics(status: ref Status) {
