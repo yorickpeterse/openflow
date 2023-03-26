@@ -207,7 +207,7 @@ class pub Controller {
     @logger.info('Closing all exhausts')
 
     @rooms.values.each fn (room) {
-      @logger.info("Closing exhaust for {room.config.name}")
+      info(room, 'Closing exhaust')
       try! @itho.set(room.config.exhaust, value: 0)
       sleep(@config.exhaust.close_time)
     }
@@ -222,7 +222,7 @@ class pub Controller {
     if schedule.active?(time) {
       match room.state {
         case Closed or Minimum -> {
-          logger.info("Enabling schedule for {room.config.name}")
+          info(room, 'Enabling schedule')
           room.update(RoomState.Schedule)
         }
         case _ -> {}
@@ -232,7 +232,7 @@ class pub Controller {
     }
 
     if room.state.schedule? {
-      logger.info("Disabling schedule for {room.config.name}")
+      info(room, 'Disabling schedule')
       room.update(RoomState.Closed)
     }
 
@@ -259,7 +259,7 @@ class pub Controller {
         case Humid -> room.update_time
         case Open or MaybeHumid -> {
           if room.stale?(@config.humidity.high_time) {
-            logger.info("The humidity in {room.config.name} is too high")
+            info(room, 'The humidity is too high')
             room.update(RoomState.Humid)
             room.humid_at = Instant.new
           }
@@ -290,7 +290,7 @@ class pub Controller {
           if room.humid_at.elapsed >= @config.humidity.min_time
             and room.stale?(@config.humidity.low_time)
           {
-            logger.info("The humidity in {room.config.name} OK again")
+            info(room, 'The humidity is OK again')
             room.update(RoomState.Open)
           }
         }
@@ -320,7 +320,7 @@ class pub Controller {
 
       match room.state {
         case Closed or Minimum -> {
-          logger.info("Motion detected in {room.config.name}")
+          info(room, 'Motion detected')
 
           let new_state = if conf.minutes == 1 {
             RoomState.Open
@@ -333,10 +333,10 @@ class pub Controller {
         case Motion(min, count) if min != time.minute -> {
           let new_count = count + 1
           let new_state = if new_count == conf.minutes {
-            logger.info("Enabling ventilation for {room.config.name}")
+            info(room, 'Enabling ventilation')
             RoomState.Open
           } else {
-            logger.info("More motion detected for {room.config.name}")
+            info(room, 'More motion detected')
             RoomState.Motion(time.minute, new_count)
           }
 
@@ -344,11 +344,7 @@ class pub Controller {
         }
         case Open -> room.update_time
         case Default -> {
-          logger.info(
-            "Motion detected in {room.config.name} while default ventilation \
-              is applied, enabling regular ventilation"
-          )
-
+          info(room, 'Changing from default to regular ventilation')
           room.update(RoomState.Open)
         }
         case _ -> {}
@@ -364,18 +360,15 @@ class pub Controller {
         let reset = room.config.ping.iter.any? fn (ip) { online?(ip) }
 
         if reset {
-          logger.info(
-            "One or more hosts are online, resetting timer for \
-            {room.config.name}"
-          )
+          info(room, 'One or more hosts are online, resetting timer')
           room.update_time
         } else {
-          logger.info("Disabling ventilation for {room.config.name}")
+          info(room, 'Disabling ventilation')
           room.update(RoomState.Closed)
         }
       }
       case Motion(_, _) if room.stale?(conf.time) -> {
-        logger.info("Not enough motion detected in {room.config.name}")
+        info(room, 'Not enough motion detected')
         room.update(RoomState.Closed)
       }
       case _ -> {}
@@ -386,7 +379,7 @@ class pub Controller {
     @rooms.iter_mut.select fn (e) { e.value.config.co2 }.each fn (entry) {
       let room = entry.value
 
-      @logger.info("Scheduling {room.config.name} for initial CO2 sampling")
+      info(room, 'Scheduling initial CO2 sampling')
       room.update(RoomState.ScheduleCo2)
       @co2_scheduled_rooms.push(room)
     }
@@ -413,9 +406,7 @@ class pub Controller {
           } else {
             room.co2.update
             room.update(old_state.clone)
-            logger.info(
-              "Updated CO2 levels for {room.config.name} to {room.co2.value} ppm"
-            )
+            info(room, "Updated CO2 levels to {room.co2.value} ppm")
 
             # We update the time here so we don't start to immediately sample
             # again after sampling the last room.
@@ -438,7 +429,7 @@ class pub Controller {
       # We have to check again as the room's state might've changed since it was
       # scheduled.
       if room.sample_co2?(@config.co2.target) {
-        logger.info("Sampling CO2 {room.config.name}, state was {room.state}")
+        info(room, "Sampling CO2, state was {room.state}")
         @state = State.Co2
 
         let old_state = match room.state {
@@ -453,7 +444,7 @@ class pub Controller {
         room.update(RoomState.Co2(old_state))
         return
       } else {
-        logger.info("Not sampling {room.config.name} as ventilation stopped")
+        info(room, 'Not sampling as ventilation stopped')
       }
     }
 
@@ -468,7 +459,7 @@ class pub Controller {
       let room = entry.value
 
       if room.sample_co2?(@config.co2.target) {
-        logger.info("Scheduling {room.config.name} for CO2 sampling")
+        info(room, 'Scheduling CO2 sampling')
         @co2_scheduled_rooms.push(room)
       }
     }
@@ -640,14 +631,14 @@ class pub Controller {
       match room.state {
         case Default -> room.update_time
         case _ -> {
-          logger.info("Enabling default ventilation for {room.config.name}")
+          info(room, 'Enabling default ventilation')
           room.update(RoomState.Default)
         }
       }
     } else {
       match room.state {
         case Default -> {
-          logger.info("Disabling default ventilation for {room.config.name}")
+          info(room, 'Disabling default ventilation')
           room.update(RoomState.Closed)
         }
         case _ -> {}
@@ -742,9 +733,9 @@ class pub Controller {
 
       if exhaust == room.exhaust { return }
 
-      logger.info(
-        "Changing exhaust setting for {room.config.name} from \
-        {room.exhaust} to {exhaust} ({flow} m3/h)"
+      info(
+        room,
+        "Changing exhaust from {room.exhaust} to {exhaust} ({flow} m3/h)"
       )
       room.exhaust = exhaust
 
@@ -777,5 +768,9 @@ class pub Controller {
 
   fn flow_percentage(flow: Int) -> Int {
     (flow.to_float / @config.exhaust.max_flow.to_float * 100.0).ceil.to_int
+  }
+
+  fn mut info(room: ref Room, message: String) {
+    @logger.info("{room.config.name}: {message}")
   }
 }
