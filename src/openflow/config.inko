@@ -384,6 +384,9 @@ class pub Co2 {
   # ventilated.
   let pub @half_sample_interval: Duration
 
+  # The interval at which to sample closed exhausts/rooms.
+  let pub @closed_sample_interval: Duration
+
   # The amount of time to gather samples before calculating a new CO2 estimate.
   let pub @sample_time: Duration
 
@@ -422,6 +425,7 @@ class pub Co2 {
       @metrics_interval = Duration.from_secs(try int(value, 'metrics_interval')),
       @sample_interval = Duration.from_secs(interval),
       @half_sample_interval = Duration.from_secs(interval / 2),
+      @closed_sample_interval = Duration.from_secs(interval * 3),
       @sample_time = Duration.from_secs(try int(value, 'sample_time')),
       @sample_wait_time = Duration.from_secs(try int(value, 'sample_wait_time')),
       @increase = increase,

@@ -428,7 +428,7 @@ class pub Controller {
 
       # We have to check again as the room's state might've changed since it was
       # scheduled.
-      if room.sample_co2?(@config.co2.target) {
+      if room.sample_co2?(@config.co2) {
         info(room, "Sampling CO2, state was {room.state}")
         @state = State.Co2
 
@@ -458,7 +458,7 @@ class pub Controller {
     @rooms.iter_mut.each fn (entry) {
       let room = entry.value
 
-      if room.sample_co2?(@config.co2.target) {
+      if room.sample_co2?(@config.co2) {
         info(room, 'Scheduling CO2 sampling')
         @co2_scheduled_rooms.push(room)
       }

@@ -250,7 +250,7 @@ class pub Room {
     raw + 100 / 100 * 100
   }
 
-  fn pub sample_co2?(target: Int) -> Bool {
+  fn pub sample_co2?(config: ref Co2Config) -> Bool {
     if @config.co2.false? { return false }
 
     match @state {
@@ -273,7 +273,10 @@ class pub Room {
       # bedroom with the Night schedule this gives us a few extra data points
       # during the day, instead of the monitored value staying at e.g. 800 ppm
       # for 12 hours.
-      case Closed if @co2.value > target -> true
+      case Closed -> {
+        @co2.value > config.target
+          or @last_update.elapsed >= config.closed_sample_interval
+      }
       case _ -> false
     }
   }

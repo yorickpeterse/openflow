@@ -1,7 +1,20 @@
-import openflow::config::(Room as RoomConfig, Schedule)
+import openflow::config::(Co2 as Co2Config, Room as RoomConfig, Schedule)
 import openflow::room::(Room, State)
 import std::test::Tests
 import std::time::Duration
+
+fn co2_config(target: Int) -> Co2Config {
+  Co2Config {
+    @target = target,
+    @metrics_interval = Duration.from_secs(0),
+    @sample_interval = Duration.from_secs(10),
+    @half_sample_interval = Duration.from_secs(5),
+    @closed_sample_interval = Duration.from_secs(30),
+    @sample_time = Duration.from_secs(0),
+    @sample_wait_time = Duration.from_secs(0),
+    @increase = 20,
+  }
+}
 
 fn config -> RoomConfig {
   RoomConfig {
@@ -46,26 +59,37 @@ fn pub tests(t: mut Tests) {
   t.test('Room.sample_co2?') fn (t) {
     let conf = config
     let room = Room.new(conf)
+    let co2 = co2_config(target: 700)
 
-    t.false(room.sample_co2?(700))
+    t.false(room.sample_co2?(co2))
 
     room.update(State.Open)
-    t.true(room.sample_co2?(700))
+    t.true(room.sample_co2?(co2))
 
     room.update(State.Minimum)
-    t.false(room.sample_co2?(700))
+    t.false(room.sample_co2?(co2))
 
     room.update(State.Closed)
     room.co2.add(800)
     room.co2.update
-    t.true(room.sample_co2?(700))
+    t.true(room.sample_co2?(co2))
 
     room.update(State.Schedule)
     conf.schedule = Option.Some(Schedule.Morning)
-    t.false(room.sample_co2?(700))
+    t.false(room.sample_co2?(co2))
 
     conf.schedule = Option.Some(Schedule.Night)
-    t.true(room.sample_co2?(700))
+    t.true(room.sample_co2?(co2))
+  }
+
+  t.test('Room.sample_co2? with a room that is closed for a long time') fn (t) {
+    let conf = config
+    let room = Room.new(conf)
+    let co2 = co2_config(target: 700)
+
+    co2.closed_sample_interval = Duration.from_secs(0)
+
+    t.true(room.sample_co2?(co2))
   }
 
   t.test('Room.update') fn (t) {
