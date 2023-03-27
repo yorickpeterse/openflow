@@ -10,21 +10,10 @@ let LOW = 500
 let HIGH = 1200
 
 # The size/ppm per bucket.
-let pub SIZE = 100
+let pub SIZE = 50
 
 # The number of buckets to use for the CO2 histogram.
-#
-# CO2 levels are divided into the following buckets:
-#
-#     <= 500
-#     <= 600
-#     <= 700
-#     <= 800
-#     <= 900
-#     <= 1000
-#     <= 1100
-#     >= 1200
-let BUCKETS = 8
+let BUCKETS = 15
 
 # The last/maximum bucket.
 let MAX_BUCKET = BUCKETS - 1
@@ -52,10 +41,9 @@ class pub Co2 {
   }
 
   # Updates the CO2 estimate if necessary.
-  fn pub mut update -> Bool {
-    @value = LOW + (@histogram.largest * 100)
+  fn pub mut update {
+    @value = LOW + (@histogram.largest * SIZE)
     @histogram.reset
-    true
   }
 
   # Adds the given PPM to the list of samples.

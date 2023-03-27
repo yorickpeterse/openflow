@@ -11,27 +11,31 @@ fn pub tests(t: mut Tests) {
     t.equal(co2.value, 500)
 
     co2.add(420)
-    t.true(co2.update)
+    co2.update
     t.equal(co2.value, 500)
   }
 
   t.test('Co2.update without any samples') fn (t) {
     let co2 = Co2.new
 
-    t.true(co2.update)
+    co2.update
     t.equal(co2.value, 500)
   }
 
   t.test('Co2.update with values in between buckets') fn (t) {
     let co2 = Co2.new
 
+    co2.add(720)
+    co2.update
+    t.equal(co2.value, 700)
+
     co2.add(760)
     co2.update
-    t.equal(co2.value, 800)
+    t.equal(co2.value, 750)
 
     co2.add(740)
     co2.update
-    t.equal(co2.value, 700)
+    t.equal(co2.value, 750)
   }
 
   t.test('Co2.update with samples') fn (t) {
@@ -39,21 +43,25 @@ fn pub tests(t: mut Tests) {
 
     co2.add(710)
     co2.add(780)
-    t.true(co2.update)
+    co2.update
     t.equal(co2.value, 700)
 
     co2.add(750)
     co2.add(803)
     co2.add(810)
-    t.true(co2.update)
+    co2.update
     t.equal(co2.value, 800)
 
     co2.add(1250)
     co2.add(1500)
-    t.true(co2.update)
+    co2.update
     t.equal(co2.value, 1200)
 
-    t.true(co2.update)
+    co2.update
     t.equal(co2.value, 500)
+
+    co2.add(2500)
+    co2.update
+    t.equal(co2.value, 1200)
   }
 }

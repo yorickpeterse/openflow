@@ -742,9 +742,9 @@ fn pub tests(t: mut Tests) {
     t.equal(
       updates,
       [
-        (bedroom.config.exhaust, 3700),
-        (office.config.exhaust, 400),
-        (SPEED, 29)
+        (bedroom.config.exhaust, 3800),
+        (office.config.exhaust, 300),
+        (SPEED, 37)
       ]
     )
   }

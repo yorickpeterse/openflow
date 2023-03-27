@@ -49,11 +49,11 @@ fn pub tests(t: mut Tests) {
 
     room.co2.add(800)
     room.co2.update
-    t.equal(room.calculate_flow(700, 20), 18)
+    t.equal(room.calculate_flow(700, 20), 21)
 
     room.co2.add(1000)
     room.co2.update
-    t.equal(room.calculate_flow(700, 20), 24)
+    t.equal(room.calculate_flow(700, 20), 33)
   }
 
   t.test('Room.sample_co2?') fn (t) {
