@@ -45,6 +45,10 @@ fn pub tests(t: mut Tests) {
 
     room.co2.add(700)
     room.co2.update
+    t.equal(room.calculate_flow(700, 20), 7)
+
+    room.co2.add(750)
+    room.co2.update
     t.equal(room.calculate_flow(700, 20), 15)
 
     room.co2.add(800)

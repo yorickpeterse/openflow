@@ -214,17 +214,11 @@ class pub Room {
   }
 
   fn pub calculate_flow(target: Int, increase: Int) -> Int {
-    if @co2.value < target {
-      # If the CO2 levels are below the target we reduce the ventilation speed,
-      # as running at full speed isn't necessary in this case. This in turn
-      # should reduce excessive noise when multiple rooms are ventilated, but
-      # the CO2 levels are perfectly fine.
-      return @config.flow / 2
-    } else if @co2.value == target {
-      return @config.flow
-    }
+    # Up to (and including) the target we'll run at a reduced speed in order to
+    # keep the noise to a minimum.
+    if @co2.value <= target { return @config.flow / 2 }
 
-    calculate_extra_flow(target, increase)
+    @config.flow + calculate_extra_flow(target, increase)
   }
 
   fn pub calculate_co2_flow(target: Int, increase: Int) -> Int {
@@ -232,7 +226,7 @@ class pub Room {
     # this ensures we get accurate samples as fast as possible.
     if @co2.value <= target { return @config.flow }
 
-    calculate_extra_flow(target, increase)
+    @config.flow + calculate_extra_flow(target, increase)
   }
 
   fn pub calculate_minimum_flow(co2: Bool) -> Int {
@@ -282,9 +276,12 @@ class pub Room {
   }
 
   fn calculate_extra_flow(target: Int, increase: Int) -> Int {
-    let percent = @co2.value - target / SIZE * increase
-    let extra_flow = @config.flow * percent / 100
+    let increments = @co2.value - target / SIZE
 
-    @config.flow + extra_flow
+    # If we're only slightly above the target threshold we'll just run at the
+    # configured speed, rather than speeding up.
+    if increments == 1 { return 0 }
+
+    @config.flow * increments * increase / 100
   }
 }
