@@ -82,14 +82,6 @@ class pub enum Schedule {
   # This schedule is meant for rooms that may build up stale/smelly air over
   # night.
   case Morning
-
-  # Returns `true` if the schedule is/should be active.
-  fn pub active?(time: ref DateTime) -> Bool {
-    match self {
-      case Night -> time.hour < 11
-      case Morning -> time.hour == 6
-    }
-  }
 }
 
 # Configuration details for a motion sensor.

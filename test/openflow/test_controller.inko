@@ -186,6 +186,11 @@ fn controller(
   Controller.new(config, itho, hue, clock, logger)
 }
 
+fn update_bedroom_co2(controller: mut Controller, co2: Int) {
+  controller.rooms['bedroom'].co2.add(co2)
+  controller.rooms['bedroom'].co2.update
+}
+
 fn itho(co2: Int, humidity: Int) -> TestDriver {
   let driver = TestDriver.new
 
@@ -276,11 +281,12 @@ fn remote(time: Duration) -> Remote {
 
 fn pub tests(t: mut Tests) {
   t.test('A room for which to enable a schedule') fn (t) {
-    let itho = itho(co2: 1, humidity: 1)
+    let itho = itho(co2: 700, humidity: 1)
     let updates = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(2))
     let room = ctl.rooms['bedroom']
 
+    update_bedroom_co2(ctl, co2: 700)
     ctl.iteration
 
     t.equal(room.state, State.Schedule)
@@ -293,11 +299,12 @@ fn pub tests(t: mut Tests) {
 
     conf.rooms['bedroom'].minimum_flow = 10
 
-    let itho = itho(co2: 1, humidity: 1)
+    let itho = itho(co2: 700, humidity: 1)
     let updates = track_settings(itho)
     let ctl = controller(conf, itho, hue, hour(2))
     let room = ctl.rooms['bedroom']
 
+    update_bedroom_co2(ctl, co2: 700)
     ctl.iteration
 
     t.equal(room.state, State.Schedule)
@@ -330,6 +337,7 @@ fn pub tests(t: mut Tests) {
     room.state = State.Schedule
     room.last_update = before.clone
     room.exhaust = 1389
+    update_bedroom_co2(ctl, co2: 700)
     ctl.iteration
 
     t.equal(room.state, State.Schedule)
@@ -659,6 +667,7 @@ fn pub tests(t: mut Tests) {
     let _ = track_settings(itho)
     let ctl = controller(config, itho, hue, hour(2))
 
+    update_bedroom_co2(ctl, co2: 700)
     ctl.iteration
 
     t.equal(ctl.rooms['living_room'].state, State.Closed)
@@ -689,6 +698,7 @@ fn pub tests(t: mut Tests) {
     let ctl = controller(config, itho, hue, hour(2))
     let room = ctl.rooms['bedroom']
 
+    update_bedroom_co2(ctl, co2: 700)
     ctl.iteration
 
     t.equal(updates, [(room.config.exhaust, room.exhaust), (SPEED, 26)])
@@ -851,6 +861,7 @@ fn pub tests(t: mut Tests) {
 
     bathroom.state = State.Humid
     bathroom.exhaust = 3400
+    update_bedroom_co2(ctl, co2: 1200)
     ctl.iteration
 
     t.equal(updates, [(bedroom.config.exhaust, 700), (SPEED, 52)])
@@ -867,6 +878,7 @@ fn pub tests(t: mut Tests) {
     let ctl = controller(conf, itho, hue, hour(2))
     let bedroom = ctl.rooms['bedroom']
 
+    update_bedroom_co2(ctl, co2: 700)
     ctl.iteration
 
     t.equal(updates, [(bedroom.config.exhaust, 4000), (SPEED, 100)])
@@ -882,6 +894,7 @@ fn pub tests(t: mut Tests) {
     let ctl = controller(conf, itho, hue, hour(2))
     let bedroom = ctl.rooms['bedroom']
 
+    update_bedroom_co2(ctl, co2: 700)
     ctl.iteration
 
     t.equal(updates, [(bedroom.config.exhaust, 300), (SPEED, 26)])
@@ -893,6 +906,7 @@ fn pub tests(t: mut Tests) {
     let ctl = controller(config, itho, hue, hour(2))
     let bedroom = ctl.rooms['bedroom']
 
+    update_bedroom_co2(ctl, co2: 700)
     ctl.iteration
     ctl.iteration
 
@@ -909,6 +923,7 @@ fn pub tests(t: mut Tests) {
 
     bathroom.state = State.Humid
     bathroom.exhaust = 4000
+    update_bedroom_co2(ctl, co2: 700)
     ctl.iteration
     ctl.iteration
 

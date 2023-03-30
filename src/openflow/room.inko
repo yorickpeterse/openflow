@@ -271,6 +271,14 @@ class pub Room {
     }
   }
 
+  fn pub active_schedule?(time: ref DateTime, target: Int) -> Bool {
+    match @config.schedule {
+      case Some(Morning) -> time.hour == 6
+      case Some(Night) -> time.hour < 11 and @co2.value >= target
+      case _ -> false
+    }
+  }
+
   fn calculate_extra_flow(target: Int, increase: Int) -> Int {
     let increments = @co2.value - target / SIZE
 

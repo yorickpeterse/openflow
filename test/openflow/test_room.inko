@@ -1,7 +1,7 @@
 import openflow::config::(Co2 as Co2Config, Room as RoomConfig, Schedule)
 import openflow::room::(Room, State)
 import std::test::Tests
-import std::time::Duration
+import std::time::(DateTime, Duration)
 
 fn co2_config(target: Int) -> Co2Config {
   Co2Config {
@@ -29,6 +29,19 @@ fn config -> RoomConfig {
     @flow_correction = 1.0,
     @ventilation_time = Duration.from_secs(10),
     @co2 = true,
+  }
+}
+
+fn hour(hour: Int) -> DateTime {
+  DateTime {
+    @year = 2023,
+    @month = 1,
+    @day = 12,
+    @hour = hour,
+    @minute = 4,
+    @second = 2,
+    @sub_second = 0.0,
+    @utc_offset = 0,
   }
 }
 
@@ -155,5 +168,51 @@ fn pub tests(t: mut Tests) {
     t.equal(room.calculate_exhaust_setting(flow: 40, total_flow: 70), 2300)
     t.equal(room.calculate_exhaust_setting(flow: 70, total_flow: 70), 4000)
     t.equal(room.calculate_exhaust_setting(flow: 100, total_flow: 70), 4000)
+  }
+
+  t.test('Room.active_schedule? without a schedule') fn (t) {
+    let conf = config
+    let room = Room.new(conf)
+
+    t.false(room.active_schedule?(hour(14), target: 700))
+
+    room.co2.add(1200)
+    room.co2.update
+
+    t.false(room.active_schedule?(hour(14), target: 700))
+  }
+
+  t.test('Room.active_schedule? with a morning schedule') fn (t) {
+    let conf = config
+    let room = Room.new(conf)
+
+    conf.schedule = Option.Some(Schedule.Morning)
+
+    t.false(room.active_schedule?(hour(14), target: 700))
+    t.true(room.active_schedule?(hour(6), target: 700))
+  }
+
+  t.test('Room.active_schedule? with a night schedule') fn (t) {
+    let conf = config
+    let room = Room.new(conf)
+
+    conf.schedule = Option.Some(Schedule.Night)
+
+    t.false(room.active_schedule?(hour(14), target: 700))
+    t.false(room.active_schedule?(hour(4), target: 700))
+
+    room.co2.add(700)
+    room.co2.update
+
+    t.false(room.active_schedule?(hour(14), target: 700))
+    t.true(room.active_schedule?(hour(4), target: 700))
+
+    room.co2.add(1200)
+    room.co2.update
+
+    t.false(room.active_schedule?(hour(11), target: 700))
+    t.false(room.active_schedule?(hour(12), target: 700))
+    t.false(room.active_schedule?(hour(14), target: 700))
+    t.true(room.active_schedule?(hour(4), target: 700))
   }
 }
