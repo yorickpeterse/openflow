@@ -300,6 +300,8 @@ class pub Controller {
   }
 
   fn mut check_motion(sensors: ref Sensors, room: mut Room, time: ref DateTime) {
+    if @state.co2? { return }
+
     let conf = match room.config.motion {
       case Some(conf) -> conf
       case _ -> return
