@@ -1,7 +1,7 @@
 import openflow::co2::(SIZE, Co2)
 import openflow::config::(Room as RoomConfig, Co2 as Co2Config)
 import std::clone::Clone
-import std::cmp::Equal
+import std::cmp::(Equal, max)
 import std::fmt::(DefaultFormatter, Format, Formatter)
 import std::string::ToString
 import std::time::(DateTime, Duration, Instant)
@@ -214,11 +214,7 @@ class pub Room {
   }
 
   fn pub calculate_flow(target: Int, increase: Int) -> Int {
-    # Up to (and including) the target we'll run at a reduced speed in order to
-    # keep the noise to a minimum.
-    if @co2.value <= target { return @config.flow / 2 }
-
-    @config.flow + calculate_extra_flow(target, increase)
+    max(@config.flow + calculate_extra_flow(target, increase), @config.flow / 2)
   }
 
   fn pub calculate_co2_flow(target: Int, increase: Int) -> Int {
@@ -277,10 +273,6 @@ class pub Room {
 
   fn calculate_extra_flow(target: Int, increase: Int) -> Int {
     let increments = @co2.value - target / SIZE
-
-    # If we're only slightly above the target threshold we'll just run at the
-    # configured speed, rather than speeding up.
-    if increments == 1 { return 0 }
 
     @config.flow * increments * increase / 100
   }
