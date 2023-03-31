@@ -214,7 +214,7 @@ class pub Controller {
   }
 
   fn mut check_schedule(room: mut Room, time: ref DateTime) -> Bool {
-    if room.active_schedule?(time, @config.co2.target) {
+    if room.active_schedule?(time) {
       match room.state {
         case Closed or Minimum -> {
           info(room, 'Enabling schedule')

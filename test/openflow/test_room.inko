@@ -174,12 +174,12 @@ fn pub tests(t: mut Tests) {
     let conf = config
     let room = Room.new(conf)
 
-    t.false(room.active_schedule?(hour(14), target: 700))
+    t.false(room.active_schedule?(hour(14)))
 
     room.co2.add(1200)
     room.co2.update
 
-    t.false(room.active_schedule?(hour(14), target: 700))
+    t.false(room.active_schedule?(hour(14)))
   }
 
   t.test('Room.active_schedule? with a morning schedule') fn (t) {
@@ -188,8 +188,8 @@ fn pub tests(t: mut Tests) {
 
     conf.schedule = Option.Some(Schedule.Morning)
 
-    t.false(room.active_schedule?(hour(14), target: 700))
-    t.true(room.active_schedule?(hour(6), target: 700))
+    t.false(room.active_schedule?(hour(14)))
+    t.true(room.active_schedule?(hour(6)))
   }
 
   t.test('Room.active_schedule? with a night schedule') fn (t) {
@@ -198,21 +198,8 @@ fn pub tests(t: mut Tests) {
 
     conf.schedule = Option.Some(Schedule.Night)
 
-    t.false(room.active_schedule?(hour(14), target: 700))
-    t.false(room.active_schedule?(hour(4), target: 700))
-
-    room.co2.add(700)
-    room.co2.update
-
-    t.false(room.active_schedule?(hour(14), target: 700))
-    t.true(room.active_schedule?(hour(4), target: 700))
-
-    room.co2.add(1200)
-    room.co2.update
-
-    t.false(room.active_schedule?(hour(11), target: 700))
-    t.false(room.active_schedule?(hour(12), target: 700))
-    t.false(room.active_schedule?(hour(14), target: 700))
-    t.true(room.active_schedule?(hour(4), target: 700))
+    t.true(room.active_schedule?(hour(4)))
+    t.false(room.active_schedule?(hour(11)))
+    t.false(room.active_schedule?(hour(14)))
   }
 }
