@@ -661,7 +661,7 @@ class pub Controller {
       .map fn (room) {
         let base = match room.state {
           case Co2(_) -> {
-            room.calculate_co2_flow(@config.co2.target, @config.co2.increase)
+            room.co2_flow(@config.co2.target, @config.co2.increase)
           }
           case Button(_) -> room.config.flow
           case Schedule or Open or Default -> match @state {
@@ -678,7 +678,7 @@ class pub Controller {
 
             case Default -> {
               let val =
-                room.calculate_flow(@config.co2.target, @config.co2.increase)
+                room.flow(@config.co2.target, @config.co2.increase)
 
               # If only a single room is actively ventilated we want to
               # ventilate it using _at least_ the configured flow. If we use a
@@ -689,10 +689,10 @@ class pub Controller {
             }
           }
           case Motion(_, _) if room.config.minimum_flow > 0 -> {
-            room.calculate_minimum_flow(@state.co2?)
+            room.minimum_flow(@state.co2?)
           }
           case Humid -> @config.humidity.flow
-          case _ -> room.calculate_minimum_flow(@state.co2?)
+          case _ -> room.minimum_flow(@state.co2?)
         }
 
         (base.to_float * room.config.flow_correction).ceil.to_int
@@ -720,7 +720,7 @@ class pub Controller {
     @rooms.iter_mut.each_with_index fn (index, entry) {
       let room = entry.value
       let flow = room_flows[index]
-      let exhaust = room.calculate_exhaust_setting(flow, total_flow)
+      let exhaust = room.exhaust_setting(flow, total_flow)
 
       @metrics.send(Metric.with('air_flow') fn (m) {
         m.tag('room', room.config.name)

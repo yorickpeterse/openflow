@@ -213,23 +213,23 @@ class pub Room {
     match @state { case Button(old) -> update(old.clone), case _ -> {} }
   }
 
-  fn pub calculate_flow(target: Int, increase: Int) -> Int {
-    max(@config.flow + calculate_extra_flow(target, increase), @config.flow / 2)
+  fn pub flow(target: Int, increase: Int) -> Int {
+    max(@config.flow + extra_flow(target, increase), @config.flow / 2)
   }
 
-  fn pub calculate_co2_flow(target: Int, increase: Int) -> Int {
+  fn pub co2_flow(target: Int, increase: Int) -> Int {
     # For CO2 sampling we limit the minimum speed to the configured flow, as
     # this ensures we get accurate samples as fast as possible.
     if @co2.value <= target { return @config.flow }
 
-    @config.flow + calculate_extra_flow(target, increase)
+    @config.flow + extra_flow(target, increase)
   }
 
-  fn pub calculate_minimum_flow(co2: Bool) -> Int {
+  fn pub minimum_flow(co2: Bool) -> Int {
     if co2 { 0 } else { @config.minimum_flow }
   }
 
-  fn pub calculate_exhaust_setting(flow: Int, total_flow: Int) -> Int {
+  fn pub exhaust_setting(flow: Int, total_flow: Int) -> Int {
     if flow >= total_flow { return EXHAUST_MAX.to_int }
     if flow == 0 { return 0 }
 
@@ -279,7 +279,7 @@ class pub Room {
     }
   }
 
-  fn calculate_extra_flow(target: Int, increase: Int) -> Int {
+  fn extra_flow(target: Int, increase: Int) -> Int {
     let increments = @co2.value - target / SIZE
 
     @config.flow * increments * increase / 100
