@@ -1,7 +1,7 @@
 import openflow::co2::(SIZE, Co2)
 import openflow::config::(Room as RoomConfig, Co2 as Co2Config)
 import std::clone::Clone
-import std::cmp::(Equal, max)
+import std::cmp::(Equal, max, min)
 import std::fmt::(DefaultFormatter, Format, Formatter)
 import std::string::ToString
 import std::time::(DateTime, Duration, Instant)
@@ -169,6 +169,12 @@ class pub Room {
   # first changing a room from "closed" to "open".
   let pub @exhaust: Int
 
+  # The most recently calculated air flow.
+  let pub @flow: Int
+
+  # The last reported CO2 level.
+  let pub @last_co2: Int
+
   fn pub static new(config: ref RoomConfig) -> Room {
     let now = Instant.new
     let state =
@@ -182,11 +188,18 @@ class pub Room {
       @exhaust = 0,
       @humid_at = now,
       @motion_events = 0,
+      @flow = 0,
+      @last_co2 = 0,
     }
   }
 
   fn pub mut update_time {
     @last_update = Instant.new
+  }
+
+  fn pub mut update_co2 {
+    @last_co2 = @co2.value
+    @co2.update
   }
 
   fn pub stale?(duration: ref Duration) -> Bool {
@@ -197,7 +210,11 @@ class pub Room {
     # `match ref` is needed here due to
     # https://github.com/inko-lang/inko/issues/509.
     @state = match ref state {
-      case Closed if @config.minimum_flow > 0 -> State.Minimum
+      case Closed -> {
+        @last_co2 = 0
+
+        if @config.minimum_flow > 0 { State.Minimum } else { State.Closed }
+      }
       case _ -> state
     }
 
@@ -213,16 +230,43 @@ class pub Room {
     match @state { case Button(old) -> update(old.clone), case _ -> {} }
   }
 
-  fn pub flow(target: Int, increase: Int) -> Int {
-    max(@config.flow + extra_flow(target, increase), @config.flow / 2)
-  }
+  fn pub mut update_flow(target: Int, increase: Int) -> Int {
+    let current = co2.value
+    let last = @last_co2
+    let new = if last == 0 {
+      @config.flow + extra_flow(target, increase)
+    } else if current > target {
+      if current > last {
+        @config.flow + extra_flow(target, increase)
+      } else if current == last {
+        # If the CO2 levels are the same we need to manuall adjust the increase
+        # percentage, otherwise the calculated extra flow will be the same as
+        # before.
+        #
+        # Because stable CO2 levels could be a sign of the increased air flow
+        # doing its job, we increase my a smaller amount compared to when CO2
+        # levels are increasing. This way we shouldn't increase the speed too
+        # aggressively.
+        @config.flow + extra_flow(target, increase + (increase / 2))
+      } else {
+        # Instead of scaling down immediately, we maintain the current speed
+        # until the CO2 levels have reached the target value. This way we don't
+        # constantly increase/decrease the speed in response to changing CO2
+        # levels.
+        @flow
+      }
+    } else if current == target {
+      @flow
+    } else {
+      # If the CO2 levels drop below the target we can start reducing the
+      # ventilation speed. Reductions are done in smaller steps in order to find
+      # a more precise ventilation speed, thereby (hopefully) reducing the
+      # amount of unnecessary fan speed changes.
+      @flow * (100 - (increase / 2)) / 100
+    }
 
-  fn pub co2_flow(target: Int, increase: Int) -> Int {
-    # For CO2 sampling we limit the minimum speed to the configured flow, as
-    # this ensures we get accurate samples as fast as possible.
-    if @co2.value <= target { return @config.flow }
-
-    @config.flow + extra_flow(target, increase)
+    @flow = max(min(new, @config.max_co2_flow), @config.flow)
+    @flow
   }
 
   fn pub minimum_flow(co2: Bool) -> Int {
@@ -280,8 +324,10 @@ class pub Room {
   }
 
   fn extra_flow(target: Int, increase: Int) -> Int {
-    let increments = @co2.value - target / SIZE
-
-    @config.flow * increments * increase / 100
+    if @co2.value == 0 {
+      0
+    } else {
+      @config.flow * (@co2.value - target / SIZE) * increase / 100
+    }
   }
 }

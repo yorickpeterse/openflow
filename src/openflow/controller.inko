@@ -401,7 +401,7 @@ class pub Controller {
           if elapsed <= total_time {
             true
           } else {
-            room.co2.update
+            room.update_co2
             room.update(old_state.clone)
             info(room, "Updated CO2 levels to {room.co2.value} ppm")
 
@@ -643,25 +643,14 @@ class pub Controller {
     }
   }
 
-  fn air_flow_per_room -> Array[Int] {
-    let active = @rooms
-      .values
-      .select fn (room) {
-        match room.state {
-          case Button(_) or Co2(_) or Schedule or Open or Default or Humid -> {
-            true
-          }
-          case _ -> false
-        }
-      }
-      .count
-
+  fn mut air_flow_per_room -> Array[Int] {
     @rooms
-      .values
-      .map fn (room) {
+      .iter_mut
+      .map fn (entry) {
+        let room = entry.value
         let base = match room.state {
           case Co2(_) -> {
-            room.co2_flow(@config.co2.target, @config.co2.increase)
+            room.update_flow(@config.co2.target, @config.co2.increase)
           }
           case Button(_) -> room.config.flow
           case Schedule or Open or Default -> match @state {
@@ -675,17 +664,8 @@ class pub Controller {
             # for the humid room. To handle this we temporarily reduce the
             # ventilation capacity of non-humid rooms.
             case Humid -> room.config.flow / 2
-
             case Default -> {
-              let val =
-                room.flow(@config.co2.target, @config.co2.increase)
-
-              # If only a single room is actively ventilated we want to
-              # ventilate it using _at least_ the configured flow. If we use a
-              # lower flow we may produce _more_ noise as an excess/unused
-              # amount of air flow is squeezed through a smaller exhaust
-              # opening.
-              if active == 1 { max(val, room.config.flow) } else { val }
+              room.update_flow(@config.co2.target, @config.co2.increase)
             }
           }
           case Motion(_, _) if room.config.minimum_flow > 0 -> {

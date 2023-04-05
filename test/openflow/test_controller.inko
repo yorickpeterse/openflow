@@ -79,6 +79,7 @@ fn config -> Config {
         @ping = [],
         @minimum_flow = 0,
         @flow = 15,
+        @max_co2_flow = 30,
         @flow_correction = 1.0,
         @ventilation_time = Duration.from_secs(10),
         @co2 = true,
@@ -92,6 +93,7 @@ fn config -> Config {
         @ping = [],
         @minimum_flow = 0,
         @flow = 60,
+        @max_co2_flow = 100,
         @flow_correction = 1.0,
         @ventilation_time = Duration.from_secs(10),
         @co2 = true,
@@ -109,6 +111,7 @@ fn config -> Config {
         @ping = [],
         @minimum_flow = 0,
         @flow = 50,
+        @max_co2_flow = 150,
         @flow_correction = 1.0,
         @ventilation_time = Duration.from_secs(10),
         @co2 = true,
@@ -126,6 +129,7 @@ fn config -> Config {
         @ping = [],
         @minimum_flow = 0,
         @flow = 15,
+        @max_co2_flow = 30,
         @flow_correction = 1.1,
         @ventilation_time = Duration.from_secs(10),
         @co2 = false,
@@ -715,8 +719,8 @@ fn pub tests(t: mut Tests) {
     t.equal(
       updates,
       [
-        (bedroom.config.exhaust, 1400)
-        (office.config.exhaust, 400),
+        (bedroom.config.exhaust, 2700)
+        (office.config.exhaust, 800),
         (SPEED, 26)
       ]
     )
@@ -725,13 +729,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration # This iteration processes the first room
 
     t.true(match bedroom.state { case Co2(Open) -> true, case _ -> false })
-    t.equal(
-      updates,
-      [
-        (bedroom.config.exhaust, 2700),
-        (office.config.exhaust, 0)
-      ]
-    )
+    t.equal(updates, [(office.config.exhaust, 0)])
 
     updates.clear
     ctl.iteration # This iteration applies the CO2 changes
@@ -742,9 +740,9 @@ fn pub tests(t: mut Tests) {
     t.equal(
       updates,
       [
-        (bedroom.config.exhaust, 3800),
-        (office.config.exhaust, 300),
-        (SPEED, 37)
+        (bedroom.config.exhaust, 3500),
+        (office.config.exhaust, 600),
+        (SPEED, 34)
       ]
     )
   }
@@ -790,8 +788,8 @@ fn pub tests(t: mut Tests) {
     t.equal(
       updates,
       [
-        (living_room.config.exhaust, 400)
-        (bathroom.config.exhaust, 1200),
+        (living_room.config.exhaust, 700)
+        (bathroom.config.exhaust, 2300),
         (SPEED, 26)
       ]
     )
@@ -799,10 +797,7 @@ fn pub tests(t: mut Tests) {
     updates.clear
     ctl.iteration # Process a room
 
-    t.equal(
-      updates,
-      [(living_room.config.exhaust, 0), (bathroom.config.exhaust, 2300)]
-    )
+    t.equal(updates, [(living_room.config.exhaust, 0)])
     t.true(match bathroom.state { case Co2(Open) -> true, case _ -> false })
 
     updates.clear
