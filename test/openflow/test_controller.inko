@@ -292,6 +292,20 @@ fn pub tests(t: mut Tests) {
     t.true(updates.contains?((SPEED, 26)))
   }
 
+  t.test('A room for which to enable a schedule when motion is detected') fn (t) {
+    let itho = itho(co2: 700, humidity: 1)
+    let updates = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(2))
+    let room = ctl.rooms['bedroom']
+
+    room.update(State.Motion(1, 1))
+    ctl.iteration
+
+    t.equal(room.state, State.Schedule)
+    t.true(updates.contains?((room.config.exhaust, room.exhaust)))
+    t.true(updates.contains?((SPEED, 26)))
+  }
+
   t.test('A room with minimum ventilation for which to enable a schedule') fn (t) {
     let conf = config
 

@@ -216,11 +216,12 @@ class pub Controller {
   fn mut check_schedule(room: mut Room, time: ref DateTime) -> Bool {
     if room.active_schedule?(time) {
       match room.state {
-        case Closed or Minimum -> {
+        case Schedule
+          or ScheduleCo2 or Co2(_) or Button(_) or Humid or Open -> {}
+        case _ -> {
           info(room, 'Enabling schedule')
           room.update(RoomState.Schedule)
         }
-        case _ -> {}
       }
 
       return true
