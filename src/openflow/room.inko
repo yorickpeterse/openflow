@@ -1,7 +1,7 @@
 import openflow::co2::(SIZE, Co2)
 import openflow::config::(Room as RoomConfig, Co2 as Co2Config)
 import std::clone::Clone
-import std::cmp::(Equal, max, min)
+import std::cmp::(Equal, min)
 import std::fmt::(DefaultFormatter, Format, Formatter)
 import std::string::ToString
 import std::time::(DateTime, Duration, Instant)
@@ -230,12 +230,18 @@ class pub Room {
     let new = if current > target {
       if current >= high { @config.flow * 3 } else { @config.flow * 2 }
     } else if current == target {
-      if @flow > 0 { @flow } else { @config.flow }
+      if @flow > @config.flow { @flow } else { @config.flow }
     } else {
-      @config.flow
+      match @state {
+        case Schedule -> match @config.schedule {
+          case Some(Night) -> @config.flow / 2
+          case _ -> @config.flow
+        }
+        case _ -> @config.flow
+      }
     }
 
-    @flow = max(min(new, @config.max_co2_flow), @config.flow)
+    @flow = min(new, @config.max_co2_flow)
     @flow
   }
 

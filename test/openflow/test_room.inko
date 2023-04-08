@@ -81,6 +81,26 @@ fn pub tests(t: mut Tests) {
     }
   }
 
+  t.test('Room.update_flow with a night schedule') fn (t) {
+    let conf = config
+    let room = Room.new(conf)
+
+    conf.schedule = Option.Some(Schedule.Night)
+    room.update(State.Schedule)
+
+    room.co2.add(600)
+    room.update_co2
+    t.equal(room.update_flow(target: 700, high: 1000), 7)
+
+    room.co2.add(700)
+    room.update_co2
+    t.equal(room.update_flow(target: 700, high: 1000), 15)
+
+    room.co2.add(750)
+    room.update_co2
+    t.equal(room.update_flow(target: 700, high: 1000), 30)
+  }
+
   t.test('Room.sample_co2?') fn (t) {
     let conf = config
     let room = Room.new(conf)
