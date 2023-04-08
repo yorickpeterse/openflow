@@ -92,11 +92,11 @@
   },
   "co2": {
     "target": 700,
+    "high": 1000,
     "metrics_interval": 60,
     "sample_time": 300,
     "sample_wait_time": 120,
-    "sample_interval": 3600,
-    "increase": 25
+    "sample_interval": 3600
   },
   "metrics": {
     "ip": "127.0.0.1",

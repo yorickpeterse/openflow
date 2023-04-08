@@ -6,13 +6,13 @@ import std::time::(DateTime, Duration)
 fn co2_config(target: Int) -> Co2Config {
   Co2Config {
     @target = target,
+    @high = 1000,
     @metrics_interval = Duration.from_secs(0),
     @sample_interval = Duration.from_secs(10),
     @half_sample_interval = Duration.from_secs(5),
     @closed_sample_interval = Duration.from_secs(30),
     @sample_time = Duration.from_secs(0),
     @sample_wait_time = Duration.from_secs(0),
-    @increase = 20,
   }
 }
 
@@ -26,7 +26,7 @@ fn config -> RoomConfig {
     @ping = [],
     @minimum_flow = 0,
     @flow = 15,
-    @max_co2_flow = 30,
+    @max_co2_flow = 50,
     @flow_correction = 1.0,
     @ventilation_time = Duration.from_secs(10),
     @co2 = true,
@@ -47,56 +47,13 @@ fn hour(hour: Int) -> DateTime {
 }
 
 fn pub tests(t: mut Tests) {
-  t.test('Room.update_flow without previous CO2 data') fn (t) {
-    let conf = config
-    let room = Room.new(conf)
-
-    t.equal(room.update_flow(700, 20), 15)
-    t.equal(room.flow, 15)
-
-    room.co2.add(1200)
-    room.co2.update
-    t.equal(room.update_flow(700, 20), 30)
-    t.equal(room.flow, 30)
-  }
-
-  t.test('Room.update_flow when the CO2 levels are increasing') fn (t) {
-    let conf = config
-    let room = Room.new(conf)
-
-    room.co2.add(800)
-    room.update_co2
-    t.equal(room.update_flow(700, 20), 21)
-    t.equal(room.flow, 21)
-
-    room.co2.add(900)
-    room.update_co2
-    t.equal(room.update_flow(700, 20), 27)
-    t.equal(room.flow, 27)
-  }
-
-  t.test('Room.update_flow when the CO2 levels remain the same') fn (t) {
-    let conf = config
-    let room = Room.new(conf)
-
-    room.co2.add(800)
-    room.update_co2
-    t.equal(room.update_flow(700, 20), 21)
-    t.equal(room.flow, 21)
-
-    room.co2.add(820)
-    room.update_co2
-    t.equal(room.update_flow(700, 20), 24)
-    t.equal(room.flow, 24)
-  }
-
   t.test('Room.update_flow when the CO2 levels are below the target') fn (t) {
     let conf = config
     let room = Room.new(conf)
 
     room.co2.add(200)
     room.update_co2
-    t.equal(room.update_flow(700, 20), 15)
+    t.equal(room.update_flow(target: 700, high: 1000), 15)
     t.equal(room.flow, 15)
   }
 
@@ -105,21 +62,22 @@ fn pub tests(t: mut Tests) {
     let room = Room.new(conf)
 
     [
-      (800, 21),
-      (750, 21),
-      (700, 21),
-      (700, 21),
-      (650, 18),
-      (700, 18),
-      (800, 21),
-      (900, 27),
-      (650, 24),
-      (600, 21),
+      (700, 15),
+      (800, 30),
+      (750, 30),
+      (700, 30),
+      (700, 30),
+      (650, 15),
+      (700, 15),
+      (800, 30),
+      (900, 30),
+      (1200, 45),
+      (1000, 45),
+      (950, 30),
     ].into_iter.each fn (pair) {
       room.co2.add(pair.0)
       room.update_co2
-      t.equal(room.update_flow(700, 20), pair.1)
-      t.equal(room.flow, pair.1)
+      t.equal(room.update_flow(target: 700, high: 1000), pair.1)
     }
   }
 

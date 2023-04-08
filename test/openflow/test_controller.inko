@@ -162,13 +162,13 @@ fn config -> Config {
     @hue_user = 'foo',
     @co2 = Co2 {
       @target = 700,
+      @high = 1000,
       @metrics_interval = Duration.from_secs(60),
       @sample_interval = Duration.from_secs(1800),
       @half_sample_interval = Duration.from_secs(900),
       @closed_sample_interval = Duration.from_secs(10800),
       @sample_time = Duration.from_secs(900),
       @sample_wait_time = Duration.from_secs(0),
-      @increase = 10
     },
     @metrics = Metrics {
       @ip = IpAddress.v4(0, 0, 0, 0),

@@ -207,7 +207,7 @@ class pub Room {
 
     let max_co2_flow = match value.remove('max_co2_flow') {
       case Some(Int(val)) -> val
-      case _ -> flow * 2
+      case _ -> flow * 3
     }
 
     let ping = match value.remove('ping') {
@@ -376,6 +376,12 @@ class pub Co2 {
   # The target/desired CO2 concentration.
   let pub @target: Int
 
+  # The "high" threshold for CO2 levels.
+  #
+  # When the CO2 levels are above this level, ventilation is increased
+  # drastically.
+  let pub @high: Int
+
   # The interval at which to send metrics.
   let pub @metrics_interval: Duration
 
@@ -402,35 +408,18 @@ class pub Co2 {
   # To handle this we first wait this amount of time before collecting samples.
   let pub @sample_wait_time: Duration
 
-  # The percentage to increase ventilation speeds by when CO2 levels are too
-  # high.
-  #
-  # If CO2 levels are above the target value, then for every increment above the
-  # target we add this percentage to the base speed of a room. So if the base
-  # speed is 40 m3/, we're 3 increments above the target, and this value is set
-  # to 20%, then we add 60% resulting in a speed of 64 m3/h.
-  #
-  # This results in a linear increase of speed relative to the CO2 levels.
-  let pub @increase: Int
-
   fn pub static from_json(value: Map[String, Json]) !! String -> Co2 {
-    let increase = try int(value, 'increase')
-
-    if increase < 0 or increase > 100 {
-      throw 'The CO2 increase must be between 0 and 100'
-    }
-
     let interval = try int(value, 'sample_interval')
 
     Co2 {
       @target = try int(value, 'target'),
+      @high = try int(value, 'high') else 1000,
       @metrics_interval = Duration.from_secs(try int(value, 'metrics_interval')),
       @sample_interval = Duration.from_secs(interval),
       @half_sample_interval = Duration.from_secs(interval / 2),
       @closed_sample_interval = Duration.from_secs(interval * 3),
       @sample_time = Duration.from_secs(try int(value, 'sample_time')),
       @sample_wait_time = Duration.from_secs(try int(value, 'sample_wait_time')),
-      @increase = increase,
     }
   }
 }
