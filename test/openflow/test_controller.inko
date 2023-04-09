@@ -84,6 +84,7 @@ fn config -> Config {
         @flow_correction = 1.0,
         @ventilation_time = Duration.from_secs(10),
         @co2 = true,
+        @default = true,
       },
       Room {
         @name = 'bedroom',
@@ -99,6 +100,7 @@ fn config -> Config {
         @flow_correction = 1.0,
         @ventilation_time = Duration.from_secs(10),
         @co2 = true,
+        @default = false,
       },
       Room {
         @name = 'bathroom',
@@ -118,6 +120,7 @@ fn config -> Config {
         @flow_correction = 1.0,
         @ventilation_time = Duration.from_secs(10),
         @co2 = true,
+        @default = false,
       },
       Room {
         @name = 'office',
@@ -137,6 +140,7 @@ fn config -> Config {
         @flow_correction = 1.1,
         @ventilation_time = Duration.from_secs(10),
         @co2 = false,
+        @default = false,
       },
     ]
       .into_iter
@@ -967,7 +971,7 @@ fn pub tests(t: mut Tests) {
     room.exhaust = 356
     ctl.iteration
 
-    t.equal(room.state, State.Open)
+    t.equal(room.state, State.Default)
     t.equal(room.exhaust, 800)
   }
 

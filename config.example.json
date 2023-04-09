@@ -10,7 +10,8 @@
       "ping": ["192.168.1.10"],
       "flow": 50,
       "time": 900,
-      "co2": true
+      "co2": true,
+      "default": true
     },
     "kitchen": {
       "exhaust": 101,

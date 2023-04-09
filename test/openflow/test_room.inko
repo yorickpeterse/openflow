@@ -31,6 +31,7 @@ fn config -> RoomConfig {
     @flow_correction = 1.0,
     @ventilation_time = Duration.from_secs(10),
     @co2 = true,
+    @default = false,
   }
 }
 

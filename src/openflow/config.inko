@@ -165,6 +165,10 @@ class pub Room {
   # If the air flow should be adjusted in response to the CO2 levels.
   let pub @co2: Bool
 
+  # If this room should be ventilated if no other rooms are in need of
+  # ventilation.
+  let pub @default: Bool
+
   fn pub static from_json(
     name: String,
     value: Map[String, Json]
@@ -236,6 +240,7 @@ class pub Room {
     let ventilation_time = Duration.from_secs(try int(value, 'time') else 0)
     let flow_correction = try float(value, 'flow_correction') else 1.0
     let co2 = try bool(value, 'co2') else false
+    let default = try bool(value, 'default') else false
 
     Room {
       @name = name,
@@ -251,6 +256,7 @@ class pub Room {
       @co2 = co2,
       @medium_flow = medium_flow,
       @high_flow = high_flow,
+      @default = default,
     }
   }
 }

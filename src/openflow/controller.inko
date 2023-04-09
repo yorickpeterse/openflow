@@ -341,10 +341,6 @@ class pub Controller {
           room.update(new_state)
         }
         case Open -> room.update_time
-        case Default -> {
-          info(room, 'Changing from default to regular ventilation')
-          room.update(RoomState.Open)
-        }
         case _ -> {}
       }
 
@@ -616,30 +612,32 @@ class pub Controller {
     # No ventilation can result in stale/dirty air building up. As such, if we
     # don't detect the need for ventilating anywhere we'll just ventilate the
     # first room.
-    let ventilate_first = @rooms.iter.all? fn (entry) {
+    let ventilate = @rooms.iter.all? fn (entry) {
       match entry.value.state {
         case Open or Humid or Schedule or Button(_) or Co2(_) -> false
         case _ -> true
       }
     }
 
-    let room = @rooms[@rooms.keys.next.unwrap]
+    @rooms.iter_mut.select fn (e) { e.value.config.default }.each fn (entry) {
+      let room = entry.value
 
-    if ventilate_first {
-      match room.state {
-        case Default -> room.update_time
-        case _ -> {
-          info(room, 'Enabling default ventilation')
-          room.update(RoomState.Default)
+      if ventilate {
+        match room.state {
+          case Default -> room.update_time
+          case _ -> {
+            info(room, 'Enabling default ventilation')
+            room.update(RoomState.Default)
+          }
         }
-      }
-    } else {
-      match room.state {
-        case Default -> {
-          info(room, 'Disabling default ventilation')
-          room.update(RoomState.Closed)
+      } else {
+        match room.state {
+          case Default -> {
+            info(room, 'Disabling default ventilation')
+            room.update(RoomState.Closed)
+          }
+          case _ -> {}
         }
-        case _ -> {}
       }
     }
   }
