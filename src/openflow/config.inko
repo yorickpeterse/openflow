@@ -132,9 +132,12 @@ class pub Room {
   # The desired flow rate in m3/hour.
   let pub @flow: Int
 
+  # The flow rate in m3/hour to use when CO2 levels are above the target value.
+  let pub @medium_flow: Int
+
   # The maximum flow rate to use when adjusting ventilation based on the CO2
   # levels.
-  let pub @max_co2_flow: Int
+  let pub @high_flow: Int
 
   # The value to multiply the flow by to obtain the true air flow.
   #
@@ -205,7 +208,12 @@ class pub Room {
       case _ -> 15
     }
 
-    let max_co2_flow = match value.remove('max_co2_flow') {
+    let medium_flow = match value.remove('medium_flow') {
+      case Some(Int(val)) -> val
+      case _ -> flow * 2
+    }
+
+    let high_flow = match value.remove('high_flow') {
       case Some(Int(val)) -> val
       case _ -> flow * 3
     }
@@ -241,7 +249,8 @@ class pub Room {
       @ventilation_time = ventilation_time,
       @flow_correction = flow_correction,
       @co2 = co2,
-      @max_co2_flow = max_co2_flow,
+      @medium_flow = medium_flow,
+      @high_flow = high_flow,
     }
   }
 }

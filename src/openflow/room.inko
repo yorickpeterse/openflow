@@ -228,7 +228,7 @@ class pub Room {
   fn pub mut update_flow(target: Int, high: Int) -> Int {
     let current = co2.value
     let new = if current > target {
-      if current >= high { @config.flow * 3 } else { @config.flow * 2 }
+      if current >= high { @config.high_flow } else { @config.medium_flow }
     } else if current == target {
       if @flow > @config.flow { @flow } else { @config.flow }
     } else {
@@ -241,7 +241,7 @@ class pub Room {
       }
     }
 
-    @flow = min(new, @config.max_co2_flow)
+    @flow = new
     @flow
   }
 

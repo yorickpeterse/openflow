@@ -26,7 +26,8 @@ fn config -> RoomConfig {
     @ping = [],
     @minimum_flow = 0,
     @flow = 15,
-    @max_co2_flow = 50,
+    @medium_flow = 30,
+    @high_flow = 50,
     @flow_correction = 1.0,
     @ventilation_time = Duration.from_secs(10),
     @co2 = true,
@@ -71,8 +72,8 @@ fn pub tests(t: mut Tests) {
       (700, 15),
       (800, 30),
       (900, 30),
-      (1200, 45),
-      (1000, 45),
+      (1200, 50),
+      (1000, 50),
       (950, 30),
     ].into_iter.each fn (pair) {
       room.co2.add(pair.0)
