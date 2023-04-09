@@ -120,7 +120,7 @@ class pub Itho {
   let pub @retry_wait_time: Duration
 
   fn pub static new(client: Client) -> Itho {
-    Itho { @client = client, @retry_wait_time = Duration.from_secs(5) }
+    Itho { @client = client, @retry_wait_time = Duration.from_secs(10) }
   }
 
   # Sets a setting.
