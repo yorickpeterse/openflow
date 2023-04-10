@@ -609,6 +609,7 @@ class pub Controller {
     }
 
     @co2_scheduled_rooms.clear
+    @state = State.Default
     @last_co2_update = Instant.new
   }
 
