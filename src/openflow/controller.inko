@@ -400,9 +400,11 @@ class pub Controller {
           if elapsed <= total_time {
             true
           } else {
+            let old = room.co2.value
+
             room.update_co2
             room.update(old_state.clone)
-            info(room, "Updated CO2 levels to {room.co2.value} ppm")
+            info(room, "CO2 changed from {old} ppm to {room.co2.value} ppm")
 
             # We update the time here so we don't start to immediately sample
             # again after sampling the last room.
@@ -425,7 +427,7 @@ class pub Controller {
       # We have to check again as the room's state might've changed since it was
       # scheduled.
       if room.sample_co2?(@config.co2) {
-        info(room, "Sampling CO2, state was {room.state}")
+        info(room, 'Sampling CO2')
         @state = State.Co2
 
         let old_state = match room.state {
