@@ -284,7 +284,7 @@ class pub Room {
       # during the day, instead of the monitored value staying at e.g. 800 ppm
       # for 12 hours.
       case Closed -> {
-        @co2.value > config.target
+        @co2.value >= config.target
           or @last_update.elapsed >= config.closed_sample_interval
       }
       case _ -> false
