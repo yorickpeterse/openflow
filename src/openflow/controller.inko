@@ -328,7 +328,9 @@ class pub Controller {
 
           room.update(new_state)
         }
-        case Motion(min, count) if min != time.minute -> {
+        case Motion(min, count)
+          if min != time.minute and room.stale?(conf.interval) ->
+        {
           let new_count = count + 1
           let new_state = if new_count == conf.minutes {
             info(room, 'Enabling ventilation')

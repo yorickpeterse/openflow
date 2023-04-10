@@ -96,11 +96,15 @@ class pub Motion {
   # The amount of time to wait for motion to be detected.
   let pub @time: Duration
 
+  # The minimum amount of time between motion events.
+  let pub @interval: Duration
+
   fn pub static from_json(value: Map[String, Json]) !! String -> Motion {
     Motion {
       @id = try int(value, 'id'),
       @minutes = try int(value, 'minutes') else 5,
       @time = Duration.from_secs(try int(value, 'time') else 900),
+      @interval = Duration.from_secs(60),
     }
   }
 }
