@@ -342,6 +342,10 @@ class pub Controller {
 
           room.update(new_state)
         }
+        case Default -> {
+          info(room, 'Enabling regular ventilation')
+          room.update(RoomState.Open)
+        }
         case Open -> room.update_time
         case _ -> {}
       }

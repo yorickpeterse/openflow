@@ -991,7 +991,7 @@ fn pub tests(t: mut Tests) {
     room.exhaust = 356
     ctl.iteration
 
-    t.equal(room.state, State.Default)
+    t.equal(room.state, State.Open)
     t.equal(room.exhaust, 800)
   }
 
