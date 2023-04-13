@@ -85,7 +85,7 @@ class pub enum Error {
   case InvalidRequest(String)
 
   # The server responded with HTTP 500 internal server error.
-  case InternalServerError
+  case InternalServerError(String)
 }
 
 impl ToString for Error {
@@ -97,7 +97,7 @@ impl ToString for Error {
       case UnexpectedEof -> "Unexpected end of input"
       case Network(e) -> "A network error occurred: {e}"
       case InvalidRequest(e) -> "The request is invalid: {e}"
-      case InternalServerError -> 'The server produced an error'
+      case InternalServerError(e) -> "The server produced an error: {e}"
     }
   }
 }

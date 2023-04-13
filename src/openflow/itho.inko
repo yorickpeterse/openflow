@@ -275,7 +275,7 @@ class pub Itho {
     # The API may produce an HTTP 500 if an I2C command fails. In this case we
     # want to retry the operation.
     if response.status == 500 {
-      throw Error.InternalServerError
+      throw Error.InternalServerError(response.body.to_string)
     } else {
       response
     }
