@@ -660,7 +660,7 @@ class pub Controller {
           case Co2(_) -> {
             room.update_flow(@config.co2.target, @config.co2.high)
           }
-          case Button(_) -> room.config.flow
+          case Button(_) -> room.config.high_flow
           case Schedule or Open or Default -> match @state {
             # The only way we can get accurate per-room CO2 readings is to
             # temporarily disable ventilation of rooms we're not sampling.
