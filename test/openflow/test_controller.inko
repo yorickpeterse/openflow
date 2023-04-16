@@ -941,7 +941,7 @@ fn pub tests(t: mut Tests) {
 
     ctl.iteration
 
-    t.equal(updates, [(bedroom.config.exhaust, 100), (SPEED, 26)])
+    t.equal(updates, [(bedroom.config.exhaust, 300), (SPEED, 26)])
   }
 
   t.test('The exhaust is only updated when there is a speed change') fn (t) {
@@ -953,7 +953,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
     ctl.iteration
 
-    t.equal(updates, [(bedroom.config.exhaust, 1400), (SPEED, 26)])
+    t.equal(updates, [(bedroom.config.exhaust, 2700), (SPEED, 26)])
   }
 
   t.test('The exhaust speed is only reduced after a period of time') fn (t) {

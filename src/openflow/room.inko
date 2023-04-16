@@ -232,13 +232,7 @@ class pub Room {
     } else if current == target {
       if @flow > @config.flow { @flow } else { @config.flow }
     } else {
-      match @state {
-        case Schedule -> match @config.schedule {
-          case Some(Night) -> @config.flow / 2
-          case _ -> @config.flow
-        }
-        case _ -> @config.flow
-      }
+      @config.flow
     }
 
     @flow = new
