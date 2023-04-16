@@ -300,12 +300,16 @@ class pub Controller {
     }
   }
 
-  fn mut check_motion(sensors: ref Sensors, room: mut Room, time: ref DateTime) {
-    if @state.co2? { return }
+  fn mut check_motion(
+    sensors: ref Sensors,
+    room: mut Room,
+    time: ref DateTime
+  ) -> Bool {
+    if @state.co2? { return false }
 
     let conf = match room.config.motion {
       case Some(conf) -> conf
-      case _ -> return
+      case _ -> return false
     }
 
     if sensors.motion[conf.id] {
@@ -350,7 +354,7 @@ class pub Controller {
         case _ -> {}
       }
 
-      return
+      return true
     }
 
     match room.state {
@@ -370,6 +374,17 @@ class pub Controller {
       case Motion(_, _) if room.stale?(conf.time) -> {
         info(room, 'Not enough motion detected')
         room.update(RoomState.Closed)
+      }
+      case _ -> {}
+    }
+
+    false
+  }
+
+  fn mut check_co2(room: mut Room) {
+    match room.state {
+      case Motion(_, _) or Closed -> if room.co2.value >= @config.co2.target {
+        room.update(RoomState.Open)
       }
       case _ -> {}
     }
@@ -562,13 +577,11 @@ class pub Controller {
     @rooms.iter_mut.each fn (entry) {
       let room = entry.value
 
-      # If the schedule is active, it takes priority over the remaining inputs.
       if check_schedule(room, time) { return }
-
-      # If the room is humid we ignore any other sensor inputs.
       if check_humidity(status, room) { return }
+      if check_motion(sensors, room, time) { return }
 
-      check_motion(sensors, room, time)
+      check_co2(room)
     }
 
     if @rooms.values.any?(fn (r) { r.state.humid? }).false? {

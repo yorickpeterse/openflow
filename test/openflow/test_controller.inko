@@ -1298,7 +1298,7 @@ fn pub tests(t: mut Tests) {
   }
 
   t.test('Scheduling rooms for initial CO2 sampling') fn (t) {
-    let itho = itho(co2: 700, humidity: 65)
+    let itho = itho(co2: 650, humidity: 65)
 
     itho.request(
       matches: fn (r) { r.queries.get('getsetting') == Option.Some('111') },
@@ -1341,5 +1341,20 @@ fn pub tests(t: mut Tests) {
 
     ctl.iteration
     t.equal(living_room.state, State.Default)
+  }
+
+  t.test('Ventilating a closed room when CO2 levels are too high') fn (t) {
+    let itho = itho(co2: 700, humidity: 65)
+    let updates = track_settings(itho)
+    let ctl = controller(config, itho, hue, hour(14))
+    let room = ctl.rooms['living_room']
+
+    room.update(State.Closed)
+    room.co2.add(800)
+    room.co2.update
+    ctl.iteration
+
+    t.equal(room.state, State.Open)
+    t.equal(updates, [(room.config.exhaust, 1400), (SPEED, 26)])
   }
 }
