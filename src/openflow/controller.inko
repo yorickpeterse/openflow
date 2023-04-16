@@ -385,6 +385,7 @@ class pub Controller {
     match room.state {
       case Motion(_, _) or Closed -> if room.co2.value >= @config.co2.target {
         room.update(RoomState.Open)
+        info(room, 'CO2 levels are too high, enabling ventilation')
       }
       case _ -> {}
     }
