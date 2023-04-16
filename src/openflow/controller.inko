@@ -428,26 +428,20 @@ class pub Controller {
         case _ -> break
       }
 
-      # We have to check again as the room's state might've changed since it was
-      # scheduled.
-      if room.sample_co2?(@config.co2) {
-        info(room, 'Sampling CO2')
-        @state = State.Co2
+      info(room, 'Sampling CO2')
+      @state = State.Co2
 
-        let old_state = match room.state {
-          case ScheduleCo2 -> RoomState.Closed
-          case state -> state.clone
-        }
-
-        # For rooms using motion sensors this effectively resets the motion
-        # timeout. In practise this shouldn't pose much of a problem though,
-        # because in the worst case we just ventilate a room for a little longer
-        # than we're supposed to.
-        room.update(RoomState.Co2(old_state))
-        return
-      } else {
-        info(room, 'Not sampling as ventilation stopped')
+      let old_state = match room.state {
+        case ScheduleCo2 -> RoomState.Closed
+        case state -> state.clone
       }
+
+      # For rooms using motion sensors this effectively resets the motion
+      # timeout. In practise this shouldn't pose much of a problem though,
+      # because in the worst case we just ventilate a room for a little longer
+      # than we're supposed to.
+      room.update(RoomState.Co2(old_state))
+      return
     }
 
     if @state.co2? {
