@@ -288,7 +288,7 @@ class pub Room {
   fn pub active_schedule?(time: ref DateTime) -> Bool {
     match @config.schedule {
       case Some(Morning) -> time.hour == 6
-      case Some(Night) -> time.hour < 11
+      case Some(Night) -> time.hour == 23 or time.hour < 11
       case _ -> false
     }
   }
