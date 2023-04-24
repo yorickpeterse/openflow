@@ -10,10 +10,10 @@ let LOW = 500
 let HIGH = 1200
 
 # The size/ppm per bucket.
-let pub SIZE = 50
+let pub SIZE = 25
 
 # The number of buckets to use for the CO2 histogram.
-let BUCKETS = 15
+let BUCKETS = HIGH - LOW / SIZE + 1
 
 # The last/maximum bucket.
 let MAX_BUCKET = BUCKETS - 1

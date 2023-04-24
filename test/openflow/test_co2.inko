@@ -27,11 +27,15 @@ fn pub tests(t: mut Tests) {
 
     co2.add(720)
     co2.update
-    t.equal(co2.value, 700)
+    t.equal(co2.value, 725)
 
     co2.add(760)
     co2.update
     t.equal(co2.value, 750)
+
+    co2.add(775)
+    co2.update
+    t.equal(co2.value, 775)
 
     co2.add(740)
     co2.update
