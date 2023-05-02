@@ -55,8 +55,8 @@ fn pub tests(t: mut Tests) {
 
     room.co2.add(200)
     room.update_co2
-    t.equal(room.update_flow(target: 700, high: 1000), 15)
-    t.equal(room.flow, 15)
+    t.equal(room.update_flow(target: 700, high: 1000), 7)
+    t.equal(room.flow, 7)
   }
 
   t.test('Room.update_flow when CO2 levels are changing over time') fn (t) {
@@ -64,6 +64,7 @@ fn pub tests(t: mut Tests) {
     let room = Room.new(conf)
 
     [
+      (600, 7),
       (700, 15),
       (800, 30),
       (750, 30),

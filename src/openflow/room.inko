@@ -231,6 +231,8 @@ class pub Room {
       if current >= high { @config.high_flow } else { @config.medium_flow }
     } else if current == target {
       if @flow > @config.flow { @flow } else { @config.flow }
+    } else if @config.co2 and current <= (target - 100) {
+      @config.flow / 2
     } else {
       @config.flow
     }
