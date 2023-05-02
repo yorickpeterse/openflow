@@ -772,7 +772,14 @@ fn pub tests(t: mut Tests) {
     ctl.iteration # This iteration processes the first room
 
     t.true(match bedroom.state { case Co2(Open) -> true, case _ -> false })
-    t.equal(updates, [(office.config.exhaust, 0)])
+    t.equal(
+      updates,
+      [
+        (bedroom.config.exhaust, 4000),
+        (office.config.exhaust, 0),
+        (SPEED, 29),
+      ]
+    )
 
     updates.clear
     ctl.iteration # This iteration applies the CO2 changes
@@ -840,7 +847,14 @@ fn pub tests(t: mut Tests) {
     updates.clear
     ctl.iteration # Process a room
 
-    t.equal(updates, [(living_room.config.exhaust, 0)])
+    t.equal(
+      updates,
+      [
+        (living_room.config.exhaust, 0),
+        (bathroom.config.exhaust, 4000),
+        (SPEED, 29),
+      ]
+    )
     t.true(match bathroom.state { case Co2(Open) -> true, case _ -> false })
 
     updates.clear
@@ -848,7 +862,7 @@ fn pub tests(t: mut Tests) {
 
     t.equal(
       updates,
-      [(living_room.config.exhaust, 400), (bathroom.config.exhaust, 0)]
+      [(living_room.config.exhaust, 1400), (bathroom.config.exhaust, 0)]
     )
     t.true(match living_room.state { case Co2(Open) -> true, case _ -> false })
   }

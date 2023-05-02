@@ -666,7 +666,7 @@ class pub Controller {
         let room = entry.value
         let base = match room.state {
           case Co2(_) -> {
-            room.update_flow(@config.co2.target, @config.co2.high)
+            room.update_co2_flow(@config.co2.target, @config.co2.high)
           }
           case Button(_) -> room.config.high_flow
           case Schedule or Open or Default -> match @state {

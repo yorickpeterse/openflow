@@ -225,19 +225,28 @@ class pub Room {
     match @state { case Button(old) -> update(old.clone), case _ -> {} }
   }
 
+  fn pub mut update_co2_flow(target: Int, high: Int) -> Int {
+    @flow =
+      if co2.value >= high { @config.high_flow } else { @config.medium_flow }
+
+    @flow
+  }
+
   fn pub mut update_flow(target: Int, high: Int) -> Int {
     let current = co2.value
-    let new = if current > target {
-      if current >= high { @config.high_flow } else { @config.medium_flow }
-    } else if current == target {
-      if @flow > @config.flow { @flow } else { @config.flow }
+
+    @flow = if current >= high {
+      @config.high_flow
+    } else if current > target {
+      @config.medium_flow
+    } else if current == target and @flow > @config.flow {
+      @flow
     } else if @config.co2 and current <= (target - 100) {
       @config.flow / 2
     } else {
       @config.flow
     }
 
-    @flow = new
     @flow
   }
 

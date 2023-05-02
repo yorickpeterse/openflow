@@ -49,21 +49,30 @@ fn hour(hour: Int) -> DateTime {
 }
 
 fn pub tests(t: mut Tests) {
-  t.test('Room.update_flow when the CO2 levels are below the target') fn (t) {
-    let conf = config
-    let room = Room.new(conf)
-
-    room.co2.add(200)
-    room.update_co2
-    t.equal(room.update_flow(target: 700, high: 1000), 7)
-    t.equal(room.flow, 7)
-  }
-
-  t.test('Room.update_flow when CO2 levels are changing over time') fn (t) {
+  t.test('Room.update_co2_flow') fn (t) {
     let conf = config
     let room = Room.new(conf)
 
     [
+      (600, 30),
+      (700, 30),
+      (750, 30),
+      (800, 30),
+      (850, 30),
+      (1000, 50),
+    ].into_iter.each fn (pair) {
+      room.co2.add(pair.0)
+      room.update_co2
+      t.equal(room.update_co2_flow(target: 700, high: 1000), pair.1)
+    }
+  }
+
+  t.test('Room.update_flow') fn (t) {
+    let conf = config
+    let room = Room.new(conf)
+
+    [
+      (200, 7),
       (600, 7),
       (700, 15),
       (800, 30),
