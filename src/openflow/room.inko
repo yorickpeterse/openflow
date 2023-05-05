@@ -232,6 +232,10 @@ class pub Room {
     @flow
   }
 
+  fn pub reduced_flow -> Int {
+    @config.flow / 2
+  }
+
   fn pub mut update_flow(target: Int, high: Int) -> Int {
     let current = co2.value
 

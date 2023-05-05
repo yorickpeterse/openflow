@@ -669,17 +669,13 @@ class pub Controller {
             room.update_co2_flow(@config.co2.target, @config.co2.high)
           }
           case Button(_) -> room.config.high_flow
-          case Schedule or Open or Default -> match @state {
-            # The only way we can get accurate per-room CO2 readings is to
-            # temporarily disable ventilation of rooms we're not sampling.
+          case Default -> match @state {
+            case Co2 or Humid -> 0
+            case Default -> room.config.flow
+          }
+          case Schedule or Open -> match @state {
             case Co2 -> 0
-
-            # Humid rooms are typically ventilated at a high speed (e.g. 150
-            # m3/h). Depending on how many other rooms are also ventilated, this
-            # may result in a lot of noise, and potentially a lack of capacity
-            # for the humid room. To handle this we temporarily reduce the
-            # ventilation capacity of non-humid rooms.
-            case Humid -> room.config.flow / 2
+            case Humid -> room.reduced_flow
             case Default -> {
               room.update_flow(@config.co2.target, @config.co2.high)
             }
