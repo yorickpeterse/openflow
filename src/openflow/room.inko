@@ -278,10 +278,7 @@ class pub Room {
         case None -> false
       }
 
-      # We don't sample rooms running in the "Minimum" state, as this state is
-      # meant for e.g. a bathroom during the day to prevent build-up of humidity
-      # and smells, and the speed should always be fixed.
-      case Open or Default or ScheduleCo2 -> true
+      case Open or Default or ScheduleCo2 or Minimum -> true
 
       # Enabling CO2 sampling while the CO2 levels are too high makes it a
       # little easier to monitor how they change over time. For example, for a

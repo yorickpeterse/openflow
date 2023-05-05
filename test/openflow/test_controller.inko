@@ -881,7 +881,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
     ctl.iteration
 
-    t.equal(bedroom.state, State.Minimum)
+    t.equal(bedroom.state, State.Co2(State.Minimum))
   }
 
   t.test('Sampling of CO2 levels while waiting for them to stabilise') fn (t) {
