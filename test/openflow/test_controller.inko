@@ -696,7 +696,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.equal(room.state, State.Default)
-    t.equal(room.exhaust, 700)
+    t.equal(room.exhaust, 1400)
     t.true(updates.contains?((room.config.exhaust, room.exhaust)))
   }
 
@@ -1226,7 +1226,7 @@ fn pub tests(t: mut Tests) {
     ctl.iteration
 
     t.equal(room.state, State.Button(State.Default))
-    t.true(updates.contains?((room.config.exhaust, 700)))
+    t.true(updates.contains?((room.config.exhaust, 1400)))
   }
 
   t.test('Changing which rooms to ventilate in response to a remote') fn (t) {

@@ -671,7 +671,7 @@ class pub Controller {
           case Button(_) -> room.config.high_flow
           case Default -> match @state {
             case Co2 or Humid -> 0
-            case Default -> room.config.flow
+            case Default -> room.config.medium_flow
           }
           case Schedule or Open -> match @state {
             case Co2 -> 0
