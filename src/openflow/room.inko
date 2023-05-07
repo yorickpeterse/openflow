@@ -282,14 +282,14 @@ class pub Room {
         case None -> false
       }
 
-      case Open or Default or ScheduleCo2 or Minimum -> true
+      case Open or Default or ScheduleCo2 -> true
 
       # Enabling CO2 sampling while the CO2 levels are too high makes it a
       # little easier to monitor how they change over time. For example, for a
       # bedroom with the Night schedule this gives us a few extra data points
       # during the day, instead of the monitored value staying at e.g. 800 ppm
       # for 12 hours.
-      case Closed -> {
+      case Closed or Minimum -> {
         @co2.value >= config.target
           or @last_update.elapsed >= config.closed_sample_interval
       }

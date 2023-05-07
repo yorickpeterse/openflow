@@ -870,6 +870,10 @@ fn pub tests(t: mut Tests) {
     let conf = config
 
     conf.co2.sample_interval = Duration.from_secs(0)
+    conf.co2.closed_sample_interval = Duration.from_secs(0)
+
+    conf.rooms.iter_mut.each fn (entry) { entry.value.co2 = false }
+    conf.rooms['bedroom'].co2 = true
 
     let itho = itho(co2: 1200, humidity: 65)
     let updates = track_settings(itho)
