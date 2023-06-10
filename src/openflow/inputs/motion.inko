@@ -1,0 +1,178 @@
+import openflow::hue::Hue
+import openflow::logger::Logger
+import openflow::metrics::(Metric, Metrics)
+import openflow::state::(State, Status)
+import std::process::(sleep)
+import std::time::(Duration, Instant)
+
+class enum Presence {
+  # No presence is detected.
+  case False
+
+  # Motion is detected, but we're not sure yet if the person is staying in the
+  # room.
+  case Pending
+
+  # Presence is detected and ventilation is to be enabled.
+  case True
+}
+
+# The state of a single motion sensor.
+class pub Sensor {
+  let @name: String
+  let @id: Int
+  let @presence: Presence
+  let @last_update: Instant
+
+  fn pub static new(name: String, id: Int) -> Sensor {
+    Sensor {
+      @name = name,
+      @id = id,
+      @presence = Presence.False,
+      @last_update = Instant.new,
+    }
+  }
+
+  fn mut update(presence: Presence) {
+    @presence = presence
+    @last_update = Instant.new
+  }
+}
+
+# A process monitoring a set of Philips Hue motion sensors, adjusting
+# ventilation based on motion.
+class pub async Input {
+  let @state: State
+  let @logger: Logger
+  let @metrics: Metrics
+  let @hue: Hue
+
+  # The motion sensors to monitor.
+  let @sensors: Array[Sensor]
+
+  # The interval at which to poll the sensors.
+  let @sample_interval: Duration
+
+  # The time to wait after the first motion event before considering additional
+  # motion events.
+  #
+  # When motion is first detected we don't want to immediately enable
+  # ventilation, as that may be redundant. Instead we wait N minutes, then the
+  # next motion event enables ventilation. This way quickly popping into e.g.
+  # the toilet to grab something won't immediately enable ventilation.
+  let @motion_wait_time: Duration
+
+  # The time to wait before transitioning a sensor from the `Pending` state back
+  # to `False`.
+  let @pending_timeout: Duration
+
+  # The time to wait after the last motion event before disabling ventilation.
+  let @ventilation_timeout: Duration
+
+  fn pub static new(
+    state: State,
+    logger: Logger,
+    metrics: uni Metrics,
+    hue: uni Hue,
+  ) -> Input {
+    Input {
+      @state = state,
+      @logger = logger,
+      @metrics = metrics,
+      @hue = hue,
+      @sensors = recover [],
+      # Hue sensors only persist the "presence" value for about 15 seconds, so
+      # we need to poll them faster than that to reliably register motion.
+      @sample_interval = recover Duration.from_secs(10),
+      @motion_wait_time = recover Duration.from_secs(120),
+      @pending_timeout = recover Duration.from_secs(300),
+      @ventilation_timeout = recover Duration.from_secs(900),
+    }
+  }
+
+  fn pub async mut add_sensor(sensor: uni Sensor) {
+    @sensors.push(sensor)
+  }
+
+  fn pub async mut run {
+    loop {
+      iteration
+      sleep(@sample_interval)
+    }
+  }
+
+  fn mut iteration {
+    let sensors = match @hue.sensors {
+      case Ok(val) -> val
+      case Error(err) -> {
+        @logger.error("failed to get the Hue sensor states: {err}")
+        return
+      }
+    }
+
+    let updates = @sensors.iter_mut.reduce(recover Map.new) fn (map, sensor) {
+      let motion = sensors.motion.opt(sensor.id).unwrap_or(false)
+
+      if motion {
+        match sensor.presence {
+          case False -> {
+            info(sensor, 'motion detected')
+            sensor.update(Presence.Pending)
+          }
+          case Pending if sensor.last_update.elapsed >= @motion_wait_time -> {
+            info(sensor, 'presence detected, enabling ventilation')
+            sensor.update(Presence.True)
+          }
+          case True -> sensor.update(Presence.True)
+          case _ -> {}
+        }
+      } else {
+        let updated = sensor.last_update.elapsed
+
+        match sensor.presence {
+          case Pending if updated >= @pending_timeout -> {
+            info(sensor, 'not enough motion detected')
+            sensor.update(Presence.False)
+          }
+          case True if updated >= @ventilation_timeout -> {
+            info(sensor, 'disabling presence based ventilation')
+            sensor.update(Presence.False)
+          }
+          case _ -> {}
+        }
+      }
+
+      let enable = match sensor.presence {
+        case True -> true
+        case _ -> false
+      }
+
+      map.set(sensor.name, enable)
+      map
+    }
+
+    apply(updates)
+  }
+
+  fn apply(updates: uni Map[String, Bool]) {
+    @state.update_with(updates) fn move (rooms, updates) {
+      updates.into_iter.reduce(false) fn (apply_now, entry) {
+        let room = rooms.get_mut(entry.key)
+        let enable = entry.value
+
+        match room.status {
+          case Default or Active(_) -> {
+            room.update(if enable { Status.Active(25) } else { Status.Default })
+          }
+          case _ -> {}
+        }
+
+        apply_now or enable
+      }
+    }
+  }
+
+  fn mut info(sensor: ref Sensor, message: String) {
+    @logger.info("{sensor.name}: {message}")
+  }
+}

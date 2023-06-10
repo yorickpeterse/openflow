@@ -1,0 +1,146 @@
+import openflow::config::(Itho as IthoConfig, Room as RoomConfig)
+import openflow::http::(Client, Response, Request, TestDriver)
+import openflow::itho::Itho
+import openflow::logger::Logger
+import openflow::metrics::Metrics
+import openflow::state::(Room, State, Status)
+import std::io::Write
+import std::net::ip::IpAddress
+import std::time::Duration
+
+class pub NullWriter {}
+
+impl Write for NullWriter {
+  fn pub mut write_bytes(bytes: ref ByteArray) -> Result[Int, Never] {
+    Result.Ok(0)
+  }
+
+  fn pub mut write_string(string: String) -> Result[Int, Never] {
+    Result.Ok(0)
+  }
+
+  fn pub mut flush -> Result[Nil, Never] {
+    Result.Ok(nil)
+  }
+}
+
+class pub RoomSnapshot {
+  let pub @status: Status
+  let pub @flow: Int
+  let pub @exhaust: Int
+}
+
+class pub Snapshot {
+  let pub @speed: Int
+  let pub @target_flow: Int
+  let pub @rooms: Map[String, RoomSnapshot]
+
+  fn pub static of(state: State) -> Snapshot {
+    let chan = Channel.new(size: 1)
+
+    state.snapshot(chan)
+    chan.receive
+  }
+}
+
+impl Room {
+  fn snapshot -> RoomSnapshot {
+    RoomSnapshot {
+      @status = @status.clone,
+      @exhaust = @exhaust_value,
+      @flow = @current_flow,
+    }
+  }
+}
+
+impl State {
+  fn pub async snapshot(channel: Channel[Snapshot]) {
+    let rooms = @rooms.iter.reduce(recover Map.new) fn (map, entry) {
+      map.set(entry.key, recover entry.value.snapshot)
+      map
+    }
+
+    channel.send(recover Snapshot {
+      @speed = @speed,
+      @rooms = rooms,
+      @target_flow = @target_flow,
+    })
+  }
+
+  fn sleep(time: ref Duration) {
+    # This disables sleep() calls when running tests.
+  }
+}
+
+fn pub state(driver: uni TestDriver) -> State {
+  let itho = recover Itho.new(Client.with_driver(driver))
+  let logger = Logger.new(recover NullWriter {})
+  let config = IthoConfig {
+    @ip = IpAddress.v4(0, 0, 0, 0),
+    @minimum_flow = 75,
+    @maximum_flow = 350,
+    @speed_id = 124,
+    @manual_id = 111,
+  }
+
+  let metrics = recover Metrics.new(IpAddress.v4(0, 0, 0, 0), port: 0)
+  let state = State.new(itho, logger, metrics, config)
+
+  [
+    RoomConfig {
+      @name = 'living_room',
+      @exhaust = 10,
+      @minimum_flow = 0,
+      @maximum_flow = 70,
+      @flow_correction = 1.0,
+      @motion = Option.None,
+      @humidity = Option.None,
+      @co2 = Option.None,
+    },
+    RoomConfig {
+      @name = 'office',
+      @exhaust = 11,
+      @minimum_flow = 10,
+      @maximum_flow = 80,
+      @flow_correction = 1.1,
+      @motion = Option.None,
+      @humidity = Option.None,
+      @co2 = Option.None,
+    },
+    RoomConfig {
+      @name = 'super_fast',
+      @exhaust = 15,
+      @minimum_flow = 0,
+      @maximum_flow = 400,
+      @flow_correction = 1.0,
+      @motion = Option.None,
+      @humidity = Option.None,
+      @co2 = Option.None,
+    },
+    RoomConfig {
+      @name = 'bathroom',
+      @exhaust = 15,
+      @minimum_flow = 0,
+      @maximum_flow = 120,
+      @flow_correction = 1.0,
+      @motion = Option.None,
+      @humidity = Option.Some('RH bathroom 1'),
+      @co2 = Option.None,
+    },
+  ]
+    .into_iter
+    .each fn (conf) { state.add_room(Room.new(conf.name, conf)) }
+
+  state
+}
+
+fn pub allow_api_calls -> uni TestDriver {
+  let driver = recover TestDriver.new
+
+  driver.request(
+    matches: fn (req) { req.queries.opt('setsetting').some? },
+    then: fn (_) { Response.ok('OK'.to_byte_array) }
+  )
+
+  driver
+}

@@ -5,9 +5,11 @@ import std::test::Tests
 
 class async Server {
   fn async accept(socket: uni TcpServer) {
-    let client = try! socket.accept
-
-    try! client.write_string("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK")
+    socket.accept
+      .then fn (client) {
+        client.write_string("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK")
+      }
+      .unwrap
   }
 }
 
@@ -16,7 +18,7 @@ fn pub tests(t: mut Tests) {
     let driver = TestDriver.new
     let request = Request.get('/foo')
 
-    t.throw fn { try driver.execute(request) }
+    t.true(driver.execute(request).error?)
   }
 
   t.test('TestDriver.exectue without any matching handlers') fn (t) {
@@ -28,7 +30,7 @@ fn pub tests(t: mut Tests) {
       then: fn (r) { Response.ok(ByteArray.new) }
     )
 
-    t.throw fn { try driver.execute(request) }
+    t.true(driver.execute(request).error?)
   }
 
   t.test('TestDriver.execute with a matching handler') fn (t) {
@@ -40,24 +42,24 @@ fn pub tests(t: mut Tests) {
       then: fn (r) { Response.ok('foo'.to_byte_array) }
     )
 
-    let response = try! driver.execute(request)
+    let response = driver.execute(request).unwrap
 
     t.equal(response.body, 'foo'.to_byte_array)
   }
 
   t.test('DefaultDriver.execute') fn (t) {
     let ip = recover IpAddress.v4(127, 0, 0, 1)
-    let socket = recover try! TcpServer.new(ip.clone, port: 0)
-    let port = try! { socket.local_address }.port
+    let socket = recover TcpServer.new(ip.clone, port: 0).unwrap
+    let port = socket.local_address.unwrap.port
     let driver = DefaultDriver.new(ip, port)
 
-    async Server {}.accept(socket)
+    Server {}.accept(socket)
 
     let request = Request.get('/')
-    let response = try! driver.execute(request)
+    let response = driver.execute(request).unwrap
 
     t.equal(response.body.to_string, 'OK')
-    t.equal(response.headers['content-length'], '2')
+    t.equal(response.headers.get('content-length'), '2')
     t.equal(response.status, 200)
     t.equal(response.version.major, 1)
     t.equal(response.version.minor, 1)

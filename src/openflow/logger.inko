@@ -13,26 +13,30 @@ fn iso8601_time -> String {
     {pad_zero(time.hour)}:{pad_zero(time.minute)}:{pad_zero(time.second)}"
 }
 
-# A simple logger type.
-class pub Logger {
+# A process for logging messages to an output stream.
+class pub async Logger {
   let @stream: Write
 
   # Returns a logger using the default output stream (STDOUT).
   fn pub static default -> Logger {
-    Logger { @stream = STDOUT.new }
+    Logger { @stream = recover STDOUT.new }
   }
 
-  fn pub static new(stream: Write) -> Logger {
+  fn pub static new(stream: uni Write) -> Logger {
     Logger { @stream = stream }
   }
 
-  fn pub mut info(message: String) {
+  fn pub async mut info(message: String) {
     write('INFO', message)
   }
 
-  fn pub mut write(severity: String, message: String) {
+  fn pub async mut error(message: String) {
+    write('ERROR', message)
+  }
+
+  fn mut write(severity: String, message: String) {
     # Logging failing isn't a big deal, but having to handle potential failures
     # _every_ time _is_, so we simply discard any errors.
-    try @stream.write_string("{iso8601_time}: {severity}: {message}\n") else 0
+    let _ = @stream.write_string("{iso8601_time}: {severity}: {message}\n")
   }
 }

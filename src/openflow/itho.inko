@@ -39,7 +39,7 @@ class pub enum RemoteStatus {
   }
 }
 
-impl Equal for RemoteStatus {
+impl Equal[RemoteStatus] for RemoteStatus {
   fn pub ==(other: ref RemoteStatus) -> Bool {
     match (self, other) {
       case (Unknown, Unknown) -> true
@@ -76,7 +76,7 @@ impl Format for RemoteStatus {
   }
 }
 
-impl Clone for RemoteStatus {
+impl Clone[RemoteStatus] for RemoteStatus {
   fn pub clone -> RemoteStatus {
     match self {
       case Unknown -> RemoteStatus.Unknown
@@ -128,76 +128,70 @@ class pub Itho {
   # The `setting` argument must be the setting index as obtained from the "Itho
   # settings" page. The `value` argument is the value for said setting. Only
   # integer values are supported.
-  fn pub mut set(setting: Int, value: ref ToInt) !! String {
+  fn pub mut set(setting: Int, value: ref ToInt) -> Result[Nil, String] {
     let request = Request.get(PATH)
     let timeout = Duration.from_secs(TIMEOUT)
 
     request.query('setsetting', setting.to_string)
     request.query('value', value.to_int.to_string)
 
-    try {
-      retry(@retry_wait_time) fn { try execute(request, timeout) }
-    } else (err) {
-      throw err.to_string
-    }
+    retry(@retry_wait_time) fn { execute(request, timeout) }
+      .map fn (_) { nil }
+      .map_error fn (e) { e.to_string }
   }
 
   # Returns the value of a setting.
   #
   # The `setting` argument must be the setting index. See `Itho.set` for more
   # information.
-  fn pub mut get(setting: Int) !! String -> Int {
+  fn pub mut get(setting: Int) -> Result[Int, String] {
     let request = Request.get(PATH)
     let timeout = Duration.from_secs(TIMEOUT)
 
     request.query('getsetting', setting.to_string)
 
-    let resp = try {
-      retry(@retry_wait_time) fn { try execute(request, timeout) }
-    } else (err) {
-      throw err.to_string
-    }
+    let resp = try retry(@retry_wait_time) fn { execute(request, timeout) }
+      .map_error fn (e) { e.to_string }
 
     let body = resp.body.drain_to_string
-    let root = match try json.parse(body) else (e) throw e.to_string {
-      case Object(map) -> map
-      case _ -> throw 'Expected the status to be a JSON object'
+    let root = match json.parse(body) {
+      case Ok(Object(map)) -> map
+      case _ -> throw 'Expected the response to be a JSON object'
     }
 
-    match root.remove('current') {
+    let val = match root.remove('current') {
       case Some(Int(v)) -> v
       case Some(Float(v)) -> v.to_int
       case _ -> 0
     }
+
+    Result.Ok(val)
   }
 
   # Returns the status of the Itho device.
-  fn pub mut status !! String -> Status {
+  fn pub mut status -> Result[Status, String] {
     let request = Request.get(PATH)
     let timeout = Duration.from_secs(TIMEOUT)
 
     request.query('get', 'ithostatus')
 
-    let resp = try {
-      retry(@retry_wait_time) fn { try execute(request, timeout) }
-    } else (err) {
-      throw err.to_string
-    }
+    let resp = try retry(@retry_wait_time) fn { execute(request, timeout) }
+      .map_error fn (e) { e.to_string }
 
     let body = resp.body.drain_to_string
-    let root = match try json.parse(body) else (e) throw e.to_string {
-      case Object(map) -> map
-      case _ -> throw 'Expected the status to be a JSON object'
+    let root = match json.parse(body) {
+      case Ok(Object(map)) -> map
+      case _ -> throw 'Expected the response to be a JSON object'
     }
 
     let humidity = Map.new
-    let co2 = match root.get('CO2 plenum (ppm)') {
+    let co2 = match root.opt('CO2 plenum (ppm)') {
       case Some(Int(v)) -> v
       case Some(Float(v)) -> v.to_int
       case _ -> 0
     }
 
-    let exhaust_speed = match root.get('exhaust fan (%)') {
+    let exhaust_speed = match root.opt('exhaust fan (%)') {
       case Some(Int(v)) -> v
       case Some(Float(v)) -> v.to_int
       case _ -> 0
@@ -214,31 +208,30 @@ class pub Itho {
 
       # Sensors that aren't connected report a value that's very close to zero,
       # which due to the conversion to an Int is turned into zero.
-      if value > 0 { humidity[pair.key] = value }
+      if value > 0 { humidity.set(pair.key, value) }
     }
 
-    Status { @co2 = co2, @exhaust_speed = exhaust_speed, @humidity = humidity }
+    Result.Ok(
+      Status { @co2 = co2, @exhaust_speed = exhaust_speed, @humidity = humidity }
+    )
   }
 
-  fn pub mut remotes !! String -> Map[String, Remote] {
+  fn pub mut remotes -> Result[Map[String, Remote], String] {
     let request = Request.get(PATH)
     let timeout = Duration.from_secs(TIMEOUT)
 
     request.query('get', 'remotesinfo')
 
-    let resp = try {
-      retry(@retry_wait_time) fn { try execute(request, timeout) }
-    } else (err) {
-      throw err.to_string
-    }
+    let resp = try retry(@retry_wait_time) fn { execute(request, timeout) }
+      .map_error fn (e) { e.to_string }
 
     let body = resp.body.drain_to_string
-    let root = match try json.parse(body) else (e) throw e.to_string {
-      case Object(map) -> map
-      case _ -> throw 'Expected the status to be a JSON object'
+    let root = match json.parse(body) {
+      case Ok(Object(map)) -> map
+      case _ -> throw 'Expected the response to be a JSON object'
     }
 
-    root.into_iter.reduce(Map.new) fn (map, entry) {
+    let result = root.into_iter.reduce(Map.new) fn (map, entry) {
       let obj = match entry.value {
         case Object(obj) -> obj
         case _ -> return map
@@ -259,25 +252,27 @@ class pub Itho {
         case _ -> 0
       }
 
-      map[entry.key] = Remote { @status = status, @timestamp = timestamp }
+      map.set(entry.key, Remote { @status = status, @timestamp = timestamp })
       map
     }
+
+    Result.Ok(result)
   }
 
   fn mut execute(
     request: ref Request,
     timeout: ref Duration
-  ) !! Error -> Response {
-    client.timeout_after = timeout
+  ) -> Result[Response, Error] {
+    @client.timeout_after = timeout
 
-    let response = try client.execute(request)
+    let response = try @client.execute(request)
 
     # The API may produce an HTTP 500 if an I2C command fails. In this case we
     # want to retry the operation.
     if response.status == 500 {
-      throw Error.InternalServerError(response.body.to_string)
+      Result.Error(Error.InternalServerError(response.body.to_string))
     } else {
-      response
+      Result.Ok(response)
     }
   }
 }

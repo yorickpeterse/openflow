@@ -1,26 +1,35 @@
+import std::env
+import std::test::(Filter, Tests)
+
+import openflow::inputs::test_co2::(self as test_inputs_co2)
+import openflow::inputs::test_humidity
+import openflow::inputs::test_motion
+import openflow::inputs::test_remote
 import openflow::test_co2
-import openflow::test_controller
 import openflow::test_histogram
 import openflow::test_http
 import openflow::test_hue
 import openflow::test_itho
-import openflow::test_room
-import std::env
-import std::test::Tests
+import openflow::test_more_sense
+import openflow::test_state
 
 class async Main {
   fn async main {
     let tests = Tests.new
 
     test_co2.tests(tests)
-    test_controller.tests(tests)
     test_histogram.tests(tests)
     test_http.tests(tests)
     test_hue.tests(tests)
+    test_humidity.tests(tests)
+    test_inputs_co2.tests(tests)
     test_itho.tests(tests)
-    test_room.tests(tests)
+    test_more_sense.tests(tests)
+    test_motion.tests(tests)
+    test_remote.tests(tests)
+    test_state.tests(tests)
 
-    tests.pattern = env.arguments.into_iter.next
+    tests.filter = Filter.from_string(env.arguments.opt(0).unwrap_or(''))
     tests.run
   }
 }

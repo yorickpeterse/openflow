@@ -1,0 +1,24 @@
+import std::clone::Clone
+
+# A type that allows a process to wait until another process wakes it up.
+class pub Waiter {
+  let @channel: Channel[Nil]
+
+  fn pub static new -> uni Waiter {
+    recover Waiter { @channel = Channel.new(size: 1) }
+  }
+
+  fn pub notify {
+    @channel.send(nil)
+  }
+
+  fn pub wait {
+    @channel.receive
+  }
+}
+
+impl Clone[uni Waiter] for Waiter {
+  fn pub clone -> uni Waiter {
+    recover Waiter { @channel = @channel }
+  }
+}

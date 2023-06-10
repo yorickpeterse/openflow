@@ -29,23 +29,25 @@ let RETRIES = 10
 
 fn pub retry(
   wait: ref Duration,
-  block: fn !! Error -> Response
-) !! Error -> Response {
+  block: fn -> Result[Response, Error]
+) -> Result[Response, Error] {
   let mut attempts = 0
 
   loop {
-    return try block.call else (err) {
-      if attempts == RETRIES { throw err }
-
-      match ref err {
-        case InvalidRequest(_) -> throw err
-        case _ -> {}
-      }
-
-      attempts += 1
-      sleep(wait)
-      next
+    let err = match block.call {
+      case Ok(val) -> return Result.Ok(val)
+      case Error(val) -> val
     }
+
+    if attempts == RETRIES { throw err }
+
+    match ref err {
+      case InvalidRequest(_) -> throw err
+      case _ -> {}
+    }
+
+    attempts += 1
+    sleep(wait)
   }
 }
 
@@ -110,17 +112,17 @@ impl ToString for Error {
 # This parser automatically reads more bytes from the input stream is necessary,
 # and takes care to not block by performing reads when no more data is
 # available.
-class ResponseParser[T: Read] {
-  let @stream: mut T
+class ResponseParser {
+  let @stream: mut Read
   let @buffer: ByteArray
 
   # Returns a new parser that will parse the given input stream.
-  fn pub static new(stream: mut T) -> ResponseParser[mut T] {
+  fn pub static new(stream: mut Read) -> ResponseParser {
     ResponseParser { @stream = stream, @buffer = ByteArray.new }
   }
 
   # Parser the input stream into a response.
-  fn pub move parse !! Error -> Response {
+  fn pub move parse -> Result[Response, Error] {
     let headers_end = try read_headers
 
     # This is the minimum number of bytes needed to parse the version and
@@ -135,14 +137,14 @@ class ResponseParser[T: Read] {
     # `headers_end` points to the \n that separates the headers and body. We
     # don't want to include this in the body, so we add 1 to the start.
     let body_start = headers_end + 1
-    let mut body_size = headers.get('content-length')
+    let mut body_size = headers.opt('content-length')
       .then fn (val) { Int.from_base10(val) }
       .unwrap_or(-1)
 
     if body_size == -1 {
       # If the Content-length header is left unspecified we have no other option
       # but to read until the end of the stream, otherwise we may miss data.
-      try @stream.read_all(@buffer) else (e) throw Error.Network(e)
+      try @stream.read_all(@buffer).map_error fn (e) { Error.Network(e) }
 
       body_size = @buffer.length - body_start
     } else {
@@ -155,46 +157,48 @@ class ResponseParser[T: Read] {
       ByteArray.new
     }
 
-    Response {
+    Result.Ok(Response {
       @version = version,
       @status = status,
       @headers = headers,
       @body = body
-    }
+    })
   }
 
-  fn mut parse_version !! Error -> Version {
+  fn mut parse_version -> Result[Version, Error] {
     let buf = @buffer
 
-    if buf[0] == H
-      and buf[1] == T
-      and buf[2] == T
-      and buf[3] == P
-      and buf[4] == SLASH
-      and buf[5] == ONE
-      and buf[6] == DOT
+    if buf.get(0) == H
+      and buf.get(1) == T
+      and buf.get(2) == T
+      and buf.get(3) == P
+      and buf.get(4) == SLASH
+      and buf.get(5) == ONE
+      and buf.get(6) == DOT
     {
-      let minor = match buf[7] {
+      let minor = match buf.get(7) {
         case ZERO -> 0
         case ONE -> 1
         case val -> throw Error.UnsupportedVersion(val)
       }
 
-      return Version.new(1, minor)
+      return Result.Ok(Version.new(1, minor))
     }
 
-    throw Error.InvalidVersion
+    Result.Error(Error.InvalidVersion)
   }
 
-  fn mut parse_status !! Error -> Int {
+  fn mut parse_status -> Result[Int, Error] {
     let a = digit(index: 9) * 100
     let b = digit(index: 10) * 10
     let c = digit(index: 11)
     let code = a + b + c
 
-    if code < 100 or code >= 600 { throw Error.InvalidStatus(code) }
-
-    code
+    if code >= 100 and code < 600 {
+      Result.Ok(code)
+    } else {
+      Result.Error(Error.InvalidStatus(code))
+    }
   }
 
   fn mut parse_headers(end: Int) -> Map[String, String] {
@@ -203,7 +207,7 @@ class ResponseParser[T: Read] {
 
     # Skip the first header line containing the version and status.
     while idx < end {
-      if buf[idx] == LF and buf[idx - 1] == CR {
+      if buf.get(idx) == LF and buf.get(idx - 1) == CR {
         idx += 1
         break
       } else {
@@ -215,14 +219,14 @@ class ResponseParser[T: Read] {
     let headers = Map.new
 
     while idx < end {
-      if buf[idx] == COLON {
+      if buf.get(idx) == COLON {
         let key = parse_header_name(start, end: idx)
 
         idx += 1
 
         # Skip any whitespace that follows the colon.
         while idx < end {
-          match buf[idx] {
+          match buf.get(idx) {
             case SPACE or TAB -> idx += 1
             case _ -> break
           }
@@ -230,14 +234,16 @@ class ResponseParser[T: Read] {
 
         let val_start = idx
 
-        while idx < end and buf[idx] != LF and buf[idx - 1] != CR { idx += 1 }
+        while idx < end and buf.get(idx) != LF and buf.get(idx - 1) != CR {
+          idx += 1
+        }
 
         let mut val_end = idx - 2
 
         # Adjust the end index such that it doesn't cover any trailing
         # whitespace.
         while val_end > val_start {
-          match buf[val_end] {
+          match buf.get(val_end) {
             case SPACE or TAB -> val_end -= 1
             case _ -> break
           }
@@ -246,9 +252,12 @@ class ResponseParser[T: Read] {
         # `val_end` points to the last character to include. Slicing is
         # end-exclusive, so we need to add 1 to the length to include the last
         # character.
-        headers[key] = buf
-          .slice(start: val_start, length: val_end - val_start + 1)
-          .into_string
+        headers.set(
+          key,
+          buf
+            .slice(start: val_start, length: val_end - val_start + 1)
+            .into_string
+        )
 
         idx += 1
         start = idx
@@ -269,10 +278,13 @@ class ResponseParser[T: Read] {
     while read_index < end {
       # Header names are case-insensitive. To make it easier to handle casing
       # differences we convert the header names to lowercase while parsing them.
-      bytes[index] = match buf[read_index] {
-        case byte if byte >= CAPITAL_A and byte <= CAPITAL_Z -> byte + 32
-        case byte -> byte
-      }
+      bytes.set(
+        index,
+        match buf.get(read_index) {
+          case byte if byte >= CAPITAL_A and byte <= CAPITAL_Z -> byte + 32
+          case byte -> byte
+        }
+      )
 
       index += 1
       read_index += 1
@@ -281,7 +293,7 @@ class ResponseParser[T: Read] {
     bytes.into_string
   }
 
-  fn mut read_headers !! Error -> Int {
+  fn mut read_headers -> Result[Int, Error] {
     let mut index = 0
     let buf = @buffer
 
@@ -290,12 +302,12 @@ class ResponseParser[T: Read] {
 
       while index < buf.length {
         if buf.length > 4
-          and buf[index] == LF
-          and buf[index - 1] == CR
-          and buf[index - 2] == LF
-          and buf[index - 3] == CR
+          and buf.get(index) == LF
+          and buf.get(index - 1) == CR
+          and buf.get(index - 2) == LF
+          and buf.get(index - 3) == CR
         {
-          return index
+          return Result.Ok(index)
         }
 
         index += 1
@@ -303,20 +315,22 @@ class ResponseParser[T: Read] {
     }
   }
 
-  fn mut read(size: Int) !! Error -> Int {
-    try @stream.read(@buffer, size) else (e) throw Error.Network(e)
+  fn mut read(size: Int) -> Result[Int, Error] {
+    @stream.read(@buffer, size).map_error fn (e) { Error.Network(e) }
   }
 
-  fn mut read_exact(size: Int) !! Error {
+  fn mut read_exact(size: Int) -> Result[Nil, Error] {
     let mut remaining = size
 
     # Reading from a socket may return fewer bytes than we requested, so we have
     # to keep reading until we've read the desired amount of bytes.
     while remaining > 0 { remaining -= try read(remaining) }
+
+    Result.Ok(nil)
   }
 
   fn digit(index: Int) -> Int {
-    let byte = @buffer[index]
+    let byte = @buffer.get(index)
 
     if byte >= 48 and byte <= 57 { byte - 48 } else { 0 }
   }
@@ -373,7 +387,7 @@ class pub Request {
 
   # Adds a query string key/value pair to the request.
   fn pub mut query(name: String, value: String) {
-    @queries[name] = value
+    @queries.set(name, value)
   }
 
   fn generate(host: String, agent: String) -> String {
@@ -411,7 +425,7 @@ trait pub Driver {
   fn pub mut timeout_after=(time: ref ToInstant)
 
   # Executes the HTTP request.
-  fn pub mut execute(request: ref Request) !! Error -> Response
+  fn pub mut execute(request: ref Request) -> Result[Response, Error]
 }
 
 # The default driver.
@@ -426,19 +440,17 @@ class pub DefaultDriver {
     DefaultDriver { @ip = ip, @port = port, @deadline = Option.None }
   }
 
-  fn connect !! Error -> TcpClient {
-    match @deadline {
-      case Some(deadline) -> try {
-        TcpClient.with_timeout(@ip.clone, @port, deadline.clone)
-      } else (err) {
-        throw Error.Network(err)
+  fn connect -> Result[TcpClient, Error] {
+    @deadline
+      .clone
+      .map fn (deadline) {
+        TcpClient
+          .with_timeout(@ip.clone, @port, deadline)
+          .map_error fn (e) { Error.Network(e) }
       }
-      case None -> try {
-        TcpClient.new(@ip.clone, @port)
-      } else (err) {
-        throw Error.Network(err)
+      .unwrap_or_else fn {
+        TcpClient.new(@ip.clone, @port).map_error fn (e) { Error.Network(e) }
       }
-    }
   }
 }
 
@@ -447,12 +459,12 @@ impl Driver for DefaultDriver {
     @deadline = Option.Some(time.to_instant)
   }
 
-  fn pub mut execute(request: ref Request) !! Error -> Response {
+  fn pub mut execute(request: ref Request) -> Result[Response, Error] {
     let sock = try connect
     let data = request.generate(host: @ip.to_string, agent: 'inko')
     let guard = @deadline.clone.map fn (t) { sock.socket.timeout_after = t }
 
-    try sock.write_string(data) else (e) throw Error.Network(e)
+    try sock.write_string(data).map_error fn (e) { Error.Network(e) }
 
     let reader: Read = sock
 
@@ -462,13 +474,15 @@ impl Driver for DefaultDriver {
     # Tracking issue: https://github.com/inko-lang/inko/issues/359
     let guard = guard
 
-    try ResponseParser.new(reader).parse
+    ResponseParser.new(reader).parse
   }
 }
 
 # An HTTP driver to use for writing tests.
 class pub TestDriver {
-  let pub @requests: Array[(fn (ref Request) -> Bool, fn (ref Request) -> Response)]
+  let pub @requests: Array[
+    (fn (ref Request) -> Bool, fn (ref Request) -> Response)
+  ]
 
   fn pub static new -> TestDriver {
     TestDriver { @requests = [] }
@@ -491,12 +505,21 @@ impl Driver for TestDriver {
     # Deadlines are ignored by this driver.
   }
 
-  fn pub mut execute(request: ref Request) !! Error -> Response {
-    match @requests.iter.find(fn (pair) { pair.0.call(request) }) {
-      case Some(pair) -> pair.1.call(request)
-      case _ -> throw Error
-        .InvalidRequest("No handler for {request.method} {request.path} exists")
-    }
+  fn pub mut execute(request: ref Request) -> Result[Response, Error] {
+    @requests
+      .iter_mut
+      .find_map fn (pair) {
+        if pair.0.call(request) {
+          Option.Some(Result.Ok(pair.1.call(request)))
+        } else {
+          Option.None
+        }
+      }
+      .unwrap_or_else fn {
+        Result.Error(Error.InvalidRequest(
+          "No handler for {request.method} {request.path} exists"
+        ))
+      }
   }
 }
 
@@ -520,7 +543,7 @@ class pub Client {
   }
 
   # Executes the request and returns its response.
-  fn pub mut execute(request: ref Request) !! Error -> Response {
-    try @driver.execute(request)
+  fn pub mut execute(request: ref Request) -> Result[Response, Error] {
+    @driver.execute(request)
   }
 }

@@ -1,0 +1,451 @@
+import openflow::config::(Room as RoomConfig, Itho as IthoConfig)
+import openflow::itho::Itho
+import openflow::logger::Logger
+import openflow::metrics::(Metric, Metrics)
+import openflow::sync::Waiter
+import std::clone::Clone
+import std::cmp::(Compare, Equal, Ordering, max, min)
+import std::fmt::(Format, Formatter)
+import std::process::(sleep)
+import std::string::ToString
+import std::time::(Duration, Instant)
+
+import std::stdio::STDERR
+
+# The maximum value of an exhaust valve setting.
+#
+# While the API/hardware limit is 5000, the valves can make a distinct bonking
+# noise when opening them this far. The actual Itho hardware also appears to
+# limit the setting to this value.
+let EXHAUST_MAX = 4000
+
+# The amount of time to wait (in seconds) for exhaust valves to adjust
+# themselves.
+let ADJUST_TIME = 5
+
+fn exhaust_percentage(flow: Int, total_flow: Int) -> Int {
+  if flow >= total_flow { return EXHAUST_MAX }
+  if flow == 0 { return 0 }
+
+  let raw = flow * 100 / total_flow * EXHAUST_MAX / 100
+
+  # To reduce the amount of micro adjustments of the exhaust motors, we round
+  # the setting values up to the nearest multiple of 100, so 625 becomes 700.
+  raw + 99 / 100 * 100
+}
+
+# The ventilation status of a room.
+class pub enum Status {
+  # The default state, optionally applying a minimum amount of ventilation based
+  # on the total ventilation need.
+  case Default
+
+  # A room is actively ventilated at the given speed in m3/h.
+  case Active(Int)
+
+  # Ventilation is running at the maximum speed.
+  case Maximum
+
+  # Ventilation is enabled in response to an RF button.
+  #
+  # The wrapped value is the old status to transition back to.
+  case Button(Status)
+
+  # Ventilation is enabled in response to high humidity.
+  case Humid
+
+  fn pub humid? -> Bool {
+    match self {
+      case Humid -> true
+      case _ -> false
+    }
+  }
+}
+
+impl Clone[uni Status] for Status {
+  fn pub clone -> uni Status {
+    match self {
+      case Default -> recover Status.Default
+      case Active(val) -> recover Status.Active(val)
+      case Maximum -> recover Status.Maximum
+      case Button(status) -> recover Status.Button(status.clone)
+      case Humid -> recover Status.Humid
+    }
+  }
+}
+
+impl ToString for Status {
+  fn pub to_string -> String {
+    match self {
+      case Default -> 'Default'
+      case Active(_) -> 'Active'
+      case Maximum -> 'Maximum'
+      case Button(_) -> 'Button'
+      case Humid -> 'Humid'
+    }
+  }
+}
+
+impl Equal[Status] for Status {
+  fn pub ==(other: ref Status) -> Bool {
+    match (self, other) {
+      case (Default, Default) -> true
+      case (Active(a), Active(b)) -> a == b
+      case (Maximum, Maximum) -> true
+      case (Button(a), Button(b)) -> a == b
+      case (Humid, Humid) -> true
+      case _ -> false
+    }
+  }
+}
+
+impl Compare[Status] for Status {
+  fn pub cmp(other: ref Status) -> Ordering {
+    match self {
+      case Default -> match other {
+        case Default -> Ordering.Equal
+        case _ -> Ordering.Less
+      }
+      case Active(a) -> match other {
+        case Default -> Ordering.Greater
+        case Active(b) -> a.cmp(b)
+        case _ -> Ordering.Less
+      }
+      case Button(a) -> match other {
+        case Default or Active(_) -> Ordering.Greater
+        case Button(b) -> a.cmp(b)
+        case _ -> Ordering.Less
+      }
+      case Maximum -> match other {
+        case Maximum -> Ordering.Equal
+        case Humid -> Ordering.Less
+        case _ -> Ordering.Greater
+      }
+      case Humid -> match other {
+        case Humid -> Ordering.Equal
+        case _ -> Ordering.Greater
+      }
+    }
+  }
+}
+
+impl Format for Status {
+  fn pub fmt(formatter: mut Formatter) {
+    match self {
+      case Default -> formatter.write('Default')
+      case Active(val) -> {
+        formatter.write('Active(')
+        val.fmt(formatter)
+        formatter.write(')')
+      }
+      case Maximum -> formatter.write('Maximum')
+      case Button(state) -> {
+        formatter.write('Button(')
+        state.fmt(formatter)
+        formatter.write(')')
+      }
+      case Humid -> formatter.write('Humid')
+    }
+  }
+}
+
+# The state of a single room.
+class pub Room {
+  # The unique ID/name of the room.
+  let pub @name: String
+
+  # The ventilation status of this room.
+  let pub @status: Status
+
+  # The last time the status was updated.
+  let pub @last_update: Instant
+
+  # The value to multiply the raw air flow by to account for pressure loss in
+  # the air duct.
+  let @flow_correction: Float
+
+  # The ID of the exhaust for this room.
+  let @exhaust_id: Int
+
+  # The exhaust setting value, in a range from 0 to 4000.
+  #
+  # This value defaults to -1. This ensures that the first time we make any
+  # changes, we don't ignore exhausts with a target value of zero, as that could
+  # result in them remaining in whatever state they were before we started.
+  let @exhaust_value: Int
+
+  # The minimum air flow in m3/hour, without the flow correction.
+  let @minimum_flow: Int
+
+  # The maximum air flow in m3/hour, without the flow correction.
+  let @maximum_flow: Int
+
+  # The air flow in m3/hour.
+  let @current_flow: Int
+
+  fn pub static new(name: String, config: ref RoomConfig) -> uni Room {
+    let correct = config.flow_correction
+    let exhaust = config.exhaust
+    let min = config.minimum_flow
+    let max = config.maximum_flow
+
+    recover Room {
+      @name = name,
+      @status = Status.Default,
+      @flow_correction = correct,
+      @exhaust_id = exhaust,
+      @exhaust_value = -1,
+      @minimum_flow = min,
+      @maximum_flow = max,
+      @current_flow = 0,
+      @last_update = Instant.new,
+    }
+  }
+
+  fn pub flow -> Int {
+    @current_flow
+  }
+
+  fn pub mut update(status: Status) {
+    @status = status
+    @last_update = Instant.new
+  }
+
+  fn pub mut reduce_flow(by: Int) {
+    let new_flow = max(@current_flow - by, 0)
+
+    # Ventilation speeds below 5 m3/h are more or less useless. Turning off
+    # ventilation in this case can help keep the speed at a minimum.
+    @current_flow = if new_flow >= 5 { new_flow } else { 0 }
+  }
+}
+
+# The state of the ventilation system, along with the means to update and apply
+# changes.
+class pub async State {
+  # The total air flow that we try to stay under as much as possible.
+  let @target_flow: Int
+
+  # The minimum global air flow.
+  let @minimum_flow: Int
+
+  # The maximum global air flow.
+  let @maximum_flow: Int
+
+  # The ID of the setting that controls the ventilation speed.
+  let @speed_id: Int
+
+  # The ID of the setting that enables/disables manual control of the
+  # ventilation unit.
+  let @manual_id: Int
+
+  # The speed (as a percentage of its maximum) the ventilation unit is running
+  # at.
+  let @speed: Int
+
+  # The rooms to ventilate along with their current state.
+  let @rooms: Map[String, Room]
+  let @logger: Logger
+  let @itho: Itho
+  let @metrics: Metrics
+
+  fn pub static new(
+    itho: uni Itho,
+    logger: Logger,
+    metrics: uni Metrics,
+    config: ref IthoConfig,
+  ) -> State {
+    State {
+      @itho = itho,
+      @metrics = metrics,
+      @target_flow = config.minimum_flow,
+      @minimum_flow = config.minimum_flow,
+      @maximum_flow = config.maximum_flow,
+      @speed_id = config.speed_id,
+      @manual_id = config.manual_id,
+      @speed = 0,
+      @rooms = recover Map.new,
+      @logger = logger,
+    }
+  }
+
+  fn pub async mut add_room(room: uni Room) {
+    @rooms.set(room.name, room)
+  }
+
+  fn pub async mut prepare {
+    if @itho.get(@manual_id).unwrap_or(0) == 1 { return }
+
+    @logger.info('Enabling manual control')
+    @itho.set(@manual_id, value: 1).unwrap
+    sleep(Duration.from_nanos(@rooms.length * ADJUST_TIME))
+  }
+
+  # Run a closure in the context of the current state to allow updating of the
+  # internal state.
+  #
+  # If the block returns `true`, the changes are applied immediately.
+  fn pub async mut update(block: uni fn (mut Map[String, Room]) -> Bool) {
+    if block.call(@rooms) { apply_state }
+  }
+
+  # Run a closure in the context of the current state, passing the extra data to
+  # the closure.
+  #
+  # If the block returns `true`, the changes are applied immediately.
+  fn pub async mut update_with[T](
+    data: uni T,
+    block: uni fn (mut Map[String, Room], T) -> Bool,
+  ) {
+    if block.call(@rooms, data) { apply_state }
+  }
+
+  fn pub async mut increase_target_flow(percentage: Int) {
+    let old = @target_flow
+    let new = @minimum_flow +
+      (@maximum_flow.to_float / 100.0 * percentage.to_float).to_int
+
+    @logger.info("Increasing target flow from {old} m3/h to {new} m3/h")
+    @target_flow = new
+  }
+
+  fn pub async mut reset_target_flow {
+    @logger.info("Resetting target flow to {@minimum_flow} m3/h")
+    @target_flow = @minimum_flow
+  }
+
+  # Applies the state to the ventilation system.
+  #
+  # The given channel is sent a message after applying the changes. This allows
+  # other processes to wait until the changes are applied, regardless of how
+  # long that takes.
+  fn pub async mut apply(waiter: uni Waiter) {
+    apply_state
+    waiter.notify
+  }
+
+  fn mut apply_state {
+    let total_flow =
+      max(@minimum_flow, min(update_flow_per_room, @maximum_flow))
+
+    let new_speed = flow_percentage(total_flow)
+
+    # Speed reductions are applied first, while increases are applied last. This
+    # ensures we don't produce excessive air noise while the exhaust valves are
+    # adjusted.
+    if new_speed < @speed { update_speed(new_speed) }
+
+    @rooms.iter_mut.each_with_index fn (index, entry) {
+      let room = entry.value
+      let flow = room.current_flow
+      let new = exhaust_percentage(flow, total_flow)
+      let old = room.exhaust_value
+
+      @metrics.add('air_flow') fn (m) {
+        m.tag('room', room.name)
+        m.field('rate', flow)
+      }
+
+      if new == old { return }
+
+      info(
+        room,
+        "changing exhaust from {old} to {new} ({room.status}, {flow} m3/h)"
+      )
+
+      @itho
+        .set(setting: room.exhaust_id, value: new)
+        .expect("the exhaust setting couldn't be updated")
+
+      room.exhaust_value = new
+      wait_for_valve
+    }
+
+    if new_speed > @speed { update_speed(new_speed) }
+
+    @metrics.add('exhaust_speed') fn (m) {
+      m.field('percentage', new_speed)
+    }
+  }
+
+  fn mut update_speed(speed: Int) {
+    @logger.info("Changing exhaust speed from {@speed}% to {speed}%")
+    @itho
+      .set(setting: @speed_id, value: speed)
+      .expect("the exhaust speed couldn't be updated")
+
+    @speed = speed
+    wait_for_valve
+  }
+
+  fn mut update_flow_per_room -> Int {
+    let humid = @rooms.values.any? fn (room) {
+      match room.status {
+        case Humid -> true
+        case _ -> false
+      }
+    }
+
+    let mut total = @rooms.iter_mut.reduce(0) fn (sum, entry) {
+      let room = entry.value
+      let mut base = if humid {
+        match room.status {
+          case Default -> 0
+          case Humid -> room.maximum_flow
+          case _ -> 20
+        }
+      } else {
+        match room.status {
+          case Default -> max(0, room.minimum_flow)
+          case Active(val) -> val
+          case Maximum or Button(_) or Humid -> room.maximum_flow
+        }
+      }
+
+      base = min(base, room.maximum_flow)
+
+      room.current_flow = min(
+        (base.to_float * room.flow_correction).ceil.to_int,
+        @maximum_flow
+      )
+
+      sum + room.current_flow
+    }
+
+    if total <= @target_flow or humid { return total }
+
+    reduce_default_ventilation(total)
+    @rooms.values.reduce(0) fn (sum, room) { sum + room.current_flow }
+  }
+
+  fn mut reduce_default_ventilation(total: Int) {
+    let rooms = @rooms
+      .iter_mut
+      .select_map fn (e) {
+        match e.value.status {
+          case Default if e.value.current_flow > 0 -> Option.Some(e.value)
+          case _ -> Option.None
+        }
+      }
+      .to_array
+
+    let reduce =
+      (total.to_float - @target_flow.to_float / rooms.length.to_float)
+        .ceil
+        .to_int
+
+    rooms.into_iter.each fn (room) { room.reduce_flow(reduce) }
+  }
+
+  fn flow_percentage(flow: Int) -> Int {
+    flow * 100 / @maximum_flow
+  }
+
+  fn mut info(room: ref Room, message: String) {
+    @logger.info("{room.name}: {message}")
+  }
+
+  fn wait_for_valve {
+    sleep(Duration.from_secs(ADJUST_TIME))
+  }
+}

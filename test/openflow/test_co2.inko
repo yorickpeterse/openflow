@@ -1,25 +1,23 @@
 import openflow::co2::Co2
-import std::process::(sleep)
 import std::test::Tests
-import std::time::Duration
 
 fn pub tests(t: mut Tests) {
   t.test('Co2.update with values less than the smallest bucket') fn (t) {
     let co2 = Co2.new
 
     co2.update
-    t.equal(co2.value, 500)
+    t.equal(co2.value, 400)
 
     co2.add(420)
     co2.update
-    t.equal(co2.value, 500)
+    t.equal(co2.value, 425)
   }
 
   t.test('Co2.update without any samples') fn (t) {
     let co2 = Co2.new
 
     co2.update
-    t.equal(co2.value, 500)
+    t.equal(co2.value, 400)
   }
 
   t.test('Co2.update with values in between buckets') fn (t) {
@@ -62,7 +60,7 @@ fn pub tests(t: mut Tests) {
     t.equal(co2.value, 1200)
 
     co2.update
-    t.equal(co2.value, 500)
+    t.equal(co2.value, 400)
 
     co2.add(2500)
     co2.update

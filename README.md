@@ -24,24 +24,12 @@ exhaust speeds than should be necessary, and thus more noise.
 
 Enter "OpenFlow": a program written in [Inko](https://inko-lang.org/) that takes
 over control of the DF/QF system in an attempt to work around these issues.
-
-Instead of sampling rooms, OpenFlow uses [Philips Hue motion
-sensors](https://www.philips-hue.com/en-us/p/hue-motion-sensor/046677570972) to
-determine what rooms are in need of ventilation, only using the centralised CO2
-sensor to further increase the ventilation speed. Ventilation in turn is kept
-active based on different sources, such as continued motion/presence, IPs
-responding to ping requests (so you can for example keep ventilating the living
-room while the TV is on), or the room's humidity.
-
-In addition rooms can be ventilated at night, regardless of any motion being
-detected. This is useful for bedrooms, as the DF/QF system has a tendency to not
-ventilate these nearly as much as desired.
-
-OpenFlow focuses on ventilating earlier at lower noise levels, rather than
-waiting until some CO2 threshold is crossed and then ventilating more
-aggressively. OpenFlow also tries to be more clever about when to stop
-ventilating, ventilating humid rooms _without_ running the exhaust fan at 90%
-for a long time, and in general being more reliable and efficient.
+Instead of using a single CO2 sensor, it uses [MoreSenso CO2
+sensors](https://moresense-nl.com/MoreSense-MS-02/index.php/) for each room, and
+[Philips Hue motion
+sensors](https://www.philips-hue.com/en-us/p/hue-motion-sensor/046677570972) for
+bathrooms and toilets. OpenFlow also takes care to ventilate at lower speeds
+whenever possible, reducing the amount of noise produced.
 
 # Requirements
 
@@ -50,8 +38,10 @@ for a long time, and in general being more reliable and efficient.
 - An [Itho HRU/WPU/DemandFlow/QualityFlow wifi
   module](https://www.nrgwatch.nl/product/itho-non-cve-wifi-module/) with [these
   changes applied](https://github.com/arjenhiemstra/ithowifi/pull/144)
-- Inko `master`, as we use some changes not yet released
-- A bunch of Philips Hue motion sensors, connected to a Philips Hue bridge
+- Inko 0.12.0 or newer
+- At least one MoreSense CO2 sensor
+- Optionally a bunch of Philips Hue motion sensors, depending on how many rooms
+  you want to ventilate in response to motion
 
 If your Itho WiFi add-on has a CC1101 module attached, you can also use the
 official Itho Daalderop RF remotes to control ventilation in rooms. This
@@ -85,47 +75,8 @@ With all the information gathered, copy `config.example.json` to
 You can then build and run OpenFlow as follows:
 
 ```bash
-inko build src/main.inko -o openflow.ibi # Compiles the code
-inko run openflow.ibi                    # Runs it
-```
-
-To make this process easier, a Docker/Podman container is provided. You can use
-it as follows (I'm using `podman` here, but `docker` should also work):
-
-```bash
-podman pull ghcr.io/yorickpeterse/openflow:main
-podman run \
-    --memory 64m \
-    --rm \
-    --name openflow \
-    --tz=local \
-    --volume /etc/openflow.json:/etc/openflow.json \
-    --tty \
-    --interactive \
-    --init \
-    openflow:main
-```
-
-The `--tz=local` flag ensures the container reuses your system's timezone
-instead of using UTC. This is important as otherwise ventilation schedules may
-run at a different time from what you'd expect.
-
-The `--init` flag ensures signals are forwarded, that way `Control+C` works as
-expected. Without this you'll need to use `podman kill ...` to stop the
-container.
-
-If you want to run the container in the background, start it as follows instead:
-
-```bash
-podman run \
-    --memory 64m \
-    --rm \
-    --name openflow \
-    --tz=local \
-    --volume /etc/openflow.json:/etc/openflow.json \
-    --detach \
-    --init \
-    openflow:main
+inko build src/main.inko -o openflow # Compile the code
+./openflow config.json               # Run OpenFlow
 ```
 
 # License

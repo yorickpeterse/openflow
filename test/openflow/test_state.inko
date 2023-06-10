@@ -1,0 +1,192 @@
+import helpers::(Snapshot, allow_api_calls, state)
+import openflow::http::(Response, TestDriver)
+import openflow::state::(State, Status)
+import openflow::sync::Waiter
+import std::test::Tests
+
+fn pub tests(t: mut Tests) {
+  t.test('Status.cmp') fn (t) {
+    t.true(Status.Default == Status.Default)
+    t.true(Status.Default < Status.Active(10))
+    t.true(Status.Active(10) == Status.Active(10))
+    t.true(Status.Active(10) < Status.Active(20))
+    t.true(Status.Active(50) > Status.Active(20))
+    t.true(Status.Active(10) < Status.Button(Status.Default))
+    t.true(Status.Button(Status.Default) == Status.Button(Status.Default))
+    t.true(Status.Button(Status.Default) < Status.Maximum)
+    t.true(Status.Maximum == Status.Maximum)
+    t.true(Status.Maximum < Status.Humid)
+    t.true(Status.Humid == Status.Humid)
+    t.true(Status.Humid > Status.Active(100))
+  }
+
+  t.test('State.prepare when manual control is disabled') fn (t) {
+    let chan = Channel.new(size: 1)
+    let driver = recover TestDriver.new
+
+    driver.request(
+      matches: fn (req) { req.queries.opt('getsetting').some? },
+      then: fn (_) { Response.ok('{"current":0}'.to_byte_array) }
+    )
+
+    driver.request(
+      matches: fn (req) { req.queries.opt('setsetting').some? },
+      then: fn (_) {
+        chan.send(true)
+        Response.ok('OK'.to_byte_array)
+      }
+    )
+
+    let state = state(driver)
+
+    state.prepare
+    t.true(chan.receive)
+  }
+
+  t.test('State.prepare when manual control is enabled') fn (t) {
+    let driver = recover TestDriver.new
+
+    driver.request(
+      matches: fn (req) { req.queries.opt('getsetting').some? },
+      then: fn (_) { Response.ok('{"current":1}'.to_byte_array) }
+    )
+
+    let state = state(driver)
+
+    # If a setsetting call _is_ performed, this message will panic. There's no
+    # meaningful way to wait for this (without modifying the code just for our
+    # tests), so instead we send a snapshot message and wait for that. This
+    # works because messages are handled in FIFO order.
+    state.prepare
+    Snapshot.of(state)
+  }
+
+  t.test('State.update') fn (t) {
+    let state = state(recover TestDriver.new)
+
+    state.update fn (rooms) {
+      rooms.get_mut('living_room').update(Status.Active(10))
+      false
+    }
+
+    let snap = Snapshot.of(state)
+    let living = snap.rooms.get('living_room')
+
+    t.equal(living.status, Status.Active(10))
+  }
+
+  t.test('State.update_with') fn (t) {
+    let state = state(recover TestDriver.new)
+
+    state.update_with(42) fn (rooms, _) {
+      rooms.get_mut('living_room').update(Status.Active(10))
+      false
+    }
+
+    let snap = Snapshot.of(state)
+    let living = snap.rooms.get('living_room')
+
+    t.equal(living.status, Status.Active(10))
+  }
+
+  t.test('State.increase_target_flow') fn (t) {
+    let state = state(recover TestDriver.new)
+
+    t.equal(Snapshot.of(state).target_flow, 75)
+    state.increase_target_flow(percentage: 10)
+    t.equal(Snapshot.of(state).target_flow, 110)
+  }
+
+  t.test('State.reset_target_flow') fn (t) {
+    let state = state(recover TestDriver.new)
+
+    state.increase_target_flow(percentage: 10)
+    state.reset_target_flow
+    t.equal(Snapshot.of(state).target_flow, 75)
+  }
+
+  t.test('State.apply with an Active status room') fn (t) {
+    let state = state(allow_api_calls)
+
+    state.update fn (rooms) {
+      rooms.get_mut('living_room').update(Status.Active(20))
+      false
+    }
+
+    state.apply(Waiter.new)
+
+    let snap = Snapshot.of(state)
+    let living = snap.rooms.get('living_room')
+
+    t.equal(snap.speed, 21)
+    t.equal(living.status, Status.Active(20))
+    t.equal(living.flow, 20)
+    t.equal(living.exhaust, 1100)
+  }
+
+  t.test('State.apply with a Button status room') fn (t) {
+    let state = state(allow_api_calls)
+
+    state.update fn (rooms) {
+      rooms.get_mut('living_room').update(Status.Button(Status.Default))
+      false
+    }
+
+    state.apply(Waiter.new)
+
+    let snap = Snapshot.of(state)
+    let living = snap.rooms.get('living_room')
+
+    t.equal(snap.speed, 21)
+    t.equal(living.status, Status.Button(Status.Default))
+    t.equal(living.flow, 70)
+    t.equal(living.exhaust, 3800)
+  }
+
+  t.test('State.apply with a Humid status room') fn (t) {
+    let state = state(allow_api_calls)
+
+    state.update fn (rooms) {
+      rooms.get_mut('office').update(Status.Active(40))
+      rooms.get_mut('living_room').update(Status.Humid)
+      false
+    }
+
+    state.apply(Waiter.new)
+
+    let snap = Snapshot.of(state)
+    let living = snap.rooms.get('living_room')
+    let office = snap.rooms.get('office')
+
+    t.equal(snap.speed, 26)
+    t.equal(living.status, Status.Humid)
+    t.equal(living.flow, 70)
+    t.equal(living.exhaust, 3100)
+    t.equal(office.status, Status.Active(40))
+    t.equal(office.flow, 22)
+    t.equal(office.exhaust, 1000)
+  }
+
+  t.test('State.apply with a total flow exceeding the maximum flow') fn (t) {
+    let state = state(allow_api_calls)
+
+    state.update fn (rooms) {
+      rooms.get_mut('super_fast').update(Status.Maximum)
+      false
+    }
+
+    state.apply(Waiter.new)
+
+    let snap = Snapshot.of(state)
+    let fast = snap.rooms.get('super_fast')
+    let office = snap.rooms.get('office')
+
+    t.equal(snap.speed, 100)
+    t.equal(fast.status, Status.Maximum)
+    t.equal(fast.flow, 350)
+    t.equal(fast.exhaust, 4000)
+    t.equal(office.status, Status.Default)
+    t.equal(office.flow, 0)
+    t.equal(office.exhaust, 0)
+  }
+}

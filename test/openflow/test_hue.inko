@@ -15,15 +15,15 @@ class TimeoutDriver {
 impl Driver for TimeoutDriver {
   fn pub mut timeout_after=(time: ref ToInstant) {}
 
-  fn pub mut execute(request: ref Request) !! Error -> Response {
+  fn pub mut execute(request: ref Request) -> Result[Response, Error] {
     if @timed_out {
-      Response.ok(
+      Result.Ok(Response.ok(
         '{ "1": { "type": "ZLLPresence", "state": { "presence": false } } }'
           .to_byte_array
-      )
+      ))
     } else {
       @timed_out = true
-      throw Error.Network(IoError.TimedOut)
+      Result.Error(Error.Network(IoError.TimedOut))
     }
   }
 }
@@ -48,10 +48,10 @@ fn pub tests(t: mut Tests) {
 
     let client = Client.with_driver(driver)
     let hue = Hue.new(client, user: 'foo')
-    let sensors = try! hue.sensors
+    let sensors = hue.sensors.unwrap
 
-    t.false(sensors.motion[1])
-    t.true(sensors.motion[2])
+    t.false(sensors.motion.get(1))
+    t.true(sensors.motion.get(2))
   }
 
   t.test('Hue.sensors retries failed requests') fn (t) {
@@ -60,7 +60,7 @@ fn pub tests(t: mut Tests) {
 
     hue.retry_wait_time = Duration.from_secs(0)
 
-    t.no_throw fn { try hue.sensors }
+    t.true(hue.sensors.ok?)
   }
 
   t.test('Hue.sensors with an invalid response format') fn (t) {
@@ -76,6 +76,6 @@ fn pub tests(t: mut Tests) {
     let client = Client.with_driver(driver)
     let hue = Hue.new(client, user: 'foo')
 
-    t.throw fn { try hue.sensors }
+    t.true(hue.sensors.error?)
   }
 }

@@ -1,37 +1,104 @@
-import openflow::clock::SystemClock
 import openflow::config::Config
-import openflow::controller::Controller
+import openflow::experimental_ext
 import openflow::http::Client
 import openflow::hue::Hue
+import openflow::inputs::co2::(Input as Co2Input, Sensor as Co2Sensor)
+import openflow::inputs::humidity::(Input as HumidityInput, Sensor as HumiditySensor)
+import openflow::inputs::motion::(Input as MotionInput, Sensor as MotionSensor)
+import openflow::inputs::remote::(Button, Input as RemoteInput)
 import openflow::itho::Itho
 import openflow::logger::Logger
+import openflow::metrics::Metrics
+import openflow::more_sense::MoreSense
+import openflow::state::(Room, State, Status)
+import openflow::sync::Waiter
 import std::env
 import std::process::(sleep)
 import std::time::Duration
 
-# The amount of time (in seconds) to wait between iterations of the main work
-# loop.
-let INTERVAL = 5
-
 class async Main {
   fn async main {
     let logger = Logger.default
-    let conf_path = env.arguments.get(0).unwrap_or('/etc/openflow.json')
+    let conf_path = env.arguments.opt(0).unwrap_or('/etc/openflow.json')
+    let config = match Config.load(conf_path) {
+      case Ok(conf) -> conf
+      case Error(err) -> panic("failed to load {conf_path}: {err}")
+    }
 
-    logger.info("Using configuration file {conf_path}")
+    let metrics =
+      recover Metrics.new(config.metrics.ip.clone, config.metrics.port)
 
-    let conf = try! Config.load(conf_path)
-    let itho = Itho.new(Client.new(conf.itho_wifi_address.clone))
-    let hue = Hue.new(Client.new(conf.hue_address.clone), user: conf.hue_user)
-    let clock = SystemClock.new
-    let ctl = Controller.new(conf, itho, hue, clock, logger)
-    let interval = Duration.from_secs(INTERVAL)
+    let state = State.new(
+      recover Itho.new(Client.new(config.itho.ip.clone)),
+      logger,
+      recover metrics.clone,
+      config.itho
+    )
 
-    ctl.prepare
+    state.prepare
+
+    let co2_input = Co2Input.new(state, logger, recover metrics.clone)
+    let motion_input = MotionInput.new(
+      state,
+      logger,
+      recover metrics.clone,
+      recover Hue.new(Client.new(config.hue.ip.clone), config.hue.user)
+    )
+
+    let humid_input = HumidityInput.new(
+      state,
+      logger,
+      metrics,
+      recover Itho.new(Client.new(config.itho.ip.clone)),
+      low: config.humidity.low,
+      high: config.humidity.high,
+    )
+
+    config.rooms.iter.each fn (conf) {
+      let name = conf.name
+
+      conf.co2.as_ref.let fn (ip) {
+        co2_input.add_sensor(
+          recover Co2Sensor.new(name, MoreSense.new(Client.new(ip.clone)))
+        )
+      }
+
+      conf.motion.as_ref.let fn (id) {
+        motion_input.add_sensor(recover MotionSensor.new(name, id))
+      }
+
+      conf.humidity.as_ref.let fn (id) {
+        humid_input.add_sensor(recover HumiditySensor.new(name, id))
+      }
+
+      state.add_room(Room.new(name, conf))
+    }
+
+    config.remote.as_ref.let fn (remote) {
+      let itho = recover Itho.new(Client.new(config.itho.ip.clone))
+      let input = RemoteInput.new(state, logger, itho, remote.id)
+
+      remote.buttons.iter.each fn (cfg) {
+        input.add_button(
+          cfg.name,
+          recover Button.new(cfg.rooms.clone, cfg.duration.clone)
+        )
+      }
+
+      input.run
+    }
+
+    co2_input.init
+    co2_input.run
+    motion_input.run
+    humid_input.run
+
+    let waiter = Waiter.new
 
     loop {
-      ctl.iteration
-      sleep(interval)
+      state.apply(waiter.clone)
+      waiter.wait
+      sleep(Duration.from_secs(60))
     }
   }
 }

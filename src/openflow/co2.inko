@@ -3,7 +3,7 @@ import std::time::(Duration, Instant)
 
 # The lower bound of the histogram. All values up to this value are tracked in
 # the first bucket.
-let LOW = 500
+let LOW = 400
 
 # The upper bound of the histogram. All values above this value are tracked in
 # the last bucket.

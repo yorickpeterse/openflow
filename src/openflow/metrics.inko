@@ -2,6 +2,7 @@
 #
 # This module provides types for sending metrics to a VictoriaMetrics/InfluxDB
 # database, using the InfluxDB line protocol over UDP.
+import std::clone::Clone
 import std::io::Error
 import std::net::ip::IpAddress
 import std::net::socket::UdpSocket
@@ -87,25 +88,47 @@ impl ToString for Metric {
 }
 
 # A type for sending metrics to a server.
+#
+# TODO: turn into a process?
 class pub Metrics {
   let @ip: IpAddress
   let @port: Int
   let @socket: UdpSocket
 
   # Returns a new metrics client sending data to the given IP and port.
-  fn pub static new(ip: IpAddress, port: Int) !! Error -> Metrics {
-    Metrics {
-      @ip = ip,
-      @port = port,
-      @socket = try UdpSocket.new(ip: IpAddress.v4(0, 0, 0, 0), port: 0)
-    }
+  fn pub static new(ip: IpAddress, port: Int) -> Metrics {
+    # In practise this only fails when running out of available file
+    # descriptors, at which point we can't do anything but bail out anyway.
+    #
+    # Rather than handling this every time we call `Metrics.new`, we just handle
+    # it here and panic.
+    let sock = UdpSocket
+      .new(ip: IpAddress.v4(0, 0, 0, 0), port: 0)
+      .expect('failed to set up the socket for the metrics database')
+
+    Metrics { @ip = ip, @port = port, @socket = sock }
+  }
+
+  fn pub mut add(name: String, block: fn (mut Metric)) {
+    send(Metric.with(name, block))
   }
 
   # Sends a metric to the backend.
   fn pub mut send(metric: Metric) {
-    # Since we're using UDP we shouldn't encounter a failure when sending data.
-    # If we do it's likely the result of an incorrectly set up socket, so we
-    # just panic.
-    try! @socket.send_string_to(metric.to_string, @ip, @port)
+    # If we fail to send the metrics that's OK, as it doesn't affect the
+    # ventilation process.
+    let _ = @socket.send_string_to(metric.to_string, @ip, @port)
+  }
+}
+
+impl Clone[Metrics] for Metrics {
+  fn pub clone -> Metrics {
+    Metrics {
+      @ip = @ip.clone,
+      @port = @port,
+      @socket = @socket
+        .try_clone
+        .expect('failed to clone socket for the metrics database'),
+    }
   }
 }

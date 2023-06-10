@@ -9,7 +9,7 @@ class pub Histogram {
 
   # Increments the number of values in the given bucket.
   fn pub mut increment(bucket: Int) {
-    @buckets[bucket] = @buckets[bucket] + 1
+    @buckets.set(bucket, @buckets.get(bucket) + 1)
   }
 
   # Returns the bucket with the largest number of values.
@@ -27,6 +27,6 @@ class pub Histogram {
 
   # Resets the values of all buckets back to zero.
   fn pub mut reset {
-    @buckets.length.times fn (index) { @buckets[index] = 0 }
+    @buckets.length.times fn (index) { @buckets.set(index, 0) }
   }
 }

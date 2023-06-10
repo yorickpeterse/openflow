@@ -1,147 +1,100 @@
 import std::fs::file::ReadOnlyFile
 import std::fs::path::IntoPath
+import std::iter::Iter
 import std::json::(self, Json)
 import std::net::ip::IpAddress
-import std::time::(DateTime, Duration)
+import std::time::Duration
 
-let LOWER_A = 97
-let LOWER_Z = 122
-let UPPER_A = 65
-let UPPER_Z = 90
-let UNDERSCORE = 95
-let ZERO = 48
-let NINE = 57
-
-fn array(object: mut Map[String, Json], key: String) !! String -> Array[Json] {
-  match object.remove(key) {
-    case Some(Array(v)) -> v
-    case _ -> throw "The '{key}' value must be an array"
+fn opt_int(object: ref Map[String, Json], key: String) -> Option[Int] {
+  match object.opt(key) {
+    case Some(Int(v)) -> Option.Some(v)
+    case _ -> Option.None
   }
 }
 
-fn object(
-  object: mut Map[String, Json],
+fn opt_string(object: ref Map[String, Json], key: String) -> Option[String] {
+  match object.opt(key) {
+    case Some(String(v)) -> Option.Some(v)
+    case _ -> Option.None
+  }
+}
+
+fn string(
+  object: ref Map[String,
+  Json], key: String
+) -> Result[String, String] {
+  match object.opt(key) {
+    case Some(String(v)) -> Result.Ok(v)
+    case _ -> throw "The \"{key}\" value must be a string"
+  }
+}
+
+fn int(object: ref Map[String, Json], key: String) -> Result[Int, String] {
+  match object.opt(key) {
+    case Some(Int(v)) -> Result.Ok(v)
+    case _ -> throw "The \"{key}\" value must be an integer"
+  }
+}
+
+fn int_opt(object: ref Map[String, Json], key: String) -> Option[Int] {
+  match object.opt(key) {
+    case Some(Int(v)) -> Option.Some(v)
+    case _ -> Option.None
+  }
+}
+
+fn float(object: ref Map[String, Json], key: String) -> Result[Float, String] {
+  match object.opt(key) {
+    case Some(Float(v)) -> Result.Ok(v)
+    case _ -> throw "The \"{key}\" value must be a float"
+  }
+}
+
+fn opt_ip(
+  object: ref Map[String, Json],
   key: String
-) !! String -> Map[String, Json] {
-  match object.remove(key) {
-    case Some(Object(v)) -> v
-    case _ -> throw "The '{key}' value must be an object"
+) -> Result[Option[IpAddress], String] {
+  let res = match object.opt(key) {
+    case Some(String(str)) -> Option.Some(
+      match IpAddress.parse(str) {
+        case Some(ip) -> ip
+        case _ -> throw "The key \"{key}\" must be a valid IP address"
+      }
+    )
+    case _ -> Option.None
   }
+
+  Result.Ok(res)
 }
 
-fn float(object: mut Map[String, Json], key: String) !! String -> Float {
-  match object.remove(key) {
-    case Some(Float(v)) -> v
-    case _ -> throw "The '{key}' value must be an float"
-  }
-}
-
-fn int(object: mut Map[String, Json], key: String) !! String -> Int {
-  match object.remove(key) {
-    case Some(Int(v)) -> v
-    case _ -> throw "The '{key}' value must be an integer"
-  }
-}
-
-fn bool(object: mut Map[String, Json], key: String) !! String -> Bool {
-  match object.remove(key) {
-    case Some(Bool(v)) -> v
-    case _ -> throw "The '{key}' value must be a boolean"
-  }
-}
-
-fn string(object: mut Map[String, Json], key: String) !! String -> String {
-  match object.remove(key) {
-    case Some(String(v)) -> v
-    case _ -> throw "The '{key}' value must be a string"
-  }
-}
-
-fn ip(object: mut Map[String, Json], key: String) !! String -> uni IpAddress {
-  match object.remove(key) {
-    case Some(String(v)) -> recover match IpAddress.parse(v) {
-      case Some(addr) -> return addr
+fn ip(
+  object: ref Map[String, Json],
+  key: String
+) -> Result[IpAddress, String] {
+  match object.opt(key) {
+    case Some(String(str)) -> match IpAddress.parse(str) {
+      case Some(ip) -> return Result.Ok(ip)
       case _ -> {}
     }
     case _ -> {}
   }
 
-  throw "The '{key}' value must be a valid IP address"
+  throw "The key \"{key}\" must be a valid IP address"
 }
 
-# Configuration details for a fixed ventilation schedule.
-class pub enum Schedule {
-  # Ventilation should be enabled at night.
-  #
-  # This schedule is meant for bedrooms that are used at night, as these pretty
-  # much always need ventilation when in use.
-  case Night
-
-  # Ventilation should be enabled between 06:00 and 07:00.
-  #
-  # This schedule is meant for rooms that may build up stale/smelly air over
-  # night.
-  case Morning
-}
-
-# Configuration details for a motion sensor.
-class pub Motion {
-  # The ID of the motion sensor attached to this room.
-  let pub @id: Int
-
-  # The amount of minutes in which motion needs to be detected before
-  # ventilating the room.
-  let pub @minutes: Int
-
-  # The amount of time to wait for motion to be detected.
-  let pub @time: Duration
-
-  # The minimum amount of time between motion events.
-  let pub @interval: Duration
-
-  fn pub static from_json(value: Map[String, Json]) !! String -> Motion {
-    Motion {
-      @id = try int(value, 'id'),
-      @minutes = try int(value, 'minutes') else 5,
-      @time = Duration.from_secs(try int(value, 'time') else 900),
-      @interval = Duration.from_secs(60),
-    }
-  }
-}
-
-# Configuration details of a single room, such as the name and the motion
-# sensor.
+# Configuration details for a single room.
 class pub Room {
-  # The human-friendly name of the room.
+  # The unique name of the room.
   let pub @name: String
 
-  # The setting index used to control the exhaust in a room.
+  # The setting ID of the exhaust for this room.
   let pub @exhaust: Int
 
-  # A ventilation schedule to apply.
-  let pub @schedule: Option[Schedule]
-
-  # The motion sensor for this room along with its settings.
-  let pub @motion: Option[Motion]
-
-  # The name of the Itho humidity sensor attached to this room.
-  let pub @humidity: Option[String]
-
-  # Any IPs to ping to determine if a room should be ventilated.
-  let pub @ping: Array[IpAddress]
-
-  # The minimum air flow in m3/hour.
+  # The minimum air flow in m3/h.
   let pub @minimum_flow: Int
 
-  # The desired flow rate in m3/hour.
-  let pub @flow: Int
-
-  # The flow rate in m3/hour to use when CO2 levels are above the target value.
-  let pub @medium_flow: Int
-
-  # The maximum flow rate to use when adjusting ventilation based on the CO2
-  # levels.
-  let pub @high_flow: Int
+  # The maximum air flow in m3/h.
+  let pub @maximum_flow: Int
 
   # The value to multiply the flow by to obtain the true air flow.
   #
@@ -163,399 +116,277 @@ class pub Room {
   #    measurement errors.
   let pub @flow_correction: Float
 
-  # The amount of time to ventilate the room for.
-  let pub @ventilation_time: Duration
+  # The ID of the motion sensor associated with this room.
+  let pub @motion: Option[Int]
 
-  # If the air flow should be adjusted in response to the CO2 levels.
-  let pub @co2: Bool
+  # The name of the humidity sensor associated with this room.
+  let pub @humidity: Option[String]
 
-  # If this room should be ventilated if no other rooms are in need of
-  # ventilation.
-  let pub @default: Bool
+  # The IP address of a MoreSense CO2 sensor associated with this room.
+  let pub @co2: Option[IpAddress]
 
   fn pub static from_json(
     name: String,
-    value: Map[String, Json]
-  ) !! String -> Room {
-    let name_valid = name.bytes.all? fn (byte) {
-      (byte >= LOWER_A and byte <= LOWER_Z)
-        or (byte >= UPPER_A and byte <= UPPER_Z)
-        or (byte >= ZERO and byte <= NINE)
-        or byte == UNDERSCORE
-    }
+    object: ref Map[String, Json]
+  ) -> Result[Room, String] {
+    let exhaust = try int(object, 'exhaust')
+    let min_flow = int_opt(object, 'minimum_flow').unwrap_or(0)
+    let max_flow = int_opt(object, 'maximum_flow').unwrap_or(80)
+    let correct = try float(object, 'flow_correction')
+    let motion = opt_int(object, 'motion')
+    let humidity = opt_string(object, 'humidity')
+    let co2 = try opt_ip(object, 'co2')
 
-    if name_valid.false? {
-      throw 'Room names can only contain characters in the range \
-        a-z, A-Z, 0-9, and _'
-    }
-
-    let exhaust = try int(value, 'exhaust')
-    let schedule = match value.remove('schedule') {
-      case Some(String('night')) -> Option.Some(Schedule.Night)
-      case Some(String('morning')) -> Option.Some(Schedule.Morning)
-      case _ -> Option.None
-    }
-
-    let motion = match value.remove('motion') {
-      case Some(Object(val)) -> Option.Some(try Motion.from_json(val))
-      case _ -> Option.None
-    }
-
-    let humidity = match value.remove('humidity') {
-      case Some(String(val)) -> Option.Some(val)
-      case _ -> Option.None
-    }
-
-    let min_flow = match value.remove('minimum_flow') {
-      case Some(Int(val)) -> val
-      case _ -> 0
-    }
-
-    let flow = match value.remove('flow') {
-      case Some(Int(val)) -> val
-      case _ -> 15
-    }
-
-    let medium_flow = match value.remove('medium_flow') {
-      case Some(Int(val)) -> val
-      case _ -> flow * 2
-    }
-
-    let high_flow = match value.remove('high_flow') {
-      case Some(Int(val)) -> val
-      case _ -> flow * 3
-    }
-
-    let ping = match value.remove('ping') {
-      case Some(Array(vals)) -> {
-        vals
-          .into_iter
-          .select_map fn (val) {
-            match val {
-              case String(val) -> IpAddress.parse(val)
-              case _ -> Option.None
-            }
-          }
-          .to_array
-      }
-      case _ -> []
-    }
-
-    let ventilation_time = Duration.from_secs(try int(value, 'time') else 0)
-    let flow_correction = try float(value, 'flow_correction') else 1.0
-    let co2 = try bool(value, 'co2') else false
-    let default = try bool(value, 'default') else false
-
-    Room {
+    Result.Ok(Room {
       @name = name,
-      @schedule = schedule,
       @exhaust = exhaust,
-      @motion = motion,
-      @humidity = humidity
-      @ping = ping,
       @minimum_flow = min_flow,
-      @flow = flow,
-      @ventilation_time = ventilation_time,
-      @flow_correction = flow_correction,
+      @maximum_flow = max_flow,
+      @flow_correction = correct,
+      @motion = motion,
+      @humidity = humidity,
       @co2 = co2,
-      @medium_flow = medium_flow,
-      @high_flow = high_flow,
-      @default = default,
-    }
+    })
   }
 }
 
-class pub Button {
-  # The names of the rooms to ventilate when the button is pressed.
-  let pub @rooms: Array[String]
-
-  # The time to ventilate the rooms for.
-  let pub @time: Duration
-
-  fn static from_json(value: Map[String, Json]) -> Button {
-    let rooms = (try array(value, 'rooms') else [])
-      .into_iter
-      .select_map fn (val) {
-        match val { case String(v) -> Option.Some(v) case _ -> Option.None }
-      }
-      .to_array
-
-    let time = Duration.from_secs(try int(value, 'time') else 1800)
-
-    Button { @rooms = rooms, @time = time }
-  }
-}
-
-# Configuration details for a single RF remote.
-class pub Remote {
-  # The ID of the remote.
-  let pub @id: String
-
-  # The buttons that are registered.
-  let pub @buttons: Map[String, Button]
-
-  fn static from_json(value: Map[String, Json]) !! String -> Remote {
-    let id = try string(value, 'id')
-    let buttons = try { object(value, 'buttons') }
-      .into_iter
-      .reduce(Map.new) fn (map, entry) {
-        match entry {
-          case { @key = k, @value = Object(v) } -> map[k] = Button.from_json(v)
-          case _ -> {}
-        }
-
-        map
-      }
-
-    Remote { @id = id, @buttons = buttons }
-  }
-}
-
-# Configuration details for the humidity sensors.
-class pub Humidity {
-  # The high threshold.
-  #
-  # When humidity levels exceed this value, the room is deemed too humid.
-  let pub @high: Int
-
-  # The low threshold.
-  #
-  # When the humidity levels are reduced to or below this level, the room is
-  # considered dry enough.
-  let pub @low: Int
-
-  # The minimum amount of time a humid room should be ventilated for.
-  let pub @min_time: Duration
-
-  # The amount of time to wait after the high threshold is exceeded, before
-  # ventilating a room.
-  let pub @high_time: Duration
-
-  # The amount of time to wait after the low threshold is reached, before
-  # turning ventilation back to normal.
-  let pub @low_time: Duration
-
-  # The air flow rate in m3/hour to apply to a room when it's too humid.
-  let pub @flow: Int
-
-  fn pub static from_json(value: Map[String, Json]) !! String -> Humidity {
-    let high = try int(value, 'high')
-    let low = try int(value, 'low')
-    let min_time = Duration.from_secs(try int(value, 'min_time'))
-    let low_time = Duration.from_secs(try int(value, 'low_time'))
-    let high_time = Duration.from_secs(try int(value, 'high_time'))
-    let flow = try int(value, 'flow')
-
-    Humidity {
-      @high = high,
-      @low = low,
-      @min_time = min_time,
-      @low_time = low_time,
-      @high_time = high_time,
-      @flow = flow,
-    }
-  }
-}
-
-# Configuration details for the exhaust fan and valves.
-class pub Exhaust {
-  # The minimum flow of air in m3/hour.
-  let pub @min_flow: Int
-
-  # The maximum supported flow of air in m3/hour.
-  let pub @max_flow: Int
-
-  # The amount of time to wait for an exhaust valve to close.
-  let pub @close_time: Duration
-
-  # The amount of time to wait after an exhaust speed change before we allow
-  # reducing the speed again.
-  let pub @reduce_wait_time: Duration
-
-  # The setting that controls the speed.
-  let pub @speed_setting: Int
-
-  # The setting that enables/disables manual control.
-  let pub @manual_setting: Int
-
-  fn pub static from_json(value: Map[String, Json]) !! String -> Exhaust {
-    Exhaust {
-      @min_flow = try int(value, 'min_flow'),
-      @max_flow = try int(value, 'max_flow'),
-      @close_time = Duration.from_secs(try int(value, 'close_time')),
-      @speed_setting = try int(value, 'speed_setting'),
-      @manual_setting = try int(value, 'manual_setting'),
-      @reduce_wait_time = Duration.from_secs(try int(value, 'reduce_wait_time')),
-    }
-  }
-}
-
-# Configuration settings for the CO2 levels.
-class pub Co2 {
-  # The target/desired CO2 concentration.
-  let pub @target: Int
-
-  # The "high" threshold for CO2 levels.
-  #
-  # When the CO2 levels are above this level, ventilation is increased
-  # drastically.
-  let pub @high: Int
-
-  # The interval at which to send metrics.
-  let pub @metrics_interval: Duration
-
-  # The interval at which to sample the CO2 levels
-  let pub @sample_interval: Duration
-
-  # Half of the configured sample interval, used when only a few rooms are
-  # ventilated.
-  let pub @half_sample_interval: Duration
-
-  # The interval at which to sample closed exhausts/rooms.
-  let pub @closed_sample_interval: Duration
-
-  # The amount of time to gather samples before calculating a new CO2 estimate.
-  let pub @sample_time: Duration
-
-  # The amount of time to wait before collecting CO2 levels when sampling is
-  # enabled.
-  #
-  # When sampling a room it can take 2-3 minutes for the CO2 levels in the
-  # plenum to reach those of the room that's sampled. If we collect measurements
-  # during this time, we may end up with less accurate CO2 levels.
-  #
-  # To handle this we first wait this amount of time before collecting samples.
-  let pub @sample_wait_time: Duration
-
-  fn pub static from_json(value: Map[String, Json]) !! String -> Co2 {
-    let interval = try int(value, 'sample_interval')
-
-    Co2 {
-      @target = try int(value, 'target'),
-      @high = try int(value, 'high') else 1000,
-      @metrics_interval = Duration.from_secs(try int(value, 'metrics_interval')),
-      @sample_interval = Duration.from_secs(interval),
-      @half_sample_interval = Duration.from_secs(interval / 2),
-      @closed_sample_interval = Duration.from_secs(interval * 3),
-      @sample_time = Duration.from_secs(try int(value, 'sample_time')),
-      @sample_wait_time = Duration.from_secs(try int(value, 'sample_wait_time')),
-    }
-  }
-}
-
-# Configuration settings for the metrics backend.
-class pub Metrics {
+# Configuration details for the Itho ventilation unit.
+class pub Itho {
+  # The IP address of the Itho WiFi module.
   let pub @ip: IpAddress
+
+  # The ID of the setting that controls the manual mode.
+  let pub @manual_id: Int
+
+  # The ID of the setting that controls the ventilation speed.
+  let pub @speed_id: Int
+
+  # The minimum air flow to always apply.
+  let pub @minimum_flow: Int
+
+  # The maximum air flow supported by the unit.
+  let pub @maximum_flow: Int
+
+  fn pub static from_json(object: ref Map[String, Json]) -> Result[Itho, String] {
+    let ip = try ip(object, 'ip')
+    let manual = try int(object, 'manual_id')
+    let speed = try int(object, 'speed_id')
+    let min = try int(object, 'minimum_flow')
+    let max = try int(object, 'maximum_flow')
+
+    Result.Ok(Itho {
+      @ip = ip,
+      @manual_id = manual,
+      @speed_id = speed,
+      @minimum_flow = min,
+      @maximum_flow = max,
+    })
+  }
+}
+
+# Configuration details for the metrics database
+class pub Metrics {
+  # The IP address to connect to.
+  let pub @ip: IpAddress
+
+  # The port number of the server.
   let pub @port: Int
 
-  fn pub static from_json(value: Map[String, Json]) -> Metrics {
-    let ip = try ip(value, 'ip') else recover IpAddress.v4(127, 0, 0, 1)
-    let port = try int(value, 'port') else 8089
+  fn pub static from_json(
+    object: ref Map[String, Json]
+  ) -> Result[Metrics, String] {
+    let ip = try ip(object, 'ip')
+    let port = try int(object, 'port')
 
-    Metrics { @ip = ip, @port = port }
+    Result.Ok(Metrics { @ip = ip, @port = port })
   }
 }
 
-# Various configuration settings, such as the settings to control the
-# ventilation and the room-specific settings.
+# Configuration details for the Hue API
+class pub Hue {
+  # The IP address to connect to.
+  let pub @ip: IpAddress
+
+  # The user/API token to use.
+  let pub @user: String
+
+  fn pub static from_json(
+    object: ref Map[String, Json]
+  ) -> Result[Hue, String] {
+    let ip = try ip(object, 'ip')
+    let user = try string(object, 'user')
+
+    Result.Ok(Hue { @ip = ip, @user = user })
+  }
+}
+
+# Configuration settings for the humidity sensors.
+class pub Humidity {
+  # The threshold at which to start ventilating at maximum speed.
+  let pub @high: Int
+
+  # The threshold at which to return to normal ventilation.
+  let pub @low: Int
+
+  fn pub static from_json(
+    object: ref Map[String, Json]
+  ) -> Result[Humidity, String] {
+    let high = try int(object, 'high')
+    let low = try int(object, 'low')
+
+    Result.Ok(Humidity { @high = high, @low = low })
+  }
+}
+
+# Configuration details for a single button.
+class pub Button {
+  # The name of the button state.
+  let pub @name: String
+
+  # The rooms to ventilate.
+  let pub @rooms: Array[String]
+
+  # The time to ventilate the room for.
+  let pub @duration: Duration
+
+  fn pub static from_json(
+    name: String,
+    object: ref Map[String, Json]
+  ) -> Result[Button, String] {
+    let rooms = match object.opt('rooms') {
+      case Some(Array(vals)) -> {
+        let iter = vals.iter.map fn (val) {
+          match val {
+            case String(v) -> Result.Ok(v)
+            case _ -> Result.Error(
+              'each value in the "rooms" key must be a string'
+            )
+          }
+        }
+
+        try Result.collect(iter)
+      }
+      case _ -> throw 'the "rooms" key must be an array'
+    }
+
+    let duration = Duration.from_secs(try int(object, 'duration'))
+
+    Result.Ok(Button { @name = name, @rooms = rooms, @duration = duration })
+  }
+}
+
+# Configuration details for the RF remote.
+class pub Remote {
+  # The ID/name of the remote as used in the API.
+  let pub @id: String
+
+  # The button states and their rooms to ventilate.
+  let pub @buttons: Array[Button]
+
+  fn pub static from_json(
+    object: ref Map[String, Json]
+  ) -> Result[Remote, String] {
+    let id = try string(object, 'id')
+    let buttons = match object.opt('buttons') {
+      case Some(Object(map)) -> {
+        let iter = map.iter.map fn (entry) {
+          match entry.value {
+            case Object(val) -> Button.from_json(entry.key, val)
+            case _ -> Result.Error('each button must be a JSON object')
+          }
+        }
+
+        try Result.collect(iter)
+      }
+      case _ -> throw 'the "buttons" key must be an object'
+    }
+
+    Result.Ok(Remote { @id = id, @buttons = buttons })
+  }
+}
+
+# All configuration details.
 class pub Config {
-  # Rooms to ventilate.
-  let pub @rooms: Map[String, Room]
+  # The configuration details for each room to ventilate.
+  let pub @rooms: Array[Room]
 
-  # The IP address of the Ith WiFi add-on API.
-  let pub @itho_wifi_address: uni IpAddress
+  # The configuration details for the Itho ventilation unit.
+  let pub @itho: Itho
 
-  # The IP address of the Philips Hue bridge API.
-  let pub @hue_address: uni IpAddress
-
-  # The username/key for the Philips Hue API.
-  let pub @hue_user: String
-
-  # The humidity sensor settings.
-  let pub @humidity: Humidity
-
-  # The settings to control the exhaust fan and valves.
-  let pub @exhaust: Exhaust
-
-  # Configuration settings related to the CO2 levels.
-  let pub @co2: Co2
-
-  # Configuration settings for the metrics backend.
+  # The configuration details for the metrics database.
   let pub @metrics: Metrics
 
-  # The configuration details of an optional RF remote.
+  # The configuration details for the Hue API.
+  let pub @hue: Hue
+
+  # The configuration details for the humidity sensors.
+  let pub @humidity: Humidity
+
+  # The configuration details for the RF remote.
   let pub @remote: Option[Remote]
 
-  fn pub static load(path: IntoPath) !! String -> Config {
-    let file = try {
-      ReadOnlyFile.new(path)
-    } else (err) {
-      throw "Failed to load the configuration file: {err}"
-    }
-
+  # Load configuration from a JSON file.
+  fn pub static load(path: IntoPath) -> Result[Config, String] {
+    let file = try ReadOnlyFile.new(path).map_error fn (e) { e.to_string }
     let bytes = ByteArray.new
 
-    try file.read_all(bytes) else (e) throw e.to_string
+    try file.read_all(bytes).map_error fn (e) { e.to_string }
 
-    let doc = try {
-      json.parse(bytes.into_string)
-    } else (err) {
-      throw "Failed to parse the configuration file: {err}"
-    }
-
+    let doc = try json.parse(bytes.into_string).map_error fn (e) { e.to_string }
     let root = match doc {
       case Object(v) -> v
-      case _ -> throw 'The top-level JSON value must be an object'
+      case _ -> throw 'the top-level JSON value must be an object'
     }
 
-    let rooms = Map.new
-    let rooms_iter = try { object(root, 'rooms') }.into_iter
+    let rooms = match root.opt('rooms') {
+      case Some(Object(map)) -> {
+        let iter = map.iter.map fn (entry) {
+          let name = entry.key
 
-    loop {
-      match rooms_iter.next {
-        case Some({ @key = name, @value = Object(map) }) -> {
-          rooms[name] = try Room.from_json(name, map)
+          match entry.value {
+            case Object(map) -> Room.from_json(name, map)
+            case _ -> Result.Error("The \"{name}\" key must be an object")
+          }
         }
-        case Some(_) -> throw "The 'rooms' setting can only contain objects"
-        case None -> break
+
+        try Result.collect(iter)
       }
+      case _ -> throw 'the "rooms" key must be an array of objects'
     }
 
-    let remote = match root.remove('remote') {
+    let itho = match root.opt('itho') {
+      case Some(Object(map)) -> try Itho.from_json(map)
+      case _ -> throw 'the "itho" key must be an object'
+    }
+
+    let metrics = match root.opt('metrics') {
+      case Some(Object(map)) -> try Metrics.from_json(map)
+      case _ -> throw 'the "metrics" key must be an object'
+    }
+
+    let hue = match root.opt('hue') {
+      case Some(Object(map)) -> try Hue.from_json(map)
+      case _ -> throw 'the "hue" key must be an object'
+    }
+
+    let humidity = match root.opt('humidity') {
+      case Some(Object(map)) -> try Humidity.from_json(map)
+      case _ -> throw 'the "humidity" key must be an object'
+    }
+
+    let remote = match root.opt('remote') {
       case Some(Object(map)) -> Option.Some(try Remote.from_json(map))
-      case _ -> Option.None
+      case None -> Option.None
+      case _ -> throw 'the "remote" key must be an object'
     }
 
-    let humidity = match root.remove('humidity') {
-      case Some(Object(map)) -> try Humidity.from_json(map),
-      case _ -> throw 'The "humidity" object is required'
-    }
-
-    let exhaust = match root.remove('exhaust') {
-      case Some(Object(map)) -> try Exhaust.from_json(map)
-      case _ -> throw 'The "exhaust" object is required'
-    }
-
-    let co2 = match root.remove('co2') {
-      case Some(Object(map)) -> try Co2.from_json(map)
-      case _ -> throw 'The "co2" object is required'
-    }
-
-    let metrics = Metrics.from_json(match root.remove('metrics') {
-      case Some(Object(map)) -> map
-      case _ -> Map.new
-    })
-
-    Config {
+    Result.Ok(Config {
       @rooms = rooms,
-      @itho_wifi_address = try ip(root, 'itho_api'),
-      @hue_address = try ip(root, 'hue_api'),
-      @hue_user = try string(root, 'hue_user'),
-      @humidity = humidity,
-      @exhaust = exhaust,
-      @co2 = co2,
+      @itho = itho,
       @metrics = metrics,
+      @hue = hue,
+      @humidity = humidity,
       @remote = remote,
-    }
+    })
   }
 }

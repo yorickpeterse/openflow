@@ -1,0 +1,152 @@
+import helpers::(Snapshot, allow_api_calls, state, NullWriter)
+import openflow::http::(Client, Response, TestDriver)
+import openflow::inputs::remote::(Button, Input)
+import openflow::itho::Itho
+import openflow::logger::Logger
+import openflow::state::(State, Status)
+import openflow::sync::Waiter
+import std::int::ToInt
+import std::json::Json
+import std::test::Tests
+import std::time::Duration
+
+class enum RemoteState {
+  case Low(Int)
+  case Timer1(Int)
+
+  fn timestamp -> Int {
+    match self {
+      case Low(val) or Timer1(val) -> val
+    }
+  }
+}
+
+impl ToInt for RemoteState {
+  fn pub to_int -> Int {
+    match self {
+      case Low(_) -> 0
+      case Timer1(_) -> 8
+    }
+  }
+}
+
+impl Input {
+  fn async mut run_iteration {
+    iteration
+  }
+
+  fn async mut wait(waiter: uni Waiter) {
+    waiter.notify
+  }
+}
+
+fn input(state: State, states: uni Array[RemoteState]) -> Input {
+  let logger = Logger.new(recover NullWriter {})
+  let driver = recover {
+    let states = recover states
+    let driver = TestDriver.new
+    let mut index = 0
+
+    driver.request(
+      matches: fn (req) {
+        req.path == '/api.html'
+          and req.queries.opt('get') == Option.Some('remotesinfo')
+      },
+      then: fn move (_) {
+        let cmd = states.get(index := index + 1)
+        let root = Map.new
+        let remote = Map.new
+
+        remote.set('timestamp', Json.Int(cmd.timestamp))
+        remote.set('lastcmd', Json.Int(cmd.to_int))
+        root.set('office', Json.Object(remote))
+        Response.ok(Json.Object(root).to_string.to_byte_array)
+      }
+    )
+
+    driver
+  }
+
+  let itho = recover Itho.new(Client.with_driver(driver))
+  let input = Input.new(state, logger, itho, id: 'office')
+
+  input.add_button(
+    'timer1',
+    recover Button.new(rooms: ['office'], duration: Duration.from_secs(0))
+  )
+
+  input
+}
+
+fn run(input: Input) {
+  let waiter = Waiter.new
+
+  input.run_iteration
+  input.wait(waiter.clone)
+  waiter.wait
+}
+
+fn pub tests(t: mut Tests) {
+  t.test('The initial remote state is ignored') fn (t) {
+    let state = state(allow_api_calls)
+    let input = input(state, states: recover [RemoteState.Timer1(123)])
+
+    run(input)
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+  }
+
+  t.test('The state is ignored if the timestamp remains the same') fn (t) {
+    let state = state(allow_api_calls)
+    let input = input(
+      state,
+      states: recover [RemoteState.Timer1(123), RemoteState.Timer1(123)]
+    )
+
+    run(input)
+    run(input)
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+  }
+
+  t.test('Enabling ventilation in response to a button press') fn (t) {
+    let state = state(allow_api_calls)
+    let input = input(
+      state,
+      states: recover [RemoteState.Timer1(123), RemoteState.Timer1(456)]
+    )
+
+    run(input)
+    run(input)
+    t.equal(
+      Snapshot.of(state).rooms.get('office').status,
+      Status.Button(Status.Default)
+    )
+  }
+
+  t.test('Disabling ventilation when a button times out') fn (t) {
+    let state = state(allow_api_calls)
+    let input = input(state, states: recover [
+      RemoteState.Timer1(123),
+      RemoteState.Timer1(456),
+      RemoteState.Timer1(456),
+    ])
+
+    run(input)
+    run(input)
+    run(input)
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+  }
+
+  t.test('Resetting the remote in response to the "low" button') fn (t) {
+    let state = state(allow_api_calls)
+    let input = input(state, states: recover [
+      RemoteState.Timer1(123),
+      RemoteState.Timer1(456),
+      RemoteState.Low(789),
+    ])
+
+    run(input)
+    run(input)
+    run(input)
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+  }
+}

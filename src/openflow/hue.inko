@@ -28,22 +28,20 @@ class pub Hue {
     }
   }
 
-  fn pub mut sensors !! String -> Sensors {
+  fn pub mut sensors -> Result[Sensors, String] {
     let request = Request.get("/api/{@user}/sensors")
     let timeout = Duration.from_secs(TIMEOUT)
-    let resp = try {
-      retry(@retry_wait_time) fn {
-        client.timeout_after = timeout
-        try client.execute(request)
+    let resp =
+      try retry(@retry_wait_time) fn {
+        @client.timeout_after = timeout
+        @client.execute(request)
       }
-    } else (err) {
-      throw err.to_string
-    }
+      .map_error fn (e) { e.to_string }
 
     let body = resp.body.drain_to_string
-    let root = match try json.parse(body) else (e) throw e.to_string {
-      case Object(map) -> map
-      case _ -> throw 'Expected the status to be a JSON object'
+    let root = match json.parse(body) {
+      case Ok(Object(map)) -> map
+      case _ -> throw 'Expected the response to be a JSON object'
     }
 
     let motion = Map.new
@@ -60,15 +58,15 @@ class pub Hue {
         case _ -> return
       }
 
-      match val.remove('type') {
-        case Some(String('ZLLPresence')) -> match state.remove('presence') {
-          case Some(Bool(val)) -> motion[id] = val
-          case _ -> motion[id] = false
+      match val.opt('type') {
+        case Some(String('ZLLPresence')) -> match state.opt('presence') {
+          case Some(Bool(val)) -> motion.set(id, val)
+          case _ -> motion.set(id, false)
         }
         case _ -> {}
       }
     }
 
-    Sensors { @motion = motion }
+    Result.Ok(Sensors { @motion = motion })
   }
 }

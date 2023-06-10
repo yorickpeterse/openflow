@@ -1,0 +1,175 @@
+import openflow::co2::(SIZE, Co2 as Co2)
+import openflow::experimental_ext
+import openflow::logger::Logger
+import openflow::metrics::(Metric, Metrics)
+import openflow::more_sense::MoreSense
+import openflow::state::(State, Status)
+import std::process::(sleep)
+import std::time::(Duration)
+
+# The target CO2 level.
+#
+# We're targeting this level as higher values can lead to a sleepy and stuffy
+# feeling.
+let TARGET = 800
+
+# The CO2 value at which active ventilation is enabled.
+let LOWER_BOUND = TARGET - 200
+
+# The CO2 value at which to activate maximum ventilation.
+let UPPER_BOUND = TARGET + 100
+
+# The minimum speed in m3/h to apply in response to CO2 levels.
+let MIN_SPEED = 20
+
+# The maximum speed in m3/h to apply in response to CO2 levels.
+let MAX_SPEED = 60
+
+# The speed increase in m3/h per CO2 bucket.
+let SPEED_PER_BUCKET = MAX_SPEED - MIN_SPEED / (TARGET - LOWER_BOUND / SIZE)
+
+# How many samples we should gather before updating the CO2 levels.
+let pub SAMPLES = 20
+
+# The state of a single CO2 sensor.
+class pub Sensor {
+  let @name: String
+  let @client: MoreSense
+  let @co2: Co2
+
+  fn pub static new(name: String, client: MoreSense) -> Sensor {
+    Sensor { @name = name, @client = client, @co2 = Co2.new }
+  }
+
+  fn mut sample -> Result[Nil, String] {
+    @co2.add(try @client.co2)
+    Result.Ok(nil)
+  }
+
+  fn value -> Int {
+    @co2.value
+  }
+
+  fn mut update -> Int {
+    @co2.update
+    @co2.value
+  }
+}
+
+# A process monitoring a set of CO2 sensors, adjusting ventilation based on the
+# CO2 levels.
+class pub async Input {
+  let @state: State
+  let @logger: Logger
+  let @metrics: Metrics
+
+  # The room names and their corresponding sensors to monitor.
+  let @sensors: Array[Sensor]
+
+  # The time between CO2 samples.
+  let @sample_interval: Duration
+
+  # The amount of time to wait after an update before reducing the ventilation
+  # speed of a room.
+  let @reduce_wait_time: Duration
+
+  fn pub static new(
+    state: State,
+    logger: Logger,
+    metrics: uni Metrics,
+  ) -> Input {
+    Input {
+      @state = state,
+      @logger = logger,
+      @metrics = metrics,
+      @sensors = recover [],
+      @sample_interval = recover Duration.from_secs(30),
+      @reduce_wait_time = recover Duration.from_secs(1800),
+    }
+  }
+
+  fn pub async mut add_sensor(sensor: uni Sensor) {
+    @sensors.push(sensor)
+  }
+
+  fn pub async mut init {
+    sample
+    update
+  }
+
+  fn pub async mut run {
+    loop { iteration }
+  }
+
+  fn mut iteration {
+    SAMPLES.times fn (_) {
+      sleep(@sample_interval)
+      sample
+    }
+
+    update
+  }
+
+  fn mut update {
+    let updates = @sensors.iter_mut.reduce(recover Map.new) fn (map, sensor) {
+      let old = sensor.value
+      let new = sensor.update
+      let status = recover {
+        if new >= UPPER_BOUND {
+          Status.Maximum
+        } else if new >= LOWER_BOUND {
+          let buckets = new - LOWER_BOUND / SIZE
+
+          Status.Active(MIN_SPEED + (buckets * SPEED_PER_BUCKET))
+        } else {
+          Status.Default
+        }
+      }
+
+      @metrics.add('co2_room') fn (m) {
+        m.tag('room', sensor.name)
+        m.field('ppm', new)
+      }
+
+      map.set(sensor.name, status)
+      map
+    }
+
+    apply(updates)
+  }
+
+  fn mut sample {
+    @sensors.iter_mut.each fn (sensor) {
+      match sensor.sample {
+        case Ok(_) -> {}
+        case Error(e) -> error(sensor.name, "failed to read the CO2 value: {e}")
+      }
+    }
+  }
+
+  fn apply(updates: uni Map[String, Status]) {
+    let wait = @reduce_wait_time.to_nanos
+
+    @state.update_with(updates) fn move (rooms, updates) {
+      updates.into_iter.each fn (entry) {
+        entry.let fn (name, status) {
+          let room = rooms.get_mut(name)
+          let update = match room.status {
+            case Humid or Button(_) -> false
+            case old -> {
+              status >= old or room.last_update.elapsed.to_nanos >= wait
+            }
+          }
+
+          if update { room.update(status) }
+        }
+      }
+
+      false
+    }
+  }
+
+  fn mut error(room: String, message: String) {
+    @logger.error("{room}: {message}")
+  }
+}
