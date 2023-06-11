@@ -88,8 +88,6 @@ impl ToString for Metric {
 }
 
 # A type for sending metrics to a server.
-#
-# TODO: turn into a process?
 class pub Metrics {
   let @ip: IpAddress
   let @port: Int
