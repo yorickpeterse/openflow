@@ -89,22 +89,6 @@ fn pub tests(t: mut Tests) {
     t.equal(living.status, Status.Active(10))
   }
 
-  t.test('State.increase_target_flow') fn (t) {
-    let state = state(recover TestDriver.new)
-
-    t.equal(Snapshot.of(state).target_flow, 75)
-    state.increase_target_flow(percentage: 10)
-    t.equal(Snapshot.of(state).target_flow, 110)
-  }
-
-  t.test('State.reset_target_flow') fn (t) {
-    let state = state(recover TestDriver.new)
-
-    state.increase_target_flow(percentage: 10)
-    state.reset_target_flow
-    t.equal(Snapshot.of(state).target_flow, 75)
-  }
-
   t.test('State.apply with an Active status room') fn (t) {
     let state = state(allow_api_calls)
 

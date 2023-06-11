@@ -223,9 +223,6 @@ class pub Room {
 # The state of the ventilation system, along with the means to update and apply
 # changes.
 class pub async State {
-  # The total air flow that we try to stay under as much as possible.
-  let @target_flow: Int
-
   # The minimum global air flow.
   let @minimum_flow: Int
 
@@ -258,7 +255,6 @@ class pub async State {
     State {
       @itho = itho,
       @metrics = metrics,
-      @target_flow = config.minimum_flow,
       @minimum_flow = config.minimum_flow,
       @maximum_flow = config.maximum_flow,
       @speed_id = config.speed_id,
@@ -298,20 +294,6 @@ class pub async State {
     block: uni fn (mut Map[String, Room], T) -> Bool,
   ) {
     if block.call(@rooms, data) { apply_state }
-  }
-
-  fn pub async mut increase_target_flow(percentage: Int) {
-    let old = @target_flow
-    let new = @minimum_flow +
-      (@maximum_flow.to_float / 100.0 * percentage.to_float).to_int
-
-    @logger.info("Increasing target flow from {old} m3/h to {new} m3/h")
-    @target_flow = new
-  }
-
-  fn pub async mut reset_target_flow {
-    @logger.info("Resetting target flow to {@minimum_flow} m3/h")
-    @target_flow = @minimum_flow
   }
 
   # Applies the state to the ventilation system.
@@ -412,7 +394,7 @@ class pub async State {
       sum + room.current_flow
     }
 
-    if total <= @target_flow or humid { return total }
+    if total <= @minimum_flow or humid { return total }
 
     reduce_default_ventilation(total)
     @rooms.values.reduce(0) fn (sum, room) { sum + room.current_flow }
@@ -430,7 +412,7 @@ class pub async State {
       .to_array
 
     let reduce =
-      (total.to_float - @target_flow.to_float / rooms.length.to_float)
+      (total.to_float - @minimum_flow.to_float / rooms.length.to_float)
         .ceil
         .to_int
 

@@ -32,7 +32,6 @@ class pub RoomSnapshot {
 
 class pub Snapshot {
   let pub @speed: Int
-  let pub @target_flow: Int
   let pub @rooms: Map[String, RoomSnapshot]
 
   fn pub static of(state: State) -> Snapshot {
@@ -60,11 +59,7 @@ impl State {
       map
     }
 
-    channel.send(recover Snapshot {
-      @speed = @speed,
-      @rooms = rooms,
-      @target_flow = @target_flow,
-    })
+    channel.send(recover Snapshot { @speed = @speed, @rooms = rooms })
   }
 
   fn sleep(time: ref Duration) {
