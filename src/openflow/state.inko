@@ -377,7 +377,7 @@ class pub async State {
       } else {
         match room.status {
           case Default -> max(0, room.minimum_flow)
-          case Active(val) -> val
+          case Active(val) -> max(val, room.minimum_flow)
           case Maximum or Button(_) or Humid -> room.maximum_flow
         }
       }
