@@ -10,8 +10,6 @@ import std::process::(sleep)
 import std::string::ToString
 import std::time::(Duration, Instant)
 
-import std::stdio::STDERR
-
 # The maximum value of an exhaust valve setting.
 #
 # While the API/hardware limit is 5000, the valves can make a distinct bonking
