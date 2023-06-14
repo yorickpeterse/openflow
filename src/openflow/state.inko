@@ -227,6 +227,9 @@ class pub async State {
   # The maximum global air flow.
   let @maximum_flow: Int
 
+  # The target air flow in m3/hour we try to stay under.
+  let @target_flow: Int
+
   # The ID of the setting that controls the ventilation speed.
   let @speed_id: Int
 
@@ -250,10 +253,13 @@ class pub async State {
     metrics: uni Metrics,
     config: ref IthoConfig,
   ) -> State {
+    let min = config.minimum_flow
+
     State {
       @itho = itho,
       @metrics = metrics,
-      @minimum_flow = config.minimum_flow,
+      @target_flow = (min.to_float * 1.1).to_int,
+      @minimum_flow = min,
       @maximum_flow = config.maximum_flow,
       @speed_id = config.speed_id,
       @manual_id = config.manual_id,
@@ -392,7 +398,7 @@ class pub async State {
       sum + room.current_flow
     }
 
-    if total <= @minimum_flow or humid { return total }
+    if total <= @target_flow or humid { return total }
 
     reduce_default_ventilation(total)
     @rooms.values.reduce(0) fn (sum, room) { sum + room.current_flow }
@@ -410,7 +416,7 @@ class pub async State {
       .to_array
 
     let reduce =
-      (total.to_float - @minimum_flow.to_float / rooms.length.to_float)
+      (total.to_float - @target_flow.to_float / rooms.length.to_float)
         .ceil
         .to_int
 

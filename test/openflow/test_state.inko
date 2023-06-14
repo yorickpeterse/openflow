@@ -121,10 +121,10 @@ fn pub tests(t: mut Tests) {
     let snap = Snapshot.of(state)
     let living = snap.rooms.get('living_room')
 
-    t.equal(snap.speed, 21)
+    t.equal(snap.speed, 23)
     t.equal(living.status, Status.Button(Status.Default))
     t.equal(living.flow, 70)
-    t.equal(living.exhaust, 3800)
+    t.equal(living.exhaust, 3500)
   }
 
   t.test('State.apply with a Humid status room') fn (t) {
