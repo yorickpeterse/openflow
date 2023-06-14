@@ -91,7 +91,7 @@ fn pub tests(t: mut Tests) {
 
   t.test('Applying in response to different CO2 levels') fn (t) {
     let tests = [
-      (500, Status.Default)
+      (500, Status.Default),
       (600, Status.Active(20)),
       (625, Status.Active(25)),
       (650, Status.Active(30)),

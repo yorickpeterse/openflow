@@ -8,9 +8,9 @@ fn pub tests(t: mut Tests) {
     co2.update
     t.equal(co2.value, 400)
 
-    co2.add(420)
+    co2.add(390)
     co2.update
-    t.equal(co2.value, 425)
+    t.equal(co2.value, 400)
   }
 
   t.test('Co2.update without any samples') fn (t) {
