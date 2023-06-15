@@ -90,8 +90,11 @@ class pub Room {
   # The setting ID of the exhaust for this room.
   let pub @exhaust: Int
 
-  # The minimum air flow in m3/h.
+  # The minimum air flow for active ventilation in m3/h.
   let pub @minimum_flow: Int
+
+  # The default air flow in m3/h.
+  let pub @default_flow: Int
 
   # The maximum air flow in m3/h.
   let pub @maximum_flow: Int
@@ -130,6 +133,7 @@ class pub Room {
     object: ref Map[String, Json]
   ) -> Result[Room, String] {
     let exhaust = try int(object, 'exhaust')
+    let def_flow = int_opt(object, 'default_flow').unwrap_or(0)
     let min_flow = int_opt(object, 'minimum_flow').unwrap_or(0)
     let max_flow = int_opt(object, 'maximum_flow').unwrap_or(80)
     let correct = try float(object, 'flow_correction')
@@ -140,6 +144,7 @@ class pub Room {
     Result.Ok(Room {
       @name = name,
       @exhaust = exhaust,
+      @default_flow = def_flow,
       @minimum_flow = min_flow,
       @maximum_flow = max_flow,
       @flow_correction = correct,

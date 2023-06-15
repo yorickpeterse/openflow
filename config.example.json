@@ -2,14 +2,14 @@
   "rooms": {
     "living_room": {
       "exhaust": 115,
-      "minimum_flow": 45,
+      "default_flow": 45,
       "maximum_flow": 70,
       "flow_correction": 1.05,
       "co2": "192.168.1.200"
     },
     "kitchen": {
       "exhaust": 113,
-      "minimum_flow": 40,
+      "default_flow": 40,
       "maximum_flow": 40,
       "flow_correction": 1.05,
       "co2": "192.168.1.200"

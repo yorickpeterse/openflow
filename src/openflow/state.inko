@@ -172,6 +172,9 @@ class pub Room {
   # result in them remaining in whatever state they were before we started.
   let @exhaust_value: Int
 
+  # The default air flow in m3/hour, without the flow correction.
+  let @default_flow: Int
+
   # The minimum air flow in m3/hour, without the flow correction.
   let @minimum_flow: Int
 
@@ -184,6 +187,7 @@ class pub Room {
   fn pub static new(name: String, config: ref RoomConfig) -> uni Room {
     let correct = config.flow_correction
     let exhaust = config.exhaust
+    let def = config.default_flow
     let min = config.minimum_flow
     let max = config.maximum_flow
 
@@ -193,6 +197,7 @@ class pub Room {
       @flow_correction = correct,
       @exhaust_id = exhaust,
       @exhaust_value = -1,
+      @default_flow = def,
       @minimum_flow = min,
       @maximum_flow = max,
       @current_flow = 0,
@@ -214,7 +219,7 @@ class pub Room {
 
     # Ventilation speeds below 5 m3/h are more or less useless. Turning off
     # ventilation in this case can help keep the speed at a minimum.
-    @current_flow = if new_flow >= 5 { new_flow } else { 0 }
+    @current_flow = max(@minimum_flow, if new_flow >= 5 { new_flow } else { 0 })
   }
 }
 
@@ -382,13 +387,13 @@ class pub async State {
         }
       } else {
         match room.status {
-          case Default -> max(0, room.minimum_flow)
-          case Active(val) -> max(val, room.minimum_flow)
+          case Default -> room.default_flow
+          case Active(val) -> val
           case Maximum or Button(_) or Humid -> room.maximum_flow
         }
       }
 
-      base = min(base, room.maximum_flow)
+      base = min(max(base, room.minimum_flow), room.maximum_flow)
 
       room.current_flow = min(
         (base.to_float * room.flow_correction).ceil.to_int,

@@ -85,6 +85,7 @@ fn pub state(driver: uni TestDriver) -> State {
     RoomConfig {
       @name = 'living_room',
       @exhaust = 10,
+      @default_flow = 0,
       @minimum_flow = 0,
       @maximum_flow = 70,
       @flow_correction = 1.0,
@@ -95,6 +96,7 @@ fn pub state(driver: uni TestDriver) -> State {
     RoomConfig {
       @name = 'office',
       @exhaust = 11,
+      @default_flow = 10,
       @minimum_flow = 10,
       @maximum_flow = 80,
       @flow_correction = 1.1,
@@ -105,6 +107,7 @@ fn pub state(driver: uni TestDriver) -> State {
     RoomConfig {
       @name = 'super_fast',
       @exhaust = 15,
+      @default_flow = 0,
       @minimum_flow = 0,
       @maximum_flow = 400,
       @flow_correction = 1.0,
@@ -115,6 +118,7 @@ fn pub state(driver: uni TestDriver) -> State {
     RoomConfig {
       @name = 'bathroom',
       @exhaust = 15,
+      @default_flow = 0,
       @minimum_flow = 0,
       @maximum_flow = 120,
       @flow_correction = 1.0,
