@@ -12,17 +12,22 @@ class pub Histogram {
     @buckets.set(bucket, @buckets.get(bucket) + 1)
   }
 
-  # Returns the bucket with the largest number of values.
+  # Returns the bucket that represents the median.
   #
-  # When multiple buckets have the same values, this method returns the first
-  # bucket.
-  fn pub largest -> Int {
-    # The tuple format is (index, bucket value).
+  # If the histogram is empty, the first bucket is returned.
+  fn pub median -> Int {
+    let mid = @buckets.iter.reduce(0) fn (sum, count) { sum + count } + 1 / 2
+    let mut total = 0
+
     @buckets
       .iter
       .with_index
-      .reduce((0, 0)) fn (acc, curr) { if curr.1 > acc.1 { curr } else { acc } }
-      .0
+      .find_map fn move (pair) {
+        total += pair.1
+
+        if total > mid { Option.Some(pair.0) } else { Option.None }
+      }
+      .unwrap_or(0)
   }
 
   # Resets the values of all buckets back to zero.

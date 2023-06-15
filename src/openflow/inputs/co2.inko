@@ -92,11 +92,6 @@ class pub async Input {
     @sensors.push(sensor)
   }
 
-  fn pub async mut init {
-    sample
-    update
-  }
-
   fn pub async mut run {
     loop { iteration }
   }

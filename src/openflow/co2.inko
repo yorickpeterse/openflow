@@ -42,7 +42,7 @@ class pub Co2 {
 
   # Updates the CO2 estimate if necessary.
   fn pub mut update {
-    @value = LOW + (@histogram.largest * SIZE)
+    @value = LOW + (@histogram.median * SIZE)
     @histogram.reset
   }
 

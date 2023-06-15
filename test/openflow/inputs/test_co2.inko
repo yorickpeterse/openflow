@@ -66,17 +66,6 @@ fn run(input: Input) {
 }
 
 fn pub tests(t: mut Tests) {
-  t.test('Sampling and updating the initial CO2 levels') fn (t) {
-    let state = state(allow_api_calls)
-    let input = input(state, target: 800, samples: recover [700])
-    let waiter = Waiter.new
-
-    input.init
-    input.wait(waiter.clone)
-    waiter.wait
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(40))
-  }
-
   t.test('Applying default ventilation in response to CO2') fn (t) {
     let state = state(allow_api_calls)
     let input = input(

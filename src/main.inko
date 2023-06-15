@@ -88,7 +88,6 @@ class async Main {
       input.run
     }
 
-    co2_input.init
     co2_input.run
     motion_input.run
     humid_input.run
