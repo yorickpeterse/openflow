@@ -16,6 +16,23 @@ fn pub tests(t: mut Tests) {
     t.equal(histo.median, 0)
   }
 
+  t.test('Histogram.median with an even distribution') fn (t) {
+    let histo = Histogram.new(buckets: 5)
+
+    histo.increment(0)
+    histo.increment(0)
+    histo.increment(1)
+    histo.increment(1)
+    histo.increment(2)
+    histo.increment(2)
+    histo.increment(3)
+    histo.increment(3)
+    histo.increment(4)
+    histo.increment(4)
+
+    t.equal(histo.median, 2)
+  }
+
   t.test('Histogram.median with multiple values') fn (t) {
     let histo = Histogram.new(buckets: 4)
 

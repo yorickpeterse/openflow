@@ -86,10 +86,11 @@ fn pub tests(t: mut Tests) {
       (650, Status.Active(30)),
       (675, Status.Active(35)),
       (700, Status.Active(40)),
-      (725, Status.Active(45)),
-      (800, Status.Active(60)),
-      (850, Status.Active(70)),
-      (875, Status.Active(75)),
+      (725, Status.Active(47)),
+      (800, Status.Active(68)),
+      (825, Status.Active(75)),
+      (850, Status.Active(82)),
+      (875, Status.Active(89)),
       (900, Status.Maximum),
     ]
 

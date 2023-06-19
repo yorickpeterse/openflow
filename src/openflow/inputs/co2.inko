@@ -4,6 +4,7 @@ import openflow::logger::Logger
 import openflow::metrics::(Metric, Metrics)
 import openflow::more_sense::MoreSense
 import openflow::state::(State, Status)
+import std::cmp::(max)
 import std::process::(sleep)
 import std::time::(Duration)
 
@@ -14,19 +15,24 @@ import std::time::(Duration)
 let TARGET = 800
 
 # The CO2 value at which active ventilation is enabled.
-let LOWER_BOUND = TARGET - 200
+let LOWER = TARGET - 200
+
+# The CO2 value at which active ventilation needs to be increased more than
+# usual.
+let MID = TARGET - 100
 
 # The CO2 value at which to activate maximum ventilation.
-let UPPER_BOUND = TARGET + 100
+let UPPER = TARGET + 100
 
 # The minimum speed in m3/h to apply in response to CO2 levels.
 let MIN_SPEED = 20
 
-# The maximum speed in m3/h to apply in response to CO2 levels.
-let MAX_SPEED = 60
-
 # The speed increase in m3/h per CO2 bucket.
-let SPEED_PER_BUCKET = MAX_SPEED - MIN_SPEED / (TARGET - LOWER_BOUND / SIZE)
+let SPEED_PER_BUCKET = 5
+
+# The extra speed to add per bucket when CO2 levels are getting closer to the
+# target value.
+let EXTRA_PER_BUCKET = 2
 
 # How many samples we should gather before updating the CO2 levels.
 let pub SAMPLES = 20
@@ -110,12 +116,17 @@ class pub async Input {
       let old = sensor.value
       let new = sensor.update
       let status = recover {
-        if new >= UPPER_BOUND {
+        if new >= UPPER {
           Status.Maximum
-        } else if new >= LOWER_BOUND {
-          let buckets = new - LOWER_BOUND / SIZE
+        } else if new >= LOWER {
+          # When CO2 levels are getting close to the target value, we start
+          # increasing the speed a bit more than usual, in an attempt to prevent
+          # CO2 from reaching the target value.
+          let mut speed = MIN_SPEED
+            + (new - LOWER / SIZE * SPEED_PER_BUCKET)
+            + max(0, new - MID / SIZE * EXTRA_PER_BUCKET)
 
-          Status.Active(MIN_SPEED + (buckets * SPEED_PER_BUCKET))
+          Status.Active(speed)
         } else {
           Status.Default
         }

@@ -78,24 +78,44 @@ fn pub tests(t: mut Tests) {
     co2.add(725)
     co2.add(725)
     co2.add(725)
+    co2.add(800)
+    co2.add(875)
     co2.add(950)
     co2.add(950)
-    co2.add(1200)
     co2.add(1200)
     co2.add(1200)
     co2.update
     t.equal(co2.value, 950)
   }
 
-  t.test('Co2.update with an even number of samples in different buckets') fn (t) {
+  t.test('Co2.update with a short increase in CO2') fn (t) {
     let co2 = Co2.new
 
+    co2.add(675)
+    co2.add(675)
+    co2.add(675)
+    co2.add(675)
+    co2.add(1200)
+    co2.add(1200)
+    co2.add(800)
+    co2.update
+
+    t.equal(co2.value, 800)
+  }
+
+  t.test('Co2.update with an even distribution') fn (t) {
+    let co2 = Co2.new
+
+    co2.add(500)
+    co2.add(500)
     co2.add(700)
     co2.add(700)
     co2.add(750)
     co2.add(750)
     co2.add(800)
     co2.add(800)
+    co2.add(900)
+    co2.add(900)
 
     co2.update
     t.equal(co2.value, 750)
