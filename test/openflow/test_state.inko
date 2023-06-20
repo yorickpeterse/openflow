@@ -163,6 +163,18 @@ fn pub tests(t: mut Tests) {
     t.equal(Snapshot.of(state).rooms.get('office').flow, 11)
   }
 
+  t.test('State.apply with a room exceeding its maximum flow') fn (t) {
+    let state = state(allow_api_calls)
+
+    state.update fn (rooms) {
+      rooms.get_mut('office').update(Status.Active(100))
+      false
+    }
+
+    state.apply(Waiter.new)
+    t.equal(Snapshot.of(state).rooms.get('office').flow, 80)
+  }
+
   t.test('State.apply with a total flow exceeding the maximum flow') fn (t) {
     let state = state(allow_api_calls)
 

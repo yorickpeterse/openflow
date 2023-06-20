@@ -29,7 +29,7 @@ impl Input {
   }
 }
 
-fn input(state: State, target: Int, samples: uni Array[Int]) -> Input {
+fn input(state: State, samples: uni Array[Int]) -> Input {
   let metrics = recover Metrics.new(IpAddress.v4(0, 0, 0, 0), port: 0)
   let logger = Logger.new(recover NullWriter {})
   let input = Input.new(state, logger, metrics)
@@ -70,7 +70,6 @@ fn pub tests(t: mut Tests) {
     let state = state(allow_api_calls)
     let input = input(
       state,
-      target: 800,
       samples: recover Array.filled(with: 450, times: SAMPLES),
     )
 
@@ -78,19 +77,20 @@ fn pub tests(t: mut Tests) {
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
   }
 
-  t.test('Applying in response to different CO2 levels') fn (t) {
+  t.test('Applying ventilation in response to different CO2 levels') fn (t) {
     let tests = [
       (500, Status.Default),
       (600, Status.Active(20)),
-      (625, Status.Active(25)),
+      (625, Status.Active(20)),
       (650, Status.Active(30)),
-      (675, Status.Active(35)),
+      (675, Status.Active(30)),
       (700, Status.Active(40)),
-      (725, Status.Active(47)),
-      (800, Status.Active(68)),
-      (825, Status.Active(75)),
-      (850, Status.Active(82)),
-      (875, Status.Active(89)),
+      (725, Status.Active(40)),
+      (750, Status.Active(55)),
+      (800, Status.Active(70)),
+      (825, Status.Active(70)),
+      (850, Status.Active(85)),
+      (875, Status.Active(85)),
       (900, Status.Maximum),
     ]
 
@@ -98,7 +98,6 @@ fn pub tests(t: mut Tests) {
       let state = state(allow_api_calls)
       let input = input(
         state,
-        target: 800,
         samples: recover Array.filled(with: tup.0, times: SAMPLES),
       )
 
@@ -116,7 +115,7 @@ fn pub tests(t: mut Tests) {
       900, 900, 900, 900, 900, 900, 900, 900, 900, 900,
       900, 900, 900, 900, 900, 900, 900, 900, 900, 900,
     ]
-    let input = input(state, target: 800, samples: samples)
+    let input = input(state, samples: samples)
 
     run(input)
     run(input)
@@ -127,7 +126,6 @@ fn pub tests(t: mut Tests) {
     let state = state(allow_api_calls)
     let input = input(
       state,
-      target: 800,
       samples: recover Array.filled(with: 950, times: SAMPLES),
     )
 
@@ -144,7 +142,6 @@ fn pub tests(t: mut Tests) {
     let state = state(allow_api_calls)
     let input = input(
       state,
-      target: 800,
       samples: recover Array.filled(with: 950, times: SAMPLES),
     )
 
@@ -176,7 +173,7 @@ fn pub tests(t: mut Tests) {
       400, 400, 400, 400, 400, 400, 400, 400, 400, 400,
     ]
 
-    let input = input(state, target: 800, samples: samples)
+    let input = input(state, samples: samples)
 
     run(input)
     run(input)

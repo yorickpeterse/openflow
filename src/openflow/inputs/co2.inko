@@ -28,11 +28,11 @@ let UPPER = TARGET + 100
 let MIN_SPEED = 20
 
 # The speed increase in m3/h per CO2 bucket.
-let SPEED_PER_BUCKET = 5
+let SPEED_PER_BUCKET = 10
 
 # The extra speed to add per bucket when CO2 levels are getting closer to the
 # target value.
-let EXTRA_PER_BUCKET = 2
+let EXTRA_PER_BUCKET = 5
 
 # How many samples we should gather before updating the CO2 levels.
 let pub SAMPLES = 20

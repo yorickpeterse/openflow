@@ -10,13 +10,34 @@ let LOW = 400
 let HIGH = 1200
 
 # The size/ppm per bucket.
-let pub SIZE = 25
+let pub SIZE = 50
 
 # The number of buckets to use for the CO2 histogram.
 let BUCKETS = HIGH - LOW / SIZE + 1
 
 # The last/maximum bucket.
 let MAX_BUCKET = BUCKETS - 1
+
+# The bucket difference that indicates an outlier in the CO2 histogram.
+let OUTLIER_BUCKETS = 200 / SIZE
+
+fn co2_to_bucket(co2: Int) -> Int {
+  if co2 <= LOW {
+    0
+  } else if co2 <= HIGH {
+    # Values such as 740 are rounded down to 700, while values such as 760 are
+    # rounded up to 800. This ensures CO2 values are assigned to more accurate
+    # buckets, instead of always being assigned to the lower bucket (as
+    # integer division rounds down).
+    (co2 - LOW) + (SIZE - 1 / 2) / SIZE
+  } else {
+    MAX_BUCKET
+  }
+}
+
+fn bucket_to_co2(bucket: Int) -> Int {
+  LOW + (bucket * SIZE)
+}
 
 # A type for tracking the estimated CO2 levels over time, while taking into
 # account sporadic/temporary changes in the reported value.
@@ -42,24 +63,33 @@ class pub Co2 {
 
   # Updates the CO2 estimate if necessary.
   fn pub mut update {
-    @value = LOW + (@histogram.median * SIZE)
+    let median = @histogram.median
+
+    # We remove any outliers to ensure they don't skew the mean. We only remove
+    # outliers towards the end of the histogram, as the sensors are quick to
+    # report an increase in CO2, while taking a bit longer to report reduced
+    # values (meaning outliers on the lower end are rare).
+    let sum_count = @histogram.iter.with_index.reduce((0, 0)) fn (acc, pair) {
+      let bucket = pair.0
+      let count = pair.1
+
+      if bucket - median >= OUTLIER_BUCKETS and count <= 3 {
+        acc
+      } else {
+        (acc.0 + (LOW + (bucket * SIZE) * count), acc.1 + count)
+      }
+    }
+
+    let mean = if sum_count.1 > 0 { sum_count.0 / sum_count.1 } else { 0 }
+
+    # The mean might not be a multiple of the bucket size, so we have to get its
+    # nearest bucket, then convert that back to a rounded CO2 value.
+    @value = bucket_to_co2(co2_to_bucket(mean))
     @histogram.reset
   }
 
   # Adds the given PPM to the list of samples.
   fn pub mut add(co2: Int) {
-    let bucket = if co2 <= LOW {
-      0
-    } else if co2 <= HIGH {
-      # Values such as 740 are rounded down to 700, while values such as 760 are
-      # rounded up to 800. This ensures CO2 values are assigned to more accurate
-      # buckets, instead of always being assigned to the lower bucket (as
-      # integer division rounds down).
-      (co2 - LOW) + (SIZE - 1 / 2) / SIZE
-    } else {
-      MAX_BUCKET
-    }
-
-    @histogram.increment(bucket)
+    @histogram.increment(co2_to_bucket(co2))
   }
 }

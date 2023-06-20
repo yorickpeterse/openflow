@@ -396,7 +396,10 @@ class pub async State {
       base = min(max(base, room.minimum_flow), room.maximum_flow)
 
       room.current_flow = min(
-        (base.to_float * room.flow_correction).ceil.to_int,
+        min(
+          (base.to_float * room.flow_correction).ceil.to_int,
+          room.maximum_flow
+        ),
         @maximum_flow
       )
 

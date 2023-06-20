@@ -1,3 +1,5 @@
+import std::iter::Iter
+
 # A histogram for tracking the occurrences of some value.
 class pub Histogram {
   let @buckets: Array[Int]
@@ -5,6 +7,16 @@ class pub Histogram {
   # Returns a new `Histogram` with `buckets` buckets.
   fn pub static new(buckets: Int) -> Histogram {
     Histogram { @buckets = Array.filled(with: 0, times: buckets) }
+  }
+
+  # Returns the value of the bucket.
+  fn pub get(bucket: Int) -> Int {
+    @buckets.get(bucket)
+  }
+
+  # Resets the given bucket's count.
+  fn pub mut remove(bucket: Int) {
+    @buckets.set(bucket, 0)
   }
 
   # Increments the number of values in the given bucket.
@@ -33,5 +45,10 @@ class pub Histogram {
   # Resets the values of all buckets back to zero.
   fn pub mut reset {
     @buckets.length.times fn (index) { @buckets.set(index, 0) }
+  }
+
+  # Returns an iterator over the counts in the histogram.
+  fn pub iter -> Iter[Int] {
+    @buckets.iter
   }
 }
