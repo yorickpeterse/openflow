@@ -194,7 +194,7 @@ fn pub tests(t: mut Tests) {
     t.equal(fast.flow, 350)
     t.equal(fast.exhaust, 4000)
     t.equal(office.status, Status.Default)
-    t.equal(office.flow, 10)
-    t.equal(office.exhaust, 100)
+    t.equal(office.flow, 11)
+    t.equal(office.exhaust, 200)
   }
 }

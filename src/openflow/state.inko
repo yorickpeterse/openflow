@@ -215,11 +215,14 @@ class pub Room {
   }
 
   fn pub mut reduce_flow(by: Int) {
-    let new_flow = max(@current_flow - by, 0)
+    let reduced = max(@current_flow - by, 0)
 
     # Ventilation speeds below 5 m3/h are more or less useless. Turning off
     # ventilation in this case can help keep the speed at a minimum.
-    @current_flow = max(@minimum_flow, if new_flow >= 5 { new_flow } else { 0 })
+    let new = if reduced >= 5 { reduced } else { 0 }
+
+    @current_flow =
+      (max(@minimum_flow, new).to_float * @flow_correction).ceil.to_int
   }
 }
 
