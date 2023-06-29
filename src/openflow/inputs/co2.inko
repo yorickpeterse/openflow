@@ -6,7 +6,7 @@ import openflow::more_sense::MoreSense
 import openflow::state::(State, Status)
 import std::cmp::(max)
 import std::process::(sleep)
-import std::time::(Duration)
+import std::time::(Duration, Instant)
 
 # The target CO2 level.
 #
@@ -37,14 +37,41 @@ let EXTRA_PER_BUCKET = 5
 # How many samples we should gather before updating the CO2 levels.
 let pub SAMPLES = 20
 
+# The minimum CO2 reduction desired before lowering the ventilation speed.
+#
+# Reductions of e.g. 50 ppm aren't significant enough to warrant reducing
+# ventilation speeds, so we maintain the speed (even after reaching the
+# ventilation timeout) until we've reduced the CO2 levels enough.
+#
+# This in turn prevents us from reducing the speed due to a brief reduction in
+# CO2 levels after the timeout, only to increase the speed again a few moments
+# later.
+let MIN_CO2_REDUCTION = 100
+
 # The state of a single CO2 sensor.
 class pub Sensor {
   let @name: String
   let @client: MoreSense
   let @co2: Co2
 
+  # The ventilation status of the room this sensor belongs to.
+  let @status: Status
+
+  # The time at which the current status was produced.
+  let @last_status_change: Instant
+
+  # The CO2 at the time of the last status change.
+  let @last_change_co2: Int
+
   fn pub static new(name: String, client: MoreSense) -> Sensor {
-    Sensor { @name = name, @client = client, @co2 = Co2.new }
+    Sensor {
+      @name = name,
+      @client = client,
+      @co2 = Co2.new,
+      @status = Status.Default,
+      @last_status_change = Instant.new,
+      @last_change_co2 = 0,
+    }
   }
 
   fn mut sample -> Result[Nil, String] {
@@ -56,9 +83,20 @@ class pub Sensor {
     @co2.value
   }
 
-  fn mut update -> Int {
+  fn mut update_co2 -> Int {
     @co2.update
     @co2.value
+  }
+
+  fn mut update_status(status: Status) {
+    @status = status
+    @last_status_change = Instant.new
+    @last_change_co2 = @co2.value
+  }
+
+  fn reduce?(after: ref Duration) -> Bool {
+    @last_status_change.elapsed >= after
+      and @last_change_co2 - @co2.value >= MIN_CO2_REDUCTION
   }
 }
 
@@ -114,7 +152,7 @@ class pub async Input {
   fn mut update {
     let updates = @sensors.iter_mut.reduce(recover Map.new) fn (map, sensor) {
       let old = sensor.value
-      let new = sensor.update
+      let new = sensor.update_co2
       let status = recover {
         if new >= UPPER {
           Status.Maximum
@@ -132,12 +170,16 @@ class pub async Input {
         }
       }
 
+      if status >= sensor.status or sensor.reduce?(@reduce_wait_time) {
+        sensor.update_status(status.clone)
+        map.set(sensor.name, status)
+      }
+
       @metrics.add('co2_room') fn (m) {
         m.tag('room', sensor.name)
         m.field('ppm', new)
       }
 
-      map.set(sensor.name, status)
       map
     }
 
@@ -154,20 +196,15 @@ class pub async Input {
   }
 
   fn apply(updates: uni Map[String, Status]) {
-    let wait = @reduce_wait_time.to_nanos
-
     @state.update_with(updates) fn move (rooms, updates) {
       updates.into_iter.each fn (entry) {
         entry.let fn (name, status) {
           let room = rooms.get_mut(name)
-          let update = match room.status {
-            case Humid or Button(_) -> false
-            case old -> {
-              status >= old or room.last_update.elapsed.to_nanos >= wait
-            }
-          }
 
-          if update { room.update(status) }
+          match room.status {
+            case Humid or Button(_) -> {}
+            case _ -> room.update(status)
+          }
         }
       }
 

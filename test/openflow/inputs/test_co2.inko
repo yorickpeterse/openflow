@@ -165,12 +165,12 @@ fn pub tests(t: mut Tests) {
       700, 700, 700, 700, 700, 700, 700, 700, 700, 700,
 
       # The second update, where we'll maintain the speed for a while.
-      400, 400, 400, 400, 400, 400, 400, 400, 400, 400,
-      400, 400, 400, 400, 400, 400, 400, 400, 400, 400,
+      600, 600, 600, 600, 600, 600, 600, 600, 600, 600,
+      600, 600, 600, 600, 600, 600, 600, 600, 600, 600,
 
       # The third update, where we'll reduce the speed.
-      400, 400, 400, 400, 400, 400, 400, 400, 400, 400,
-      400, 400, 400, 400, 400, 400, 400, 400, 400, 400,
+      500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+      500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
     ]
 
     let input = input(state, samples: samples)
@@ -180,6 +180,34 @@ fn pub tests(t: mut Tests) {
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(40))
 
     input.reset_reduce_wait_time
+    run(input)
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+  }
+
+  t.test('Maintaining ventilation until CO2 is reduced enough') fn (t) {
+    let state = state(allow_api_calls)
+    let samples = recover [
+      # The first update.
+      700, 700, 700, 700, 700, 700, 700, 700, 700, 700,
+      700, 700, 700, 700, 700, 700, 700, 700, 700, 700,
+
+      # The second update.
+      650, 650, 650, 650, 650, 650, 650, 650, 650, 650,
+      650, 650, 650, 650, 650, 650, 650, 650, 650, 650,
+
+      # The third update.
+      500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+      500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+    ]
+
+    let input = input(state, samples: samples)
+
+    run(input)
+    input.reset_reduce_wait_time
+
+    run(input)
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(40))
+
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
   }
