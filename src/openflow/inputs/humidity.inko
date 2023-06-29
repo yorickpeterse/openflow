@@ -66,6 +66,9 @@ class pub async Input {
   # humidity value is.
   let @minimum_time: Duration
 
+  # The maximum amount of time to ventilate for.
+  let @maximum_time: Duration
+
   # The amount of time humidity must be below the "low" threshold before
   # ventilation can be disabled.
   let @low_time: Duration
@@ -92,6 +95,7 @@ class pub async Input {
       @minimum_time = recover Duration.from_secs(1800),
       @low_time = recover Duration.from_secs(600),
       @interval = recover Duration.from_secs(30),
+      @maximum_time = recover Duration.from_secs(3600),
     }
   }
 
@@ -141,29 +145,30 @@ class pub async Input {
     if humidity >= @high {
       match sensor.humidity {
         case Dry -> sensor.update(Humidity.Increasing)
-        case Increasing -> {
-          info(sensor.name, 'the humidity is too high')
-          sensor.update(Humidity.Humid(Instant.new))
-        }
+        case Increasing -> sensor.update(Humidity.Humid(Instant.new))
         case Humid(_) -> sensor.update_time
       }
-    } else if humidity > @low {
-      sensor.update_time
-    } else if humidity <= @low {
-      let dry = match sensor.humidity {
-        case Increasing -> true
-        case Humid(at)
-          if at.elapsed >= @minimum_time
-            and sensor.last_update.elapsed >= @low_time
-        -> {
-          info(sensor.name, 'the humidity is OK again')
-          true
-        }
-        case _ -> false
-      }
 
-      if dry { sensor.update(Humidity.Dry) }
+      return
     }
+
+    let dry = match sensor.humidity {
+      case Humid(at) if at.elapsed >= @maximum_time -> {
+        info(sensor.name, 'maximum ventilation time reached')
+        true
+      }
+      case Humid(_) if humidity > @low -> {
+        sensor.update_time
+        false
+      }
+      case Humid(at) -> {
+        at.elapsed >= @minimum_time and sensor.last_update.elapsed >= @low_time
+      }
+      case Increasing -> true
+      case Dry -> false
+    }
+
+    if dry { sensor.update(Humidity.Dry) }
   }
 
   fn apply(updates: uni Map[String, Bool]) {

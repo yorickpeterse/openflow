@@ -24,6 +24,10 @@ impl Input {
     @minimum_time = Duration.from_secs(0)
   }
 
+  fn async mut reset_maximum_time {
+    @maximum_time = Duration.from_secs(0)
+  }
+
   fn async mut wait(waiter: uni Waiter) {
     waiter.notify
   }
@@ -119,6 +123,28 @@ fn pub tests(t: mut Tests) {
     run(input)
     input.reset_low_time
     input.reset_minimum_time
+    run(input)
+    t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
+  }
+
+  t.test('Ventilation continues when humidity is high, even when too much time has passed') fn (t) {
+    let state = state(allow_api_calls)
+    let input = input(state, humidity: recover [85, 85, 85])
+
+    run(input)
+    run(input)
+    input.reset_maximum_time
+    run(input)
+    t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Humid)
+  }
+
+  t.test('Ventilation stops when humidity is low enough and too much time has passed') fn (t) {
+    let state = state(allow_api_calls)
+    let input = input(state, humidity: recover [85, 85, 60])
+
+    run(input)
+    run(input)
+    input.reset_maximum_time
     run(input)
     t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
   }
