@@ -181,7 +181,10 @@ class pub Room {
   # The maximum air flow in m3/hour, without the flow correction.
   let @maximum_flow: Int
 
-  # The air flow in m3/hour.
+  # The air flow in m3/hour, without the flow correction applied.
+  let @base_flow: Int
+
+  # The air flow in m3/hour, with the flow correction applied
   let @current_flow: Int
 
   fn pub static new(name: String, config: ref RoomConfig) -> uni Room {
@@ -200,6 +203,7 @@ class pub Room {
       @default_flow = def,
       @minimum_flow = min,
       @maximum_flow = max,
+      @base_flow = 0,
       @current_flow = 0,
       @last_update = Instant.new,
     }
@@ -214,15 +218,27 @@ class pub Room {
     @last_update = Instant.new
   }
 
-  fn pub mut reduce_flow(by: Int) {
-    let reduced = max(@current_flow - by, 0)
+  fn pub mut reduce_flow(by: Int, maximum: Int) {
+    let reduced = max(@base_flow - by, 0)
 
     # Ventilation speeds below 5 m3/h are more or less useless. Turning off
     # ventilation in this case can help keep the speed at a minimum.
-    let new = if reduced >= 5 { reduced } else { 0 }
+    @current_flow = max(
+      if reduced >= 5 { calculate_flow(reduced, maximum) } else { 0 },
+      @minimum_flow
+    )
+  }
 
-    @current_flow =
-      (max(@minimum_flow, new).to_float * @flow_correction).ceil.to_int
+  fn pub mut calculate_flow(flow: Int, maximum: Int) -> Int {
+    if flow == 0 { return 0 }
+
+    min(
+      min(
+        (max(flow, @minimum_flow).to_float * @flow_correction).ceil.to_int,
+        @maximum_flow
+      ),
+      maximum
+    )
   }
 }
 
@@ -382,7 +398,7 @@ class pub async State {
 
     let mut total = @rooms.iter_mut.reduce(0) fn (sum, entry) {
       let room = entry.value
-      let mut base = if humid {
+      let base = if humid {
         match room.status {
           case Default -> 0
           case Humid -> room.maximum_flow
@@ -391,21 +407,16 @@ class pub async State {
       } else {
         match room.status {
           case Default -> room.default_flow
-          case Active(val) -> val
+          # When transitioning from the default to active state, we don't want
+          # to actually reduce the speed if the default speed is greater than
+          # the active speed.
+          case Active(val) -> max(val, room.default_flow)
           case Maximum or Button(_) or Humid -> room.maximum_flow
         }
       }
 
-      base = min(max(base, room.minimum_flow), room.maximum_flow)
-
-      room.current_flow = min(
-        min(
-          (base.to_float * room.flow_correction).ceil.to_int,
-          room.maximum_flow
-        ),
-        @maximum_flow
-      )
-
+      room.base_flow = base
+      room.current_flow = room.calculate_flow(base, @maximum_flow)
       sum + room.current_flow
     }
 
@@ -431,7 +442,7 @@ class pub async State {
         .ceil
         .to_int
 
-    rooms.into_iter.each fn (room) { room.reduce_flow(reduce) }
+    rooms.into_iter.each fn (room) { room.reduce_flow(reduce, @maximum_flow) }
   }
 
   fn flow_percentage(flow: Int) -> Int {

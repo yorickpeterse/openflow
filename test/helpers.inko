@@ -96,7 +96,7 @@ fn pub state(driver: uni TestDriver) -> State {
     RoomConfig {
       @name = 'office',
       @exhaust = 11,
-      @default_flow = 10,
+      @default_flow = 20,
       @minimum_flow = 10,
       @maximum_flow = 80,
       @flow_correction = 1.1,
