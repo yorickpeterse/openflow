@@ -95,8 +95,10 @@ class pub Sensor {
   }
 
   fn reduce?(after: ref Duration) -> Bool {
-    @last_status_change.elapsed >= after
-      and @last_change_co2 - @co2.value >= MIN_CO2_REDUCTION
+    if @last_status_change.elapsed < after { return false }
+    if @last_change_co2 <= LOWER { return true }
+
+    @last_change_co2 - @co2.value >= MIN_CO2_REDUCTION
   }
 }
 
