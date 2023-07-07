@@ -8,45 +8,8 @@ import std::cmp::(max)
 import std::process::(sleep)
 import std::time::(Duration, Instant)
 
-# The target CO2 level.
-#
-# We're targeting this level as higher values can lead to a sleepy and stuffy
-# feeling.
-let TARGET = 800
-
-# The CO2 value at which active ventilation is enabled.
-let LOWER = TARGET - 200
-
-# The CO2 value at which active ventilation needs to be increased more than
-# usual.
-let MID = TARGET - 100
-
-# The CO2 value at which to activate maximum ventilation.
-let UPPER = TARGET + 100
-
-# The minimum speed in m3/h to apply in response to CO2 levels.
-let MIN_SPEED = 20
-
-# The speed increase in m3/h per CO2 bucket.
-let SPEED_PER_BUCKET = 10
-
-# The extra speed to add per bucket when CO2 levels are getting closer to the
-# target value.
-let EXTRA_PER_BUCKET = 5
-
 # How many samples we should gather before updating the CO2 levels.
 let pub SAMPLES = 20
-
-# The minimum CO2 reduction desired before lowering the ventilation speed.
-#
-# Reductions of e.g. 50 ppm aren't significant enough to warrant reducing
-# ventilation speeds, so we maintain the speed (even after reaching the
-# ventilation timeout) until we've reduced the CO2 levels enough.
-#
-# This in turn prevents us from reducing the speed due to a brief reduction in
-# CO2 levels after the timeout, only to increase the speed again a few moments
-# later.
-let MIN_CO2_REDUCTION = 100
 
 # The state of a single CO2 sensor.
 class pub Sensor {
@@ -95,10 +58,13 @@ class pub Sensor {
   }
 
   fn reduce?(after: ref Duration) -> Bool {
-    if @last_status_change.elapsed < after { return false }
-    if @last_change_co2 <= LOWER { return true }
+    # If we reduce levels this much, we can safely reduce ventilation speeds
+    # right away. This won't reduce speeds too quickly, as we only periodically
+    # reach this point.
+    if @last_change_co2 - @co2.value >= 200 or @co2.value <= 600 { return true }
 
-    @last_change_co2 - @co2.value >= MIN_CO2_REDUCTION
+    @last_status_change.elapsed >= after
+      and @last_change_co2 - @co2.value >= 100
   }
 }
 
@@ -130,7 +96,7 @@ class pub async Input {
       @metrics = metrics,
       @sensors = recover [],
       @sample_interval = recover Duration.from_secs(30),
-      @reduce_wait_time = recover Duration.from_secs(1800),
+      @reduce_wait_time = recover Duration.from_secs(3600),
     }
   }
 
@@ -156,17 +122,18 @@ class pub async Input {
       let old = sensor.value
       let new = sensor.update_co2
       let status = recover {
-        if new >= UPPER {
+        if new >= 900 {
           Status.Maximum
-        } else if new >= LOWER {
-          # When CO2 levels are getting close to the target value, we start
-          # increasing the speed a bit more than usual, in an attempt to prevent
-          # CO2 from reaching the target value.
-          let mut speed = MIN_SPEED
-            + (new - LOWER / SIZE * SPEED_PER_BUCKET)
-            + max(0, new - MID / SIZE * EXTRA_PER_BUCKET)
-
-          Status.Active(speed)
+        } else if new >= 850 {
+          Status.Active(75)
+        } else if new >= 800 {
+          Status.Active(70)
+        } else if new >= 750 {
+          Status.Active(55)
+        } else if new >= 700 {
+          Status.Active(40)
+        } else if new >= 650 {
+          Status.Active(20)
         } else {
           Status.Default
         }

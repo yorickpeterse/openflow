@@ -181,9 +181,6 @@ class pub Room {
   # The maximum air flow in m3/hour, without the flow correction.
   let @maximum_flow: Int
 
-  # The air flow in m3/hour, without the flow correction applied.
-  let @base_flow: Int
-
   # The air flow in m3/hour, with the flow correction applied
   let @current_flow: Int
 
@@ -203,7 +200,6 @@ class pub Room {
       @default_flow = def,
       @minimum_flow = min,
       @maximum_flow = max,
-      @base_flow = 0,
       @current_flow = 0,
       @last_update = Instant.new,
     }
@@ -219,26 +215,32 @@ class pub Room {
   }
 
   fn pub mut reduce_flow(by: Int, maximum: Int) {
-    let reduced = max(@base_flow - by, 0)
+    let reduced = max(@current_flow - by, 0)
 
-    # Ventilation speeds below 5 m3/h are more or less useless. Turning off
+    # Ventilation speeds below 10 m3/h are more or less useless. Turning off
     # ventilation in this case can help keep the speed at a minimum.
+    #
+    # We don't apply flow correction to the reduced speed, because we're already
+    # subtracting from a corrected air flow.
     @current_flow = max(
-      if reduced >= 5 { calculate_flow(reduced, maximum) } else { 0 },
-      @minimum_flow
+      if reduced >= 10 { reduced } else { 0 },
+      correct(@minimum_flow)
     )
   }
 
-  fn pub mut calculate_flow(flow: Int, maximum: Int) -> Int {
-    if flow == 0 { return 0 }
+  fn pub mut update_flow(flow: Int, maximum: Int) {
+    if flow == 0 {
+      @current_flow = correct(min(@minimum_flow, maximum))
+      return
+    }
 
-    min(
-      min(
-        (max(flow, @minimum_flow).to_float * @flow_correction).ceil.to_int,
-        @maximum_flow
-      ),
-      maximum
+    @current_flow = correct(
+      min(min(max(flow, @minimum_flow), @maximum_flow), maximum)
     )
+  }
+
+  fn correct(flow: Int) -> Int {
+    (flow.to_float * @flow_correction).ceil.to_int
   }
 }
 
@@ -415,8 +417,7 @@ class pub async State {
         }
       }
 
-      room.base_flow = base
-      room.current_flow = room.calculate_flow(base, @maximum_flow)
+      room.update_flow(base, @maximum_flow)
       sum + room.current_flow
     }
 

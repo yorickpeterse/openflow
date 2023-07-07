@@ -124,7 +124,7 @@ fn pub tests(t: mut Tests) {
     t.equal(snap.speed, 23)
     t.equal(living.status, Status.Button(Status.Default))
     t.equal(living.flow, 70)
-    t.equal(living.exhaust, 3500)
+    t.equal(living.exhaust, 3400)
   }
 
   t.test('State.apply with a Humid status room') fn (t) {
@@ -172,7 +172,7 @@ fn pub tests(t: mut Tests) {
     }
 
     state.apply(Waiter.new)
-    t.equal(Snapshot.of(state).rooms.get('office').flow, 80)
+    t.equal(Snapshot.of(state).rooms.get('office').flow, 88)
   }
 
   t.test('State.apply with a total flow exceeding the maximum flow') fn (t) {
@@ -194,7 +194,7 @@ fn pub tests(t: mut Tests) {
     t.equal(fast.flow, 350)
     t.equal(fast.exhaust, 4000)
     t.equal(office.status, Status.Default)
-    t.equal(office.flow, 10)
-    t.equal(office.exhaust, 100)
+    t.equal(office.flow, 11)
+    t.equal(office.exhaust, 200)
   }
 }
