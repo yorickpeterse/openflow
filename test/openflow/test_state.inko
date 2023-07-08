@@ -1,4 +1,5 @@
-import helpers::(Snapshot, allow_api_calls, state)
+import helpers::(Snapshot, allow_api_calls, state, state_with_rooms)
+import openflow::config::(Room as RoomConfig)
 import openflow::http::(Response, TestDriver)
 import openflow::state::(State, Status)
 import openflow::sync::Waiter
@@ -119,12 +120,18 @@ fn pub tests(t: mut Tests) {
     state.apply(Waiter.new)
 
     let snap = Snapshot.of(state)
+    let office = snap.rooms.get('office')
     let living = snap.rooms.get('living_room')
+    let bath = snap.rooms.get('bathroom')
 
     t.equal(snap.speed, 23)
     t.equal(living.status, Status.Button(Status.Default))
     t.equal(living.flow, 70)
-    t.equal(living.exhaust, 3400)
+    t.equal(living.exhaust, 3500)
+    t.equal(bath.flow, 0)
+    t.equal(bath.exhaust, 0)
+    t.equal(office.flow, 11)
+    t.equal(office.exhaust, 600)
   }
 
   t.test('State.apply with a Humid status room') fn (t) {
@@ -160,7 +167,7 @@ fn pub tests(t: mut Tests) {
     }
 
     state.apply(Waiter.new)
-    t.equal(Snapshot.of(state).rooms.get('office').flow, 22)
+    t.equal(Snapshot.of(state).rooms.get('office').flow, 11)
   }
 
   t.test('State.apply with a room exceeding its maximum flow') fn (t) {
@@ -196,5 +203,109 @@ fn pub tests(t: mut Tests) {
     t.equal(office.status, Status.Default)
     t.equal(office.flow, 11)
     t.equal(office.exhaust, 200)
+  }
+
+  # This test is based on a bug I ran into at home, which requires a
+  # configuration different from the default test configuration to manifest
+  # itself..
+  t.test('State.apply with excessive, default and active ventilation') fn (t) {
+    let state = state_with_rooms(
+      allow_api_calls,
+      [
+        RoomConfig {
+          @name = 'living_room',
+          @exhaust = 10,
+          @default_flow = 40,
+          @minimum_flow = 0,
+          @maximum_flow = 70,
+          @flow_correction = 1.05,
+          @motion = Option.None,
+          @humidity = Option.None,
+          @co2 = Option.None,
+        },
+        RoomConfig {
+          @name = 'kitchen',
+          @exhaust = 11,
+          @default_flow = 0,
+          @minimum_flow = 0,
+          @maximum_flow = 80,
+          @flow_correction = 1.05,
+          @motion = Option.None,
+          @humidity = Option.None,
+          @co2 = Option.None,
+        },
+        RoomConfig {
+          @name = 'office',
+          @exhaust = 15,
+          @default_flow = 20,
+          @minimum_flow = 0,
+          @maximum_flow = 80,
+          @flow_correction = 1.0,
+          @motion = Option.None,
+          @humidity = Option.None,
+          @co2 = Option.None,
+        },
+        RoomConfig {
+          @name = 'bedroom',
+          @exhaust = 15,
+          @default_flow = 15,
+          @minimum_flow = 0,
+          @maximum_flow = 80,
+          @flow_correction = 1.05,
+          @motion = Option.None,
+          @humidity = Option.None,
+          @co2 = Option.None,
+        },
+        RoomConfig {
+          @name = 'bathroom',
+          @exhaust = 15,
+          @default_flow = 0,
+          @minimum_flow = 10,
+          @maximum_flow = 120,
+          @flow_correction = 1.10,
+          @motion = Option.None,
+          @humidity = Option.None,
+          @co2 = Option.None,
+        },
+      ]
+    )
+
+    state.update fn (rooms) {
+      rooms.get_mut('living_room').update(Status.Default)
+      rooms.get_mut('kitchen').update(Status.Default)
+      rooms.get_mut('bathroom').update(Status.Default)
+      rooms.get_mut('office').update(Status.Active(60))
+      rooms.get_mut('bedroom').update(Status.Active(20))
+      false
+    }
+
+    state.apply(Waiter.new)
+
+    let snap = Snapshot.of(state)
+    let living = snap.rooms.get('living_room')
+    let kitchen = snap.rooms.get('kitchen')
+    let bath = snap.rooms.get('bathroom')
+    let office = snap.rooms.get('office')
+    let bed = snap.rooms.get('bedroom')
+
+    t.equal(snap.speed, 26)
+    t.equal(living.flow, 0)
+    t.equal(kitchen.flow, 0)
+    t.equal(bath.flow, 11)
+    t.equal(office.flow, 60)
+    t.equal(bed.flow, 21)
+  }
+
+  t.test('State.apply with remaining ventilation') fn (t) {
+    let state = state(allow_api_calls)
+
+    state.apply(Waiter.new)
+
+    let snap = Snapshot.of(state)
+    let office = snap.rooms.get('office')
+    let bath = snap.rooms.get('bathroom')
+
+    t.equal(office.flow, 22)
+    t.equal(bath.flow, 10)
   }
 }

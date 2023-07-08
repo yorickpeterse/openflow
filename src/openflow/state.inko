@@ -181,6 +181,9 @@ class pub Room {
   # The maximum air flow in m3/hour, without the flow correction.
   let @maximum_flow: Int
 
+  # The air flow in m3/hour, without the flow correction applied
+  let @base_flow: Int
+
   # The air flow in m3/hour, with the flow correction applied
   let @current_flow: Int
 
@@ -200,6 +203,7 @@ class pub Room {
       @default_flow = def,
       @minimum_flow = min,
       @maximum_flow = max,
+      @base_flow = 0,
       @current_flow = 0,
       @last_update = Instant.new,
     }
@@ -214,29 +218,15 @@ class pub Room {
     @last_update = Instant.new
   }
 
-  fn pub mut reduce_flow(by: Int, maximum: Int) {
-    let reduced = max(@current_flow - by, 0)
-
-    # Ventilation speeds below 10 m3/h are more or less useless. Turning off
-    # ventilation in this case can help keep the speed at a minimum.
-    #
-    # We don't apply flow correction to the reduced speed, because we're already
-    # subtracting from a corrected air flow.
-    @current_flow = max(
-      if reduced >= 10 { reduced } else { 0 },
-      correct(@minimum_flow)
-    )
-  }
-
   fn pub mut update_flow(flow: Int, maximum: Int) {
     if flow == 0 {
-      @current_flow = correct(min(@minimum_flow, maximum))
+      @base_flow = min(@minimum_flow, maximum)
+      @current_flow = correct(@base_flow)
       return
     }
 
-    @current_flow = correct(
-      min(min(max(flow, @minimum_flow), @maximum_flow), maximum)
-    )
+    @base_flow = min(min(max(flow, @minimum_flow), @maximum_flow), maximum)
+    @current_flow = correct(@base_flow)
   }
 
   fn correct(flow: Int) -> Int {
@@ -252,9 +242,6 @@ class pub async State {
 
   # The maximum global air flow.
   let @maximum_flow: Int
-
-  # The target air flow in m3/hour we try to stay under.
-  let @target_flow: Int
 
   # The ID of the setting that controls the ventilation speed.
   let @speed_id: Int
@@ -284,7 +271,6 @@ class pub async State {
     State {
       @itho = itho,
       @metrics = metrics,
-      @target_flow = (min.to_float * 1.1).to_int,
       @minimum_flow = min,
       @maximum_flow = config.maximum_flow,
       @speed_id = config.speed_id,
@@ -408,11 +394,8 @@ class pub async State {
         }
       } else {
         match room.status {
-          case Default -> room.default_flow
-          # When transitioning from the default to active state, we don't want
-          # to actually reduce the speed if the default speed is greater than
-          # the active speed.
-          case Active(val) -> max(val, room.default_flow)
+          case Default -> 0
+          case Active(val) -> val
           case Maximum or Button(_) or Humid -> room.maximum_flow
         }
       }
@@ -421,29 +404,30 @@ class pub async State {
       sum + room.current_flow
     }
 
-    if total <= @target_flow or humid { return total }
+    if total >= @minimum_flow { return total }
 
-    reduce_default_ventilation(total)
+    assign_default_flow(total)
     @rooms.values.reduce(0) fn (sum, room) { sum + room.current_flow }
   }
 
-  fn mut reduce_default_ventilation(total: Int) {
-    let rooms = @rooms
-      .iter_mut
-      .select_map fn (e) {
-        match e.value.status {
-          case Default if e.value.current_flow > 0 -> Option.Some(e.value)
-          case _ -> Option.None
-        }
+  fn mut assign_default_flow(total: Int) {
+    let mut extra = @minimum_flow - total
+
+    @rooms.iter_mut.each fn move (e) {
+      let room = match e.value.status {
+        case Default if e.value.default_flow > 0 -> e.value
+        case _ -> return
       }
-      .to_array
 
-    let reduce =
-      (total.to_float - @target_flow.to_float / rooms.length.to_float)
-        .ceil
-        .to_int
+      # Ventilation speeds less than 10 m3 (give or take) don't really do much,
+      # so we avoid enabling ventilation for a room in such a case.
+      if extra == 0 or (room.current_flow == 0 and extra < 10) { return }
 
-    rooms.into_iter.each fn (room) { room.reduce_flow(reduce, @maximum_flow) }
+      let add = max(min(room.default_flow - room.minimum_flow, extra), 0)
+
+      extra -= add
+      room.update_flow(room.base_flow + add, @maximum_flow)
+    }
   }
 
   fn flow_percentage(flow: Int) -> Int {

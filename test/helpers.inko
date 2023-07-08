@@ -68,20 +68,7 @@ impl State {
 }
 
 fn pub state(driver: uni TestDriver) -> State {
-  let itho = recover Itho.new(Client.with_driver(driver))
-  let logger = Logger.new(recover NullWriter {})
-  let config = IthoConfig {
-    @ip = IpAddress.v4(0, 0, 0, 0),
-    @minimum_flow = 75,
-    @maximum_flow = 350,
-    @speed_id = 124,
-    @manual_id = 111,
-  }
-
-  let metrics = recover Metrics.new(IpAddress.v4(0, 0, 0, 0), port: 0)
-  let state = State.new(itho, logger, metrics, config)
-
-  [
+  let rooms = [
     RoomConfig {
       @name = 'living_room',
       @exhaust = 10,
@@ -118,7 +105,7 @@ fn pub state(driver: uni TestDriver) -> State {
     RoomConfig {
       @name = 'bathroom',
       @exhaust = 15,
-      @default_flow = 0,
+      @default_flow = 10,
       @minimum_flow = 0,
       @maximum_flow = 120,
       @flow_correction = 1.0,
@@ -127,9 +114,25 @@ fn pub state(driver: uni TestDriver) -> State {
       @co2 = Option.None,
     },
   ]
-    .into_iter
-    .each fn (conf) { state.add_room(Room.new(conf.name, conf)) }
 
+  state_with_rooms(driver, rooms)
+}
+
+fn pub state_with_rooms(driver: uni TestDriver, rooms: Array[RoomConfig]) -> State {
+  let itho = recover Itho.new(Client.with_driver(driver))
+  let logger = Logger.new(recover NullWriter {})
+  let config = IthoConfig {
+    @ip = IpAddress.v4(0, 0, 0, 0),
+    @minimum_flow = 75,
+    @maximum_flow = 350,
+    @speed_id = 124,
+    @manual_id = 111,
+  }
+
+  let metrics = recover Metrics.new(IpAddress.v4(0, 0, 0, 0), port: 0)
+  let state = State.new(itho, logger, metrics, config)
+
+  rooms.into_iter.each fn (conf) { state.add_room(Room.new(conf.name, conf)) }
   state
 }
 
