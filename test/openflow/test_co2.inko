@@ -26,12 +26,12 @@ fn pub tests(t: mut Tests) {
     co2.add(720)
     co2.add(720)
     co2.update
-    t.equal(co2.value, 700)
+    t.equal(co2.value, 725)
 
     co2.add(735)
     co2.add(735)
     co2.update
-    t.equal(co2.value, 750)
+    t.equal(co2.value, 725)
 
     co2.add(760)
     co2.add(760)
@@ -41,12 +41,12 @@ fn pub tests(t: mut Tests) {
     co2.add(775)
     co2.add(775)
     co2.update
-    t.equal(co2.value, 750)
+    t.equal(co2.value, 775)
 
     co2.add(785)
     co2.add(785)
     co2.update
-    t.equal(co2.value, 800)
+    t.equal(co2.value, 775)
 
     co2.add(740)
     co2.add(740)
@@ -60,13 +60,13 @@ fn pub tests(t: mut Tests) {
     co2.add(710)
     co2.add(780)
     co2.update
-    t.equal(co2.value, 750)
+    t.equal(co2.value, 725)
 
     co2.add(750)
     co2.add(803)
     co2.add(810)
     co2.update
-    t.equal(co2.value, 800)
+    t.equal(co2.value, 775)
 
     co2.add(1250)
     co2.add(1500)
@@ -95,7 +95,7 @@ fn pub tests(t: mut Tests) {
     co2.add(1200)
     co2.add(1200)
     co2.update
-    t.equal(co2.value, 800)
+    t.equal(co2.value, 825)
   }
 
   t.test('Co2.update with a short increase in CO2') fn (t) {
@@ -128,6 +128,6 @@ fn pub tests(t: mut Tests) {
     co2.add(900)
 
     co2.update
-    t.equal(co2.value, 750)
+    t.equal(co2.value, 725)
   }
 }

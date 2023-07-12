@@ -281,4 +281,26 @@ fn pub tests(t: mut Tests) {
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(40))
   }
+
+  t.test('Adjusting ventilation for CO2 that goes up and down') fn (t) {
+    let state = state(allow_api_calls)
+    let samples = recover [
+      # The first update.
+      800, 800, 800, 800, 800, 800, 800, 800, 800, 800,
+      800, 800, 800, 800, 800, 800, 800, 800, 800, 800,
+
+      # The second update.
+      700, 700, 700, 700, 700, 700, 700, 700, 700, 700,
+      700, 700, 700, 700, 700, 700, 700, 700, 700, 700,
+    ]
+
+    let input = input(state, samples: samples)
+
+    run(input)
+    input.reset_reduce_wait_time
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(70))
+
+    run(input)
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(55))
+  }
 }

@@ -11,6 +11,24 @@ import std::time::(Duration, Instant)
 # How many samples we should gather before updating the CO2 levels.
 let pub SAMPLES = 20
 
+fn co2_status(co2: Int) -> Status {
+  if co2 >= 900 {
+    Status.Maximum
+  } else if co2 >= 850 {
+    Status.Active(75)
+  } else if co2 >= 800 {
+    Status.Active(70)
+  } else if co2 >= 750 {
+    Status.Active(55)
+  } else if co2 >= 700 {
+    Status.Active(40)
+  } else if co2 >= 650 {
+    Status.Active(20)
+  } else {
+    Status.Default
+  }
+}
+
 # The state of a single CO2 sensor.
 class pub Sensor {
   let @name: String
@@ -121,22 +139,19 @@ class pub async Input {
     let updates = @sensors.iter_mut.reduce(recover Map.new) fn (map, sensor) {
       let old = sensor.value
       let new = sensor.update_co2
-      let status = recover {
-        if new >= 900 {
-          Status.Maximum
-        } else if new >= 850 {
-          Status.Active(75)
-        } else if new >= 800 {
-          Status.Active(70)
-        } else if new >= 750 {
-          Status.Active(55)
-        } else if new >= 700 {
-          Status.Active(40)
-        } else if new >= 650 {
-          Status.Active(20)
-        } else {
-          Status.Default
-        }
+
+      # A common pattern I'm seeing is CO2 bouncing between 800 and 700 ppm when
+      # there are two people in a large room (e.g. a living room). The pattern
+      # is almost always the same: CO2 goes to 800, is reduced to 700 (resulting
+      # in a speed reduction), then increases to 750, and back to 800.
+      #
+      # This doesn't happen when CO2 is higher, as that's usually the case only
+      # for smaller rooms, and when it's below 700 it doesn't really matter. As
+      # such we handle this specific scenario by setting the speed in between.
+      let status = if old == 800 and new == 700 {
+        recover co2_status(750)
+      } else {
+        recover co2_status(new)
       }
 
       if status >= sensor.status or sensor.reduce?(@reduce_wait_time) {
