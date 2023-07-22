@@ -92,15 +92,25 @@ fn pub tests(t: mut Tests) {
       (850, Status.Active(75)),
       (875, Status.Active(75)),
       (900, Status.Maximum),
+      (850, Status.Maximum),
+      (800, Status.Active(70)),
+      (750, Status.Active(70)),
+      (700, Status.Active(40)),
+      (650, Status.Active(40)),
+      (600, Status.Default),
     ]
 
-    tests.into_iter.each fn (tup) {
-      let state = state(allow_api_calls)
-      let input = input(
-        state,
-        samples: recover Array.filled(with: tup.0, times: SAMPLES),
-      )
+    let samples = tests.iter.reduce(recover []) fn (samples, tup) {
+      samples.append(recover Array.filled(with: tup.0, times: SAMPLES))
+      samples
+    }
 
+    let state = state(allow_api_calls)
+    let input = input(state, samples,)
+
+    input.reset_reduce_wait_time
+
+    tests.into_iter.each fn (tup) {
       run(input)
       t.equal(Snapshot.of(state).rooms.get('office').status, tup.1)
     }
@@ -271,6 +281,10 @@ fn pub tests(t: mut Tests) {
       # The second update.
       700, 700, 700, 700, 700, 700, 700, 700, 700, 700,
       700, 700, 700, 700, 700, 700, 700, 700, 700, 700,
+
+      # The third update.
+      500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+      500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
     ]
 
     let input = input(state, samples: samples)
@@ -280,27 +294,8 @@ fn pub tests(t: mut Tests) {
 
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(40))
-  }
-
-  t.test('Adjusting ventilation for CO2 that goes up and down') fn (t) {
-    let state = state(allow_api_calls)
-    let samples = recover [
-      # The first update.
-      800, 800, 800, 800, 800, 800, 800, 800, 800, 800,
-      800, 800, 800, 800, 800, 800, 800, 800, 800, 800,
-
-      # The second update.
-      700, 700, 700, 700, 700, 700, 700, 700, 700, 700,
-      700, 700, 700, 700, 700, 700, 700, 700, 700, 700,
-    ]
-
-    let input = input(state, samples: samples)
 
     run(input)
-    input.reset_reduce_wait_time
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(70))
-
-    run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(55))
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
   }
 }
