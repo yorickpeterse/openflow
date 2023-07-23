@@ -70,8 +70,11 @@ class pub Sensor {
     # reach this point.
     if @last_change_co2 - @co2.value >= 200 or @co2.value <= 600 { return true }
 
+    # After the timeout, if we're below 700 ppm we just reduce anyway,
+    # regardless of the previous value. This way if we go from e.g. 750 to 675,
+    # we don't keep running at the 750 ppm speed for way too long.
     @last_status_change.elapsed >= after
-      and @last_change_co2 - @co2.value >= 100
+      and (@last_change_co2 - @co2.value >= 100 or @co2.value < 700)
   }
 }
 

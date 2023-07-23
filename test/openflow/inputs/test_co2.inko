@@ -96,7 +96,7 @@ fn pub tests(t: mut Tests) {
       (800, Status.Active(70)),
       (750, Status.Active(70)),
       (700, Status.Active(40)),
-      (650, Status.Active(40)),
+      (650, Status.Active(20)),
       (600, Status.Default),
     ]
 
@@ -297,5 +297,27 @@ fn pub tests(t: mut Tests) {
 
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+  }
+
+  t.test('Reducing ventilation immediately when reducing CO2 is below 700') fn (t) {
+    let state = state(allow_api_calls)
+    let samples = recover [
+      # Update 1
+      750, 750, 750, 750, 750, 750, 750, 750, 750, 750,
+      750, 750, 750, 750, 750, 750, 750, 750, 750, 750,
+
+      # Update 2
+      675, 675, 675, 675, 675, 675, 675, 675, 675, 675,
+      675, 675, 675, 675, 675, 675, 675, 675, 675, 675,
+    ]
+
+    let input = input(state, samples: samples)
+
+    run(input)
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(55))
+
+    input.reset_reduce_wait_time
+    run(input)
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(20))
   }
 }
