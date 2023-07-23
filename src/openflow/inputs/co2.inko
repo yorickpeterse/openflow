@@ -8,8 +8,15 @@ import std::cmp::(max)
 import std::process::(sleep)
 import std::time::(Duration, Instant)
 
+# The interval (in seconds) at which to sample the CO2 sensors.
+let SAMPLE_INTERVAL = 30
+
+# The interval (in seconds) at which to calculate a new CO2 value based on the
+# gathered samples.
+let UPDATE_INTERVAL = 600
+
 # How many samples we should gather before updating the CO2 levels.
-let pub SAMPLES = 20
+let pub SAMPLES = UPDATE_INTERVAL / SAMPLE_INTERVAL
 
 # The state of a single CO2 sensor.
 class pub Sensor {
@@ -95,7 +102,7 @@ class pub async Input {
       @logger = logger,
       @metrics = metrics,
       @sensors = recover [],
-      @sample_interval = recover Duration.from_secs(30),
+      @sample_interval = recover Duration.from_secs(SAMPLE_INTERVAL),
       @reduce_wait_time = recover Duration.from_secs(1800),
     }
   }
