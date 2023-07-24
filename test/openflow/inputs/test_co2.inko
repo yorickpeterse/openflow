@@ -82,8 +82,8 @@ fn pub tests(t: mut Tests) {
       (500, Status.Default),
       (600, Status.Default),
       (625, Status.Default),
-      (650, Status.Active(20)),
-      (675, Status.Active(20)),
+      (650, Status.Active(30)),
+      (675, Status.Active(30)),
       (700, Status.Active(40)),
       (725, Status.Active(40)),
       (750, Status.Active(55)),
@@ -96,7 +96,7 @@ fn pub tests(t: mut Tests) {
       (800, Status.Active(70)),
       (750, Status.Active(70)),
       (700, Status.Active(40)),
-      (650, Status.Active(20)),
+      (650, Status.Active(30)),
       (600, Status.Default),
     ]
 
@@ -244,7 +244,7 @@ fn pub tests(t: mut Tests) {
     input.reset_reduce_wait_time
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(20))
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(30))
 
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
@@ -265,7 +265,7 @@ fn pub tests(t: mut Tests) {
     let input = input(state, samples: samples)
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(20))
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(30))
 
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
@@ -318,6 +318,6 @@ fn pub tests(t: mut Tests) {
 
     input.reset_reduce_wait_time
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(20))
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(30))
   }
 }

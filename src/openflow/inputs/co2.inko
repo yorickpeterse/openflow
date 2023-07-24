@@ -142,7 +142,7 @@ class pub async Input {
         } else if new >= 700 {
           Status.Active(40)
         } else if new >= 650 {
-          Status.Active(20)
+          Status.Active(30)
         } else {
           Status.Default
         }
