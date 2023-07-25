@@ -82,8 +82,8 @@ fn pub tests(t: mut Tests) {
       (500, Status.Default),
       (600, Status.Default),
       (625, Status.Default),
-      (650, Status.Active(30)),
-      (675, Status.Active(30)),
+      (650, Status.Default),
+      (675, Status.Default),
       (700, Status.Active(40)),
       (725, Status.Active(40)),
       (750, Status.Active(55)),
@@ -96,7 +96,8 @@ fn pub tests(t: mut Tests) {
       (800, Status.Active(70)),
       (750, Status.Active(70)),
       (700, Status.Active(40)),
-      (650, Status.Active(30)),
+      (650, Status.Active(40)),
+      (625, Status.Default),
       (600, Status.Default),
     ]
 
@@ -222,40 +223,12 @@ fn pub tests(t: mut Tests) {
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
   }
 
-  t.test('Maintaining ventilation when reducing CO2 from 650 to 600') fn (t) {
-    let state = state(allow_api_calls)
-    let samples = recover [
-      # The first update.
-      650, 650, 650, 650, 650, 650, 650, 650, 650, 650,
-      650, 650, 650, 650, 650, 650, 650, 650, 650, 650,
-
-      # The second update.
-      650, 650, 650, 650, 650, 650, 650, 650, 650, 650,
-      650, 650, 650, 650, 650, 650, 650, 650, 650, 650,
-
-      # The third update.
-      600, 600, 600, 600, 600, 600, 600, 600, 600, 600,
-      600, 600, 600, 600, 600, 600, 600, 600, 600, 600,
-    ]
-
-    let input = input(state, samples: samples)
-
-    run(input)
-    input.reset_reduce_wait_time
-
-    run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(30))
-
-    run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
-  }
-
   t.test('Reducing ventilation immediately when reducing CO2 to 600') fn (t) {
     let state = state(allow_api_calls)
     let samples = recover [
       # The first update.
-      650, 650, 650, 650, 650, 650, 650, 650, 650, 650,
-      650, 650, 650, 650, 650, 650, 650, 650, 650, 650,
+      700, 700, 700, 700, 700, 700, 700, 700, 700, 700,
+      700, 700, 700, 700, 700, 700, 700, 700, 700, 700,
 
       # The second update.
       600, 600, 600, 600, 600, 600, 600, 600, 600, 600,
@@ -265,7 +238,7 @@ fn pub tests(t: mut Tests) {
     let input = input(state, samples: samples)
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(30))
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(40))
 
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
@@ -318,6 +291,6 @@ fn pub tests(t: mut Tests) {
 
     input.reset_reduce_wait_time
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(30))
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(40))
   }
 }
