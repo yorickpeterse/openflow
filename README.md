@@ -24,7 +24,7 @@ exhaust speeds than should be necessary, and thus more noise.
 
 Enter "OpenFlow": a program written in [Inko](https://inko-lang.org/) that takes
 over control of the DF/QF system in an attempt to work around these issues.
-Instead of using a single CO2 sensor, it uses [MoreSenso CO2
+Instead of using a single CO2 sensor, it uses [MoreSense CO2
 sensors](https://moresense-nl.com/MoreSense-MS-02/index.php/) for each room, and
 [Philips Hue motion
 sensors](https://www.philips-hue.com/en-us/p/hue-motion-sensor/046677570972) for
