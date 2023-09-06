@@ -1,5 +1,5 @@
 import helpers::(Snapshot, allow_api_calls, state, state_with_rooms)
-import openflow::config::(Room as RoomConfig)
+import openflow::config::(Flow, Room as RoomConfig)
 import openflow::http::(Response, TestDriver)
 import openflow::state::(State, Status)
 import openflow::sync::Waiter
@@ -8,17 +8,19 @@ import std::test::Tests
 fn pub tests(t: mut Tests) {
   t.test('Status.cmp') fn (t) {
     t.true(Status.Default == Status.Default)
-    t.true(Status.Default < Status.Active(10))
-    t.true(Status.Active(10) == Status.Active(10))
-    t.true(Status.Active(10) < Status.Active(20))
-    t.true(Status.Active(50) > Status.Active(20))
-    t.true(Status.Active(10) < Status.Button(Status.Default))
+    t.true(Status.Default < Status.Low)
+    t.true(Status.Low == Status.Low)
+    t.true(Status.Low < Status.Medium)
+    t.true(Status.Medium > Status.Low)
+    t.true(Status.Low < Status.Button(Status.Default))
     t.true(Status.Button(Status.Default) == Status.Button(Status.Default))
     t.true(Status.Button(Status.Default) < Status.Maximum)
+    t.true(Status.Button(Status.Default) > Status.High)
     t.true(Status.Maximum == Status.Maximum)
     t.true(Status.Maximum < Status.Humid)
+    t.true(Status.Maximum > Status.High)
     t.true(Status.Humid == Status.Humid)
-    t.true(Status.Humid > Status.Active(100))
+    t.true(Status.Humid > Status.High)
   }
 
   t.test('State.prepare when manual control is disabled') fn (t) {
@@ -66,35 +68,35 @@ fn pub tests(t: mut Tests) {
     let state = state(recover TestDriver.new)
 
     state.update fn (rooms) {
-      rooms.get_mut('living_room').update(Status.Active(10))
+      rooms.get_mut('living_room').update(Status.Low)
       false
     }
 
     let snap = Snapshot.of(state)
     let living = snap.rooms.get('living_room')
 
-    t.equal(living.status, Status.Active(10))
+    t.equal(living.status, Status.Low)
   }
 
   t.test('State.update_with') fn (t) {
     let state = state(recover TestDriver.new)
 
     state.update_with(42) fn (rooms, _) {
-      rooms.get_mut('living_room').update(Status.Active(10))
+      rooms.get_mut('living_room').update(Status.Low)
       false
     }
 
     let snap = Snapshot.of(state)
     let living = snap.rooms.get('living_room')
 
-    t.equal(living.status, Status.Active(10))
+    t.equal(living.status, Status.Low)
   }
 
-  t.test('State.apply with an Active status room') fn (t) {
+  t.test('State.apply with an Low status room') fn (t) {
     let state = state(allow_api_calls)
 
     state.update fn (rooms) {
-      rooms.get_mut('living_room').update(Status.Active(20))
+      rooms.get_mut('living_room').update(Status.Low)
       false
     }
 
@@ -104,9 +106,9 @@ fn pub tests(t: mut Tests) {
     let living = snap.rooms.get('living_room')
 
     t.equal(snap.speed, 21)
-    t.equal(living.status, Status.Active(20))
-    t.equal(living.flow, 20)
-    t.equal(living.exhaust, 1100)
+    t.equal(living.status, Status.Low)
+    t.equal(living.flow, 40)
+    t.equal(living.exhaust, 2200)
   }
 
   t.test('State.apply with a Button status room') fn (t) {
@@ -138,7 +140,7 @@ fn pub tests(t: mut Tests) {
     let state = state(allow_api_calls)
 
     state.update fn (rooms) {
-      rooms.get_mut('office').update(Status.Active(40))
+      rooms.get_mut('office').update(Status.Low)
       rooms.get_mut('living_room').update(Status.Humid)
       false
     }
@@ -153,7 +155,7 @@ fn pub tests(t: mut Tests) {
     t.equal(living.status, Status.Humid)
     t.equal(living.flow, 70)
     t.equal(living.exhaust, 3100)
-    t.equal(office.status, Status.Active(40))
+    t.equal(office.status, Status.Low)
     t.equal(office.flow, 22)
     t.equal(office.exhaust, 1000)
   }
@@ -162,7 +164,7 @@ fn pub tests(t: mut Tests) {
     let state = state(allow_api_calls)
 
     state.update fn (rooms) {
-      rooms.get_mut('office').update(Status.Active(5))
+      rooms.get_mut('office').update(Status.Low)
       false
     }
 
@@ -174,7 +176,7 @@ fn pub tests(t: mut Tests) {
     let state = state(allow_api_calls)
 
     state.update fn (rooms) {
-      rooms.get_mut('office').update(Status.Active(100))
+      rooms.get_mut('office').update(Status.High)
       false
     }
 
@@ -215,10 +217,16 @@ fn pub tests(t: mut Tests) {
         RoomConfig {
           @name = 'living_room',
           @exhaust = 10,
-          @default_flow = 40,
-          @minimum_flow = 0,
-          @maximum_flow = 70,
-          @flow_correction = 1.05,
+          @flow = Flow {
+            @correction = 1.05,
+            @minimum = 0,
+            @maximum = 70,
+            @default = 40,
+            @low = 40,
+            @medium = 50,
+            @medium_high = 65,
+            @high = 75,
+          },
           @motion = Option.None,
           @humidity = Option.None,
           @co2 = Option.None,
@@ -226,10 +234,16 @@ fn pub tests(t: mut Tests) {
         RoomConfig {
           @name = 'kitchen',
           @exhaust = 11,
-          @default_flow = 0,
-          @minimum_flow = 0,
-          @maximum_flow = 80,
-          @flow_correction = 1.05,
+          @flow = Flow {
+            @correction = 1.05,
+            @minimum = 0,
+            @maximum = 80,
+            @default = 0,
+            @low = 40,
+            @medium = 50,
+            @medium_high = 65,
+            @high = 75,
+          },
           @motion = Option.None,
           @humidity = Option.None,
           @co2 = Option.None,
@@ -237,10 +251,16 @@ fn pub tests(t: mut Tests) {
         RoomConfig {
           @name = 'office',
           @exhaust = 15,
-          @default_flow = 20,
-          @minimum_flow = 0,
-          @maximum_flow = 80,
-          @flow_correction = 1.0,
+          @flow = Flow {
+            @correction = 1.0,
+            @minimum = 0,
+            @maximum = 80,
+            @default = 20,
+            @low = 40,
+            @medium = 60,
+            @medium_high = 65,
+            @high = 75,
+          },
           @motion = Option.None,
           @humidity = Option.None,
           @co2 = Option.None,
@@ -248,10 +268,16 @@ fn pub tests(t: mut Tests) {
         RoomConfig {
           @name = 'bedroom',
           @exhaust = 15,
-          @default_flow = 15,
-          @minimum_flow = 0,
-          @maximum_flow = 80,
-          @flow_correction = 1.05,
+          @flow = Flow {
+            @correction = 1.05,
+            @minimum = 0,
+            @maximum = 80,
+            @default = 15,
+            @low = 20,
+            @medium = 50,
+            @medium_high = 65,
+            @high = 75,
+          },
           @motion = Option.None,
           @humidity = Option.None,
           @co2 = Option.None,
@@ -259,10 +285,16 @@ fn pub tests(t: mut Tests) {
         RoomConfig {
           @name = 'bathroom',
           @exhaust = 15,
-          @default_flow = 0,
-          @minimum_flow = 10,
-          @maximum_flow = 120,
-          @flow_correction = 1.10,
+          @flow = Flow {
+            @correction = 1.10,
+            @minimum = 10,
+            @maximum = 120,
+            @default = 0,
+            @low = 40,
+            @medium = 50,
+            @medium_high = 65,
+            @high = 75,
+          },
           @motion = Option.None,
           @humidity = Option.None,
           @co2 = Option.None,
@@ -274,8 +306,8 @@ fn pub tests(t: mut Tests) {
       rooms.get_mut('living_room').update(Status.Default)
       rooms.get_mut('kitchen').update(Status.Default)
       rooms.get_mut('bathroom').update(Status.Default)
-      rooms.get_mut('office').update(Status.Active(60))
-      rooms.get_mut('bedroom').update(Status.Active(20))
+      rooms.get_mut('office').update(Status.Medium)
+      rooms.get_mut('bedroom').update(Status.Low)
       false
     }
 

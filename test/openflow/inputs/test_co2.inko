@@ -84,19 +84,19 @@ fn pub tests(t: mut Tests) {
       (625, Status.Default),
       (650, Status.Default),
       (675, Status.Default),
-      (700, Status.Active(40)),
-      (725, Status.Active(40)),
-      (750, Status.Active(55)),
-      (800, Status.Active(70)),
-      (825, Status.Active(70)),
-      (850, Status.Active(75)),
-      (875, Status.Active(75)),
+      (700, Status.Low),
+      (725, Status.Low),
+      (750, Status.Medium),
+      (800, Status.MediumHigh),
+      (825, Status.MediumHigh),
+      (850, Status.High),
+      (875, Status.High),
       (900, Status.Maximum),
       (850, Status.Maximum),
-      (800, Status.Active(70)),
-      (750, Status.Active(70)),
-      (700, Status.Active(40)),
-      (650, Status.Active(40)),
+      (800, Status.MediumHigh),
+      (750, Status.MediumHigh),
+      (700, Status.Low),
+      (650, Status.Low),
       (625, Status.Default),
       (600, Status.Default),
     ]
@@ -193,7 +193,7 @@ fn pub tests(t: mut Tests) {
 
     run(input)
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(55))
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Medium)
 
     input.reset_reduce_wait_time
     run(input)
@@ -225,7 +225,7 @@ fn pub tests(t: mut Tests) {
     input.reset_reduce_wait_time
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(55))
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Medium)
 
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
@@ -248,7 +248,7 @@ fn pub tests(t: mut Tests) {
     let input = input(state, samples: samples)
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(40))
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
 
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
@@ -279,7 +279,7 @@ fn pub tests(t: mut Tests) {
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Maximum)
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(40))
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
 
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
@@ -302,10 +302,10 @@ fn pub tests(t: mut Tests) {
     let input = input(state, samples: samples)
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(55))
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Medium)
 
     input.reset_reduce_wait_time
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(40))
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
   }
 }

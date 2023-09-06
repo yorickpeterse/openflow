@@ -1,4 +1,4 @@
-import openflow::config::(Itho as IthoConfig, Room as RoomConfig)
+import openflow::config::(Flow, Itho as IthoConfig, Room as RoomConfig)
 import openflow::http::(Client, Response, Request, TestDriver)
 import openflow::itho::Itho
 import openflow::logger::Logger
@@ -72,10 +72,16 @@ fn pub state(driver: uni TestDriver) -> State {
     RoomConfig {
       @name = 'living_room',
       @exhaust = 10,
-      @default_flow = 0,
-      @minimum_flow = 0,
-      @maximum_flow = 70,
-      @flow_correction = 1.0,
+      @flow = Flow {
+        @correction = 1.0,
+        @minimum = 0,
+        @maximum = 70,
+        @default = 0,
+        @low = 40,
+        @medium = 50,
+        @medium_high = 65,
+        @high = 75,
+      },
       @motion = Option.None,
       @humidity = Option.None,
       @co2 = Option.None,
@@ -83,10 +89,16 @@ fn pub state(driver: uni TestDriver) -> State {
     RoomConfig {
       @name = 'office',
       @exhaust = 11,
-      @default_flow = 20,
-      @minimum_flow = 10,
-      @maximum_flow = 80,
-      @flow_correction = 1.1,
+      @flow = Flow {
+        @correction = 1.1,
+        @minimum = 10,
+        @maximum = 80,
+        @default = 20,
+        @low = 5,
+        @medium = 50,
+        @medium_high = 65,
+        @high = 90,
+      },
       @motion = Option.None,
       @humidity = Option.None,
       @co2 = Option.None,
@@ -94,10 +106,16 @@ fn pub state(driver: uni TestDriver) -> State {
     RoomConfig {
       @name = 'super_fast',
       @exhaust = 15,
-      @default_flow = 0,
-      @minimum_flow = 0,
-      @maximum_flow = 400,
-      @flow_correction = 1.0,
+      @flow = Flow {
+        @correction = 1.0,
+        @minimum = 0,
+        @maximum = 400,
+        @default = 0,
+        @low = 40,
+        @medium = 50,
+        @medium_high = 65,
+        @high = 75,
+      },
       @motion = Option.None,
       @humidity = Option.None,
       @co2 = Option.None,
@@ -105,10 +123,16 @@ fn pub state(driver: uni TestDriver) -> State {
     RoomConfig {
       @name = 'bathroom',
       @exhaust = 15,
-      @default_flow = 10,
-      @minimum_flow = 0,
-      @maximum_flow = 120,
-      @flow_correction = 1.0,
+      @flow = Flow {
+        @correction = 1.0,
+        @minimum = 0,
+        @maximum = 120,
+        @default = 10,
+        @low = 40,
+        @medium = 50,
+        @medium_high = 65,
+        @high = 75,
+      },
       @motion = Option.None,
       @humidity = Option.Some('RH bathroom 1'),
       @co2 = Option.None,

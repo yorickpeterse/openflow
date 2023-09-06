@@ -82,23 +82,8 @@ fn ip(
   throw "The key \"{key}\" must be a valid IP address"
 }
 
-# Configuration details for a single room.
-class pub Room {
-  # The unique name of the room.
-  let pub @name: String
-
-  # The setting ID of the exhaust for this room.
-  let pub @exhaust: Int
-
-  # The minimum air flow for active ventilation in m3/h.
-  let pub @minimum_flow: Int
-
-  # The default air flow in m3/h.
-  let pub @default_flow: Int
-
-  # The maximum air flow in m3/h.
-  let pub @maximum_flow: Int
-
+# Configuration details for the air flow of a room.
+class pub Flow {
   # The value to multiply the flow by to obtain the true air flow.
   #
   # Given a configured air flow of X m3/h, the actual air flow may end up lower
@@ -117,7 +102,64 @@ class pub Room {
   #    derive this value using the formula `1 + (1 - (flow / max))`, then round
   #    it up slightly (e.g. to the nearest multiple of 0.05) to account for
   #    measurement errors.
-  let pub @flow_correction: Float
+  let pub @correction: Float
+
+  # The minimum air flow for active ventilation in m3/h.
+  let pub @minimum: Int
+
+  # The maximum air flow in m3/h.
+  let pub @maximum: Int
+
+  # The default air flow in m3/h.
+  let pub @default: Int
+
+  # The air flow in m3/h for the "low" setting.
+  let pub @low: Int
+
+  # The air flow in m3/h for the "medium" setting.
+  let pub @medium: Int
+
+  # The air flow in m3/h for the "medium high" setting.
+  let pub @medium_high: Int
+
+  # The air flow in m3/h for the "high" setting.
+  let pub @high: Int
+
+  fn pub static from_json(
+    object: ref Map[String, Json]
+  ) -> Result[Flow, String] {
+    let correct = try float(object, 'correction')
+    let min = try int(object, 'minimum')
+    let max = try int(object, 'maximum')
+    let def = try int(object, 'default')
+    let low = try int(object, 'low')
+    let med = try int(object, 'medium')
+    let med_high = try int(object, 'medium_high')
+    let high = try int(object, 'high')
+
+    Result.Ok(Flow {
+      @correction = correct,
+      @minimum = min,
+      @maximum = max,
+      @default = def,
+      @low = low,
+      @medium = med,
+      @medium_high = med_high,
+      @high = high,
+    })
+  }
+}
+
+# Configuration details for a single room.
+class pub Room {
+  # The unique name of the room.
+  let pub @name: String
+
+  # The setting ID of the exhaust for this room.
+  let pub @exhaust: Int
+
+  # The air flow configuration for this room.
+  let pub @flow: Flow
 
   # The ID of the motion sensor associated with this room.
   let pub @motion: Option[Int]
@@ -133,21 +175,19 @@ class pub Room {
     object: ref Map[String, Json]
   ) -> Result[Room, String] {
     let exhaust = try int(object, 'exhaust')
-    let def_flow = int_opt(object, 'default_flow').unwrap_or(0)
-    let min_flow = int_opt(object, 'minimum_flow').unwrap_or(0)
-    let max_flow = int_opt(object, 'maximum_flow').unwrap_or(80)
-    let correct = try float(object, 'flow_correction')
+    let flow = match object.opt('flow') {
+      case Some(Object(map)) -> try Flow.from_json(map)
+      case _ -> throw 'The "flow" key must be an object'
+    }
+
     let motion = opt_int(object, 'motion')
     let humidity = opt_string(object, 'humidity')
     let co2 = try opt_ip(object, 'co2')
 
     Result.Ok(Room {
       @name = name,
+      @flow = flow,
       @exhaust = exhaust,
-      @default_flow = def_flow,
-      @minimum_flow = min_flow,
-      @maximum_flow = max_flow,
-      @flow_correction = correct,
       @motion = motion,
       @humidity = humidity,
       @co2 = co2,

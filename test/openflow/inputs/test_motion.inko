@@ -107,7 +107,7 @@ fn pub tests(t: mut Tests) {
     run(input)
     input.reset_motion_wait_time
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(25))
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
   }
 
   t.test('Keeping ventilation enabled after no more motion is detected') fn (t) {
@@ -118,7 +118,7 @@ fn pub tests(t: mut Tests) {
     input.reset_motion_wait_time
     run(input)
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Active(25))
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
   }
 
   t.test('Disabling ventilation after no motion is detected for long enough') fn (t) {

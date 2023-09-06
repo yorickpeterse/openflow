@@ -1,47 +1,74 @@
 {
   "rooms": {
     "living_room": {
-      "exhaust": 115,
-      "default_flow": 45,
-      "maximum_flow": 70,
-      "flow_correction": 1.05,
-      "co2": "192.168.1.200"
+      "exhaust": 1,
+      "co2": "192.168.1.100",
+      "flow": {
+        "correction": 1.05,
+        "minimum": 0,
+        "maximum": 80,
+        "default": 20,
+        "low": 40,
+        "medium": 50,
+        "medium_high": 65,
+        "high": 75
+      }
     },
     "kitchen": {
-      "exhaust": 113,
-      "default_flow": 40,
-      "maximum_flow": 40,
-      "flow_correction": 1.05,
-      "co2": "192.168.1.200"
+      "exhaust": 2,
+      "co2": "192.168.1.101",
+      "flow": {
+        "correction": 1.05,
+        "minimum": 0,
+        "maximum": 80,
+        "default": 20,
+        "low": 40,
+        "medium": 50,
+        "medium_high": 65,
+        "high": 75
+      }
     },
     "extractor": {
-      "exhaust": 112,
-      "maximum_flow": 100,
-      "flow_correction": 1.05
+      "exhaust": 3,
+      "flow": {
+        "correction": 1.05,
+        "minimum": 0,
+        "maximum": 100,
+        "default": 0,
+        "low": 40,
+        "medium": 50,
+        "medium_high": 65,
+        "high": 75
+      }
     },
     "toilet": {
-      "exhaust": 114,
-      "motion": 8,
-      "flow_correction": 1.10
-    },
-    "bedroom": {
-      "exhaust": 121,
-      "maximum_flow": 70,
-      "flow_correction": 1.05,
-      "co2": "192.168.1.201"
+      "exhaust": 4,
+      "motion": 1,
+      "flow": {
+        "correction": 1.10,
+        "minimum": 0,
+        "maximum": 80,
+        "default": 0,
+        "low": 40,
+        "medium": 50,
+        "medium_high": 65,
+        "high": 75
+      }
     },
     "bathroom": {
-      "exhaust": 118,
-      "motion": 17,
+      "exhaust": 5,
+      "motion": 3,
       "humidity": "RH bathroom 1 (%)",
-      "minimum_flow": 15,
-      "maximum_flow": 120,
-      "flow_correction": 1.10
-    },
-    "attic": {
-      "exhaust": 117,
-      "maximum_flow": 50,
-      "flow_correction": 1.0
+      "flow": {
+        "correction": 1.10,
+        "minimum": 10,
+        "maximum": 130,
+        "default": 0,
+        "low": 40,
+        "medium": 50,
+        "medium_high": 65,
+        "high": 75
+      }
     }
   },
   "remote": {
@@ -52,11 +79,11 @@
         "duration": 10800
       },
       "cook30": {
-        "rooms": ["extractor"],
+        "rooms": ["extractor", "kitchen"],
         "duration": 3600
       },
       "cook60": {
-        "rooms": ["extractor"],
+        "rooms": ["extractor", "kitchen"],
         "duration": 7200
       },
       "timer1": {
@@ -66,22 +93,22 @@
     }
   },
   "humidity": {
-    "high": 80,
+    "high": 90,
     "low": 75
   },
   "itho": {
-    "ip": "192.168.1.123",
+    "ip": "192.168.1.5",
     "manual_id": 111,
     "speed_id": 124,
-    "minimum_flow": 100,
+    "minimum_flow": 110,
     "maximum_flow": 350
   },
   "metrics": {
-    "ip": "192.168.1.124",
+    "ip": "192.168.1.6",
     "port": 8089
   },
   "hue": {
-    "ip": "192.168.1.125",
+    "ip": "192.168.1.7",
     "user": "hunter2"
   }
 }

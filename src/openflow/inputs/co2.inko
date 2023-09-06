@@ -134,13 +134,13 @@ class pub async Input {
         if new >= 900 {
           Status.Maximum
         } else if new >= 850 {
-          Status.Active(75)
+          Status.High
         } else if new >= 800 {
-          Status.Active(70)
+          Status.MediumHigh
         } else if new >= 750 {
-          Status.Active(55)
+          Status.Medium
         } else if new >= 700 or (new >= 650 and sensor.last_change_co2 >= 700) {
-          Status.Active(40)
+          Status.Low
         } else {
           Status.Default
         }

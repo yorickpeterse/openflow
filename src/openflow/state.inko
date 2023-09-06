@@ -38,8 +38,17 @@ class pub enum Status {
   # on the total ventilation need.
   case Default
 
-  # A room is actively ventilated at the given speed in m3/h.
-  case Active(Int)
+  # The room is ventilated at the low speed.
+  case Low
+
+  # The room is ventilated at the medium speed.
+  case Medium
+
+  # The room is ventilated at the medium high speed.
+  case MediumHigh
+
+  # The room is ventilated at the high speed.
+  case High
 
   # Ventilation is running at the maximum speed.
   case Maximum
@@ -64,7 +73,10 @@ impl Clone[uni Status] for Status {
   fn pub clone -> uni Status {
     match self {
       case Default -> recover Status.Default
-      case Active(val) -> recover Status.Active(val)
+      case Low -> recover Status.Low
+      case Medium -> recover Status.Medium
+      case MediumHigh -> recover Status.MediumHigh
+      case High -> recover Status.High
       case Maximum -> recover Status.Maximum
       case Button(status) -> recover Status.Button(status.clone)
       case Humid -> recover Status.Humid
@@ -76,7 +88,10 @@ impl ToString for Status {
   fn pub to_string -> String {
     match self {
       case Default -> 'Default'
-      case Active(_) -> 'Active'
+      case Low -> 'Low'
+      case Medium -> 'Medium'
+      case MediumHigh -> 'MediumHigh'
+      case High -> 'High'
       case Maximum -> 'Maximum'
       case Button(_) -> 'Button'
       case Humid -> 'Humid'
@@ -88,7 +103,10 @@ impl Equal[Status] for Status {
   fn pub ==(other: ref Status) -> Bool {
     match (self, other) {
       case (Default, Default) -> true
-      case (Active(a), Active(b)) -> a == b
+      case (Low, Low) -> true
+      case (Medium, Medium) -> true
+      case (MediumHigh, MediumHigh) -> true
+      case (High, High) -> true
       case (Maximum, Maximum) -> true
       case (Button(a), Button(b)) -> a == b
       case (Humid, Humid) -> true
@@ -99,30 +117,29 @@ impl Equal[Status] for Status {
 
 impl Compare[Status] for Status {
   fn pub cmp(other: ref Status) -> Ordering {
-    match self {
-      case Default -> match other {
-        case Default -> Ordering.Equal
-        case _ -> Ordering.Less
-      }
-      case Active(a) -> match other {
-        case Default -> Ordering.Greater
-        case Active(b) -> a.cmp(b)
-        case _ -> Ordering.Less
-      }
-      case Button(a) -> match other {
-        case Default or Active(_) -> Ordering.Greater
-        case Button(b) -> a.cmp(b)
-        case _ -> Ordering.Less
-      }
-      case Maximum -> match other {
-        case Maximum -> Ordering.Equal
-        case Humid -> Ordering.Less
-        case _ -> Ordering.Greater
-      }
-      case Humid -> match other {
-        case Humid -> Ordering.Equal
-        case _ -> Ordering.Greater
-      }
+    match (self, other) {
+      case (Default, Default) -> Ordering.Equal
+      case (Default, _) -> Ordering.Less
+      case (Low, Low) -> Ordering.Equal
+      case (Low, Default) -> Ordering.Greater
+      case (Low, _) -> Ordering.Less
+      case (Medium, Medium) -> Ordering.Equal
+      case (Medium, Default or Low) -> Ordering.Greater
+      case (Medium, _) -> Ordering.Less
+      case (MediumHigh, MediumHigh) -> Ordering.Equal
+      case (MediumHigh, Default or Low or Medium) -> Ordering.Greater
+      case (MediumHigh, _) -> Ordering.Less
+      case (High, High) -> Ordering.Equal
+      case (High, Default or Low or Medium or MediumHigh) -> Ordering.Greater
+      case (High, _) -> Ordering.Less
+      case (Maximum, Maximum) -> Ordering.Equal
+      case (Maximum, Button(_) or Humid) -> Ordering.Less
+      case (Maximum, _) -> Ordering.Greater
+      case (Button(a), Button(b)) -> a.cmp(b)
+      case (Button(_), Humid or Maximum) -> Ordering.Less
+      case (Button(_), _) -> Ordering.Greater
+      case (Humid, Humid) -> Ordering.Equal
+      case (Humid, _) -> Ordering.Greater
     }
   }
 }
@@ -131,11 +148,10 @@ impl Format for Status {
   fn pub fmt(formatter: mut Formatter) {
     match self {
       case Default -> formatter.write('Default')
-      case Active(val) -> {
-        formatter.write('Active(')
-        val.fmt(formatter)
-        formatter.write(')')
-      }
+      case Low -> formatter.write('Low')
+      case Medium -> formatter.write('Medium')
+      case MediumHigh -> formatter.write('MediumHigh')
+      case High -> formatter.write('High')
       case Maximum -> formatter.write('Maximum')
       case Button(state) -> {
         formatter.write('Button(')
@@ -175,6 +191,18 @@ class pub Room {
   # The default air flow in m3/hour, without the flow correction.
   let @default_flow: Int
 
+  # The air flow in m3/h for the "low" setting.
+  let @low_flow: Int
+
+  # The air flow in m3/h for the "medium" setting.
+  let @medium_flow: Int
+
+  # The air flow in m3/h for the "medium high" setting.
+  let @medium_high_flow: Int
+
+  # The air flow in m3/h for the "high" setting.
+  let @high_flow: Int
+
   # The minimum air flow in m3/hour, without the flow correction.
   let @minimum_flow: Int
 
@@ -188,21 +216,19 @@ class pub Room {
   let @current_flow: Int
 
   fn pub static new(name: String, config: ref RoomConfig) -> uni Room {
-    let correct = config.flow_correction
-    let exhaust = config.exhaust
-    let def = config.default_flow
-    let min = config.minimum_flow
-    let max = config.maximum_flow
-
     recover Room {
       @name = name,
       @status = Status.Default,
-      @flow_correction = correct,
-      @exhaust_id = exhaust,
+      @flow_correction = config.flow.correction,
+      @exhaust_id = config.exhaust,
       @exhaust_value = -1,
-      @default_flow = def,
-      @minimum_flow = min,
-      @maximum_flow = max,
+      @default_flow = config.flow.default,
+      @low_flow = config.flow.low,
+      @medium_flow = config.flow.medium,
+      @medium_high_flow = config.flow.medium_high,
+      @high_flow = config.flow.high,
+      @minimum_flow = config.flow.minimum,
+      @maximum_flow = config.flow.maximum,
       @base_flow = 0,
       @current_flow = 0,
       @last_update = Instant.new,
@@ -395,7 +421,10 @@ class pub async State {
       } else {
         match room.status {
           case Default -> 0
-          case Active(val) -> val
+          case Low -> room.low_flow
+          case Medium -> room.medium_flow
+          case MediumHigh -> room.medium_high_flow
+          case High -> room.high_flow
           case Maximum or Button(_) or Humid -> room.maximum_flow
         }
       }

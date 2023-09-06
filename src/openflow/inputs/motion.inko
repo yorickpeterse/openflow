@@ -161,8 +161,8 @@ class pub async Input {
         let enable = entry.value
 
         match room.status {
-          case Default or Active(_) -> {
-            room.update(if enable { Status.Active(25) } else { Status.Default })
+          case Default or Low -> {
+            room.update(if enable { Status.Low } else { Status.Default })
           }
           case _ -> {}
         }
