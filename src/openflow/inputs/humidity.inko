@@ -92,10 +92,10 @@ class pub async Input {
       @sensors = recover [],
       @high = high,
       @low = low,
-      @minimum_time = recover Duration.from_secs(1800),
+      @minimum_time = recover Duration.from_secs(2700),
       @low_time = recover Duration.from_secs(600),
       @interval = recover Duration.from_secs(30),
-      @maximum_time = recover Duration.from_secs(3600),
+      @maximum_time = recover Duration.from_secs(5400),
     }
   }
 
