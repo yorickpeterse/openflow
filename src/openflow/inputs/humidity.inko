@@ -1,3 +1,4 @@
+import openflow::config::(Humidity as Config)
 import openflow::itho::Itho
 import openflow::logger::Logger
 import openflow::metrics::(Metric, Metrics)
@@ -62,6 +63,9 @@ class pub async Input {
   # enough.
   let @low: Int
 
+  # The value to add to the raw sensor values to obtain the correct value.
+  let @correction: Int
+
   # The minimum amount of time to ventilate for, regardless of what the current
   # humidity value is.
   let @minimum_time: Duration
@@ -81,8 +85,7 @@ class pub async Input {
     logger: Logger,
     metrics: uni Metrics,
     itho: uni Itho,
-    low: Int,
-    high: Int,
+    config: ref Config,
   ) -> Input {
     Input {
       @state = state,
@@ -90,8 +93,9 @@ class pub async Input {
       @metrics = metrics,
       @itho = itho,
       @sensors = recover [],
-      @high = high,
-      @low = low,
+      @high = config.high,
+      @low = config.low,
+      @correction = config.correction,
       @minimum_time = recover Duration.from_secs(2700),
       @low_time = recover Duration.from_secs(600),
       @interval = recover Duration.from_secs(30),
@@ -120,7 +124,13 @@ class pub async Input {
     }
 
     let updates = @sensors.iter_mut.reduce(recover Map.new) fn (map, sensor) {
-      let humidity = status.humidity.opt(sensor.id).unwrap_or(0)
+      let mut humidity = status.humidity.opt(sensor.id).unwrap_or(0)
+
+      # The Itho sensors aren't entirely accurate, often reporting values 5-10%
+      # higher than reality, but only if the humidity is in the range of 60-90%.
+      # Below 60% it in fact appears to report values too low (e.g. I've seen it
+      # report values as low as 45%, when in reality the humidity was higher).
+      if humidity >= 60 { humidity += @correction }
 
       @metrics.add('humidity') fn (m) {
         m.tag('room', sensor.name)

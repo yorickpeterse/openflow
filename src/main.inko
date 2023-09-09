@@ -50,8 +50,7 @@ class async Main {
       logger,
       metrics,
       recover Itho.new(Client.new(config.itho.ip.clone)),
-      low: config.humidity.low,
-      high: config.humidity.high,
+      config.humidity,
     )
 
     config.rooms.iter.each fn (conf) {

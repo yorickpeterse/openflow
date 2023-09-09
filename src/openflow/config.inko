@@ -273,13 +273,21 @@ class pub Humidity {
   # The threshold at which to return to normal ventilation.
   let pub @low: Int
 
+  # The value to add to the raw sensor values to obtain the correct value.
+  #
+  # The Itho humidity sensors appear to not be entirely accurate, sometimes
+  # reporting values 5-10% higher than reality. This value can be used to
+  # correct for such inaccuracies.
+  let pub @correction: Int
+
   fn pub static from_json(
     object: ref Map[String, Json]
   ) -> Result[Humidity, String] {
     let high = try int(object, 'high')
     let low = try int(object, 'low')
+    let correct = opt_int(object, 'correction').unwrap_or(-5)
 
-    Result.Ok(Humidity { @high = high, @low = low })
+    Result.Ok(Humidity { @high = high, @low = low, @correction = correct })
   }
 }
 

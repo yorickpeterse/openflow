@@ -1,4 +1,5 @@
 import helpers::(Snapshot, allow_api_calls, state, NullWriter)
+import openflow::config::Humidity
 import openflow::http::(Client, Response, TestDriver)
 import openflow::inputs::humidity::(Input, Sensor)
 import openflow::itho::Itho
@@ -33,7 +34,7 @@ impl Input {
   }
 }
 
-fn input(state: State, humidity: uni Array[Int]) -> Input {
+fn input(state: State, humidity: uni Array[Int], correction: Int) -> Input {
   let metrics = recover Metrics.new(IpAddress.v4(0, 0, 0, 0), port: 0)
   let logger = Logger.new(recover NullWriter {})
   let driver = recover TestDriver.new
@@ -54,7 +55,8 @@ fn input(state: State, humidity: uni Array[Int]) -> Input {
   )
 
   let itho = recover Itho.new(Client.with_driver(driver))
-  let input = Input.new(state, logger, metrics, itho, low: 75, high: 80)
+  let conf = Humidity { @high = 80, @low = 75, @correction = correction }
+  let input = Input.new(state, logger, metrics, itho, conf)
 
   input.add_sensor(recover Sensor.new('bathroom', id: 'RH bathroom 1'))
   input
@@ -71,7 +73,7 @@ fn run(input: Input) {
 fn pub tests(t: mut Tests) {
   t.test('No ventilation is applied when the humidity is OK') fn (t) {
     let state = state(allow_api_calls)
-    let input = input(state, humidity: recover [70])
+    let input = input(state, humidity: recover [70], correction: 0)
 
     run(input)
     t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
@@ -79,7 +81,7 @@ fn pub tests(t: mut Tests) {
 
   t.test('No ventilation is applied the first time humidity increases') fn (t) {
     let state = state(allow_api_calls)
-    let input = input(state, humidity: recover [82])
+    let input = input(state, humidity: recover [82], correction: 0)
 
     run(input)
     t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
@@ -87,7 +89,7 @@ fn pub tests(t: mut Tests) {
 
   t.test('Ventilation is applied when a room is humid for too long') fn (t) {
     let state = state(allow_api_calls)
-    let input = input(state, humidity: recover [82, 82])
+    let input = input(state, humidity: recover [82, 82], correction: 0)
 
     run(input)
     run(input)
@@ -96,7 +98,7 @@ fn pub tests(t: mut Tests) {
 
   t.test('Ventilation persists when the humidity decreases') fn (t) {
     let state = state(allow_api_calls)
-    let input = input(state, humidity: recover [82, 83, 73])
+    let input = input(state, humidity: recover [82, 83, 73], correction: 0)
 
     run(input)
     run(input)
@@ -106,7 +108,7 @@ fn pub tests(t: mut Tests) {
 
   t.test('Ventilation persists when the minimum amount of time has not yet passed') fn (t) {
     let state = state(allow_api_calls)
-    let input = input(state, humidity: recover [82, 83, 73])
+    let input = input(state, humidity: recover [82, 83, 73], correction: 0)
 
     run(input)
     run(input)
@@ -117,7 +119,7 @@ fn pub tests(t: mut Tests) {
 
   t.test('Ventilation is disabled after enough time has passed') fn (t) {
     let state = state(allow_api_calls)
-    let input = input(state, humidity: recover [82, 83, 73])
+    let input = input(state, humidity: recover [82, 83, 73], correction: 0)
 
     run(input)
     run(input)
@@ -129,7 +131,7 @@ fn pub tests(t: mut Tests) {
 
   t.test('Ventilation continues when humidity is high, even when too much time has passed') fn (t) {
     let state = state(allow_api_calls)
-    let input = input(state, humidity: recover [85, 85, 85])
+    let input = input(state, humidity: recover [85, 85, 85], correction: 0)
 
     run(input)
     run(input)
@@ -140,11 +142,20 @@ fn pub tests(t: mut Tests) {
 
   t.test('Ventilation stops when humidity is low enough and too much time has passed') fn (t) {
     let state = state(allow_api_calls)
-    let input = input(state, humidity: recover [85, 85, 60])
+    let input = input(state, humidity: recover [85, 85, 60], correction: 0)
 
     run(input)
     run(input)
     input.reset_maximum_time
+    run(input)
+    t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
+  }
+
+  t.test('Applying a humidity correction when the humidity is high') fn (t) {
+    let state = state(allow_api_calls)
+    let input = input(state, humidity: recover [80, 80], correction: -10)
+
+    run(input)
     run(input)
     t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
   }
