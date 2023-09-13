@@ -11,13 +11,18 @@ class enum Humidity {
   # The room is dry, no ventilation is necessary.
   case Dry
 
-  # The humidity is increasing, and we may need to ventilate the room.
-  case Increasing
+  # The room is drying up.
+  case Drying
 
   # The room is humid, and ventilation must be applied.
-  #
-  # The wrapped value is the time at which the room was marked as humid.
-  case Humid(Instant)
+  case Humid
+
+  fn humid? -> Bool {
+    match self {
+      case Humid -> true
+      case _ -> false
+    }
+  }
 }
 
 class pub Sensor {
@@ -66,13 +71,6 @@ class pub async Input {
   # The value to add to the raw sensor values to obtain the correct value.
   let @correction: Int
 
-  # The minimum amount of time to ventilate for, regardless of what the current
-  # humidity value is.
-  let @minimum_time: Duration
-
-  # The maximum amount of time to ventilate for.
-  let @maximum_time: Duration
-
   # The amount of time humidity must be below the "low" threshold before
   # ventilation can be disabled.
   let @low_time: Duration
@@ -96,10 +94,8 @@ class pub async Input {
       @high = config.high,
       @low = config.low,
       @correction = config.correction,
-      @minimum_time = recover Duration.from_secs(2700),
-      @low_time = recover Duration.from_secs(600),
+      @low_time = recover Duration.from_secs(1800),
       @interval = recover Duration.from_secs(30),
-      @maximum_time = recover Duration.from_secs(5400),
     }
   }
 
@@ -140,8 +136,8 @@ class pub async Input {
       update_sensor(sensor, humidity)
 
       let humid = match sensor.humidity {
-        case Humid(_) -> true
-        case _ -> false
+        case Humid or Drying -> true
+        case Dry -> false
       }
 
       map.set(sensor.name, humid)
@@ -152,33 +148,32 @@ class pub async Input {
   }
 
   fn mut update_sensor(sensor: mut Sensor, humidity: Int) {
-    if humidity >= @high {
+    if humidity >= @high  {
       match sensor.humidity {
-        case Dry -> sensor.update(Humidity.Increasing)
-        case Increasing -> sensor.update(Humidity.Humid(Instant.new))
-        case Humid(_) -> sensor.update_time
+        case Humid -> sensor.update_time
+        case _ -> sensor.update(Humidity.Humid)
       }
-
-      return
+    } else {
+      match sensor.humidity {
+        case Humid if humidity <= @low -> sensor.update(Humidity.Drying)
+        case Humid if humidity > @low -> sensor.update_time
+        # When ventilation kicks in, the humidity drops, but after a little
+        # while increases again. This check ensures that we don't disable
+        # ventilation prematurely just because the reached the low target for a
+        # brief period of time.
+        #
+        # The extra "padding" is to account for sporadic spikes of 1%, which can
+        # sometimes happen due to rounding or just coincidence.
+        case Drying if humidity >= (@low + (@high - @low / 2)) -> {
+          sensor.update(Humidity.Humid)
+        }
+        case Drying if sensor.last_update.elapsed >= @low_time -> {
+          info(sensor.name, 'the room dried up, disabling ventilation')
+          sensor.update(Humidity.Dry)
+        }
+        case _ -> {}
+      }
     }
-
-    let dry = match sensor.humidity {
-      case Humid(at) if at.elapsed >= @maximum_time -> {
-        info(sensor.name, 'maximum ventilation time reached')
-        true
-      }
-      case Humid(_) if humidity > @low -> {
-        sensor.update_time
-        false
-      }
-      case Humid(at) -> {
-        at.elapsed >= @minimum_time and sensor.last_update.elapsed >= @low_time
-      }
-      case Increasing -> true
-      case Dry -> false
-    }
-
-    if dry { sensor.update(Humidity.Dry) }
   }
 
   fn apply(updates: uni Map[String, Bool]) {
@@ -187,10 +182,10 @@ class pub async Input {
         let humid = entry.value
         let room = rooms.get_mut(entry.key)
 
-        match room.status {
-          case _ if humid -> room.update(recover Status.Humid)
-          case Humid if humid.false? -> room.update(recover Status.Default)
-          case _ -> {}
+        if humid {
+          room.update(recover Status.Humid)
+        } else if room.status.humid? {
+          room.update(recover Status.Default)
         }
 
         apply_now or humid

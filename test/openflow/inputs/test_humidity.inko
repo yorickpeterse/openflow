@@ -21,14 +21,6 @@ impl Input {
     @low_time = Duration.from_secs(0)
   }
 
-  fn async mut reset_minimum_time {
-    @minimum_time = Duration.from_secs(0)
-  }
-
-  fn async mut reset_maximum_time {
-    @maximum_time = Duration.from_secs(0)
-  }
-
   fn async mut wait(waiter: uni Waiter) {
     waiter.notify
   }
@@ -79,14 +71,6 @@ fn pub tests(t: mut Tests) {
     t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
   }
 
-  t.test('No ventilation is applied the first time humidity increases') fn (t) {
-    let state = state(allow_api_calls)
-    let input = input(state, humidity: recover [82], correction: 0)
-
-    run(input)
-    t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
-  }
-
   t.test('Ventilation is applied when a room is humid for too long') fn (t) {
     let state = state(allow_api_calls)
     let input = input(state, humidity: recover [82, 82], correction: 0)
@@ -106,48 +90,25 @@ fn pub tests(t: mut Tests) {
     t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Humid)
   }
 
-  t.test('Ventilation persists when the minimum amount of time has not yet passed') fn (t) {
-    let state = state(allow_api_calls)
-    let input = input(state, humidity: recover [82, 83, 73], correction: 0)
-
-    run(input)
-    run(input)
-    input.reset_low_time
-    run(input)
-    t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Humid)
-  }
-
-  t.test('Ventilation is disabled after enough time has passed') fn (t) {
-    let state = state(allow_api_calls)
-    let input = input(state, humidity: recover [82, 83, 73], correction: 0)
-
-    run(input)
-    run(input)
-    input.reset_low_time
-    input.reset_minimum_time
-    run(input)
-    t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
-  }
-
   t.test('Ventilation continues when humidity is high, even when too much time has passed') fn (t) {
     let state = state(allow_api_calls)
     let input = input(state, humidity: recover [85, 85, 85], correction: 0)
 
     run(input)
     run(input)
-    input.reset_maximum_time
     run(input)
     t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Humid)
   }
 
   t.test('Ventilation stops when humidity is low enough and too much time has passed') fn (t) {
     let state = state(allow_api_calls)
-    let input = input(state, humidity: recover [85, 85, 60], correction: 0)
+    let input = input(state, humidity: recover [85, 85, 60, 60], correction: 0)
 
     run(input)
     run(input)
-    input.reset_maximum_time
-    run(input)
+    input.reset_low_time
+    run(input) # Transitions the state to "drying"
+    run(input) # Transitions the state to "dry"
     t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
   }
 
@@ -158,5 +119,17 @@ fn pub tests(t: mut Tests) {
     run(input)
     run(input)
     t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
+  }
+
+  t.test('Handling increases in humidity after the humidity goes below the low threshold') fn (t) {
+    let state = state(allow_api_calls)
+    let input = input(state, humidity: recover [85, 85, 60, 77], correction: 0)
+
+    run(input)
+    run(input)
+    input.reset_low_time
+    run(input) # Transitions the state to "drying"
+    run(input) # Transitions the state to "humid" again
+    t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Humid)
   }
 }
