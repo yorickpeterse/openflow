@@ -1,5 +1,5 @@
-import openflow::histogram::Histogram
-import std::time::(Duration, Instant)
+import openflow.histogram.Histogram
+import std.time.(Duration, Instant)
 
 # The lower bound of the histogram. All values up to this value are tracked in
 # the first bucket.

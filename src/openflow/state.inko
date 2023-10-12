@@ -1,14 +1,14 @@
-import openflow::config::(Room as RoomConfig, Itho as IthoConfig)
-import openflow::itho::Itho
-import openflow::logger::Logger
-import openflow::metrics::(Metric, Metrics)
-import openflow::sync::Waiter
-import std::clone::Clone
-import std::cmp::(Compare, Equal, Ordering, max, min)
-import std::fmt::(Format, Formatter)
-import std::process::(sleep)
-import std::string::ToString
-import std::time::(Duration, Instant)
+import openflow.config.(Room as RoomConfig, Itho as IthoConfig)
+import openflow.itho.Itho
+import openflow.logger.Logger
+import openflow.metrics.(Metric, Metrics)
+import openflow.sync.Waiter
+import std.clone.Clone
+import std.cmp.(Compare, Equal, Ordering, max, min)
+import std.fmt.(Format, Formatter)
+import std.process.(sleep)
+import std.string.ToString
+import std.time.(Duration, Instant)
 
 # The maximum value of an exhaust valve setting.
 #
@@ -316,7 +316,7 @@ class pub async State {
 
     @logger.info('Enabling manual control')
     @itho.set(@manual_id, value: 1).unwrap
-    sleep(Duration.from_nanos(@rooms.length * ADJUST_TIME))
+    sleep(Duration.from_nanos(@rooms.size * ADJUST_TIME))
   }
 
   # Run a closure in the context of the current state to allow updating of the
@@ -324,7 +324,7 @@ class pub async State {
   #
   # If the block returns `true`, the changes are applied immediately.
   fn pub async mut update(block: uni fn (mut Map[String, Room]) -> Bool) {
-    if block.call(@rooms) { apply_state }
+    if recover { block }.call(@rooms) { apply_state }
   }
 
   # Run a closure in the context of the current state, passing the extra data to
@@ -335,7 +335,7 @@ class pub async State {
     data: uni T,
     block: uni fn (mut Map[String, Room], T) -> Bool,
   ) {
-    if block.call(@rooms, data) { apply_state }
+    if recover { block }.call(@rooms, data) { apply_state }
   }
 
   # Applies the state to the ventilation system.

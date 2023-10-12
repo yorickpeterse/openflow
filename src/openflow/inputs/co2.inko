@@ -1,12 +1,12 @@
-import openflow::co2::(SIZE, Co2 as Co2)
-import openflow::experimental_ext
-import openflow::logger::Logger
-import openflow::metrics::(Metric, Metrics)
-import openflow::more_sense::MoreSense
-import openflow::state::(State, Status)
-import std::cmp::(max)
-import std::process::(sleep)
-import std::time::(Duration, Instant)
+import openflow.co2.(SIZE, Co2 as Co2)
+import openflow.experimental_ext
+import openflow.logger.Logger
+import openflow.metrics.(Metric, Metrics)
+import openflow.more_sense.MoreSense
+import openflow.state.(State, Status)
+import std.cmp.(max)
+import std.process.(sleep)
+import std.time.(Duration, Instant)
 
 # The interval (in seconds) at which to sample the CO2 sensors.
 let SAMPLE_INTERVAL = 30
@@ -146,17 +146,22 @@ class pub async Input {
         }
       }
 
-      if status >= sensor.status or sensor.reduce?(@reduce_wait_time) {
-        sensor.update_status(status.clone)
-        map.set(sensor.name, status)
-      }
-
       @metrics.add('co2_room') fn (m) {
         m.tag('room', sensor.name)
         m.field('ppm', new)
       }
 
-      map
+      if status >= sensor.status or sensor.reduce?(@reduce_wait_time) {
+        sensor.update_status(status.clone)
+        recover {
+          let map = recover map
+
+          map.set(sensor.name, status)
+          map
+        }
+      } else {
+        map
+      }
     }
 
     apply(updates)

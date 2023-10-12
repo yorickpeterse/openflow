@@ -1,6 +1,6 @@
 # These are experimental extensions, used to see if it makes senso to move these
 # into Inko's standard library.
-import std::map::Entry
+import std.map.Entry
 
 impl Option {
   fn pub move let(block: fn (T)) {

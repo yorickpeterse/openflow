@@ -1,12 +1,12 @@
-import openflow::http::(Client, Error, Request, Response, retry)
-import std::clone::Clone
-import std::cmp::Equal
-import std::fmt::(Format, Formatter)
-import std::int::ToInt
-import std::json
-import std::process::(sleep)
-import std::string::ToString
-import std::time::Duration
+import openflow.http.(Client, Error, Request, Response, retry)
+import std.clone.Clone
+import std.cmp.Equal
+import std.fmt.(Format, Formatter)
+import std.int.ToInt
+import std.json.Json
+import std.process.(sleep)
+import std.string.ToString
+import std.time.Duration
 
 # The path to the API endpoint.
 let PATH = '/api.html'
@@ -128,7 +128,7 @@ class pub Itho {
   # The `setting` argument must be the setting index as obtained from the "Itho
   # settings" page. The `value` argument is the value for said setting. Only
   # integer values are supported.
-  fn pub mut set(setting: Int, value: ref ToInt) -> Result[Nil, String] {
+  fn pub mut set[T: ToInt](setting: Int, value: ref T) -> Result[Nil, String] {
     let request = Request.get(PATH)
     let timeout = Duration.from_secs(TIMEOUT)
 
@@ -154,7 +154,7 @@ class pub Itho {
       .map_error fn (e) { e.to_string }
 
     let body = resp.body.drain_to_string
-    let root = match json.parse(body) {
+    let root = match Json.parse(body) {
       case Ok(Object(map)) -> map
       case _ -> throw 'Expected the response to be a JSON object'
     }
@@ -179,7 +179,7 @@ class pub Itho {
       .map_error fn (e) { e.to_string }
 
     let body = resp.body.drain_to_string
-    let root = match json.parse(body) {
+    let root = match Json.parse(body) {
       case Ok(Object(map)) -> map
       case _ -> throw 'Expected the response to be a JSON object'
     }
@@ -226,7 +226,7 @@ class pub Itho {
       .map_error fn (e) { e.to_string }
 
     let body = resp.body.drain_to_string
-    let root = match json.parse(body) {
+    let root = match Json.parse(body) {
       case Ok(Object(map)) -> map
       case _ -> throw 'Expected the response to be a JSON object'
     }

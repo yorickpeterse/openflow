@@ -1,9 +1,9 @@
-import std::fs::file::ReadOnlyFile
-import std::fs::path::IntoPath
-import std::iter::Iter
-import std::json::(self, Json)
-import std::net::ip::IpAddress
-import std::time::Duration
+import std.fs.file.ReadOnlyFile
+import std.fs.path.IntoPath
+import std.iter.Iter
+import std.json.Json
+import std.net.ip.IpAddress
+import std.time.Duration
 
 fn opt_int(object: ref Map[String, Json], key: String) -> Option[Int] {
   match object.opt(key) {
@@ -379,13 +379,13 @@ class pub Config {
   let pub @remote: Option[Remote]
 
   # Load configuration from a JSON file.
-  fn pub static load(path: IntoPath) -> Result[Config, String] {
+  fn pub static load[T: IntoPath](path: T) -> Result[Config, String] {
     let file = try ReadOnlyFile.new(path).map_error fn (e) { e.to_string }
     let bytes = ByteArray.new
 
     try file.read_all(bytes).map_error fn (e) { e.to_string }
 
-    let doc = try json.parse(bytes.into_string).map_error fn (e) { e.to_string }
+    let doc = try Json.parse(bytes.into_string).map_error fn (e) { e.to_string }
     let root = match doc {
       case Object(v) -> v
       case _ -> throw 'the top-level JSON value must be an object'

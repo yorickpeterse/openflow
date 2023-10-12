@@ -1,9 +1,9 @@
-import std::io::Write
-import std::stdio::STDOUT
-import std::time::DateTime
+import std.io.Write
+import std.stdio.STDOUT
+import std.time.DateTime
 
 fn pad_zero(value: Int) -> String {
-  value.to_string.pad_start(with: '0', length: 2)
+  value.to_string.pad_start(with: '0', chars: 2)
 }
 
 fn iso8601_time -> String {
@@ -19,7 +19,7 @@ class pub async Logger {
 
   # Returns a logger using the default output stream (STDOUT).
   fn pub static default -> Logger {
-    Logger { @stream = recover STDOUT.new }
+    Logger { @stream = recover { STDOUT.new as Write } }
   }
 
   fn pub static new(stream: uni Write) -> Logger {

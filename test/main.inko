@@ -1,17 +1,17 @@
-import std::env
-import std::test::(Filter, Tests)
+import std.env
+import std.test.(Filter, Tests)
 
-import openflow::inputs::test_co2::(self as test_inputs_co2)
-import openflow::inputs::test_humidity
-import openflow::inputs::test_motion
-import openflow::inputs::test_remote
-import openflow::test_co2
-import openflow::test_histogram
-import openflow::test_http
-import openflow::test_hue
-import openflow::test_itho
-import openflow::test_more_sense
-import openflow::test_state
+import openflow.inputs.test_co2.(self as test_inputs_co2)
+import openflow.inputs.test_humidity
+import openflow.inputs.test_motion
+import openflow.inputs.test_remote
+import openflow.test_co2
+import openflow.test_histogram
+import openflow.test_http
+import openflow.test_hue
+import openflow.test_itho
+import openflow.test_more_sense
+import openflow.test_state
 
 class async Main {
   fn async main {

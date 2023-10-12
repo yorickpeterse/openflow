@@ -1,8 +1,8 @@
-import openflow::http::(Client, Driver, Error, Request, Response, TestDriver)
-import openflow::more_sense::MoreSense
-import std::io::(Error as IoError)
-import std::test::Tests
-import std::time::(Duration, ToInstant)
+import openflow.http.(Client, Driver, Error, Request, Response, TestDriver)
+import openflow.more_sense.MoreSense
+import std.io.(Error as IoError)
+import std.test.Tests
+import std.time.(Duration, ToInstant)
 
 class TimeoutDriver {
   let @timed_out: Bool
@@ -13,7 +13,7 @@ class TimeoutDriver {
 }
 
 impl Driver for TimeoutDriver {
-  fn pub mut timeout_after=(time: ref ToInstant) {}
+  fn pub mut timeout_after=[I: ToInstant](time: ref I) {}
 
   fn pub mut execute(request: ref Request) -> Result[Response, Error] {
     if @timed_out {
@@ -34,13 +34,13 @@ fn pub tests(t: mut Tests) {
       then: fn (_) { Response.ok('{ "CO2": 750 }'.to_byte_array) }
     )
 
-    let ms = MoreSense.new(Client.with_driver(driver))
+    let ms = MoreSense.new(Client.with_driver(driver as Driver))
 
     t.equal(ms.co2, Result.Ok(750))
   }
 
   t.test('MoreSense.co2 retries failed requests') fn (t) {
-    let ms = MoreSense.new(Client.with_driver(TimeoutDriver.new))
+    let ms = MoreSense.new(Client.with_driver(TimeoutDriver.new as Driver))
 
     ms.retry_wait_time = Duration.from_secs(0)
     t.true(ms.co2.ok?)
@@ -54,7 +54,7 @@ fn pub tests(t: mut Tests) {
       then: fn (_) { Response.ok('[]'.to_byte_array) }
     )
 
-    let ms = MoreSense.new(Client.with_driver(driver))
+    let ms = MoreSense.new(Client.with_driver(driver as Driver))
 
     t.true(ms.co2.error?)
   }

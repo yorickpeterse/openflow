@@ -2,35 +2,17 @@
 #
 # This module provides types for sending metrics to a VictoriaMetrics/InfluxDB
 # database, using the InfluxDB line protocol over UDP.
-import std::clone::Clone
-import std::io::Error
-import std::net::ip::IpAddress
-import std::net::socket::UdpSocket
-import std::string::(StringBuffer, ToString)
-
-# A type that can be converted to a metric value.
-trait pub Value {
-  # Serialises the value to a metric value string.
-  fn pub to_value_string -> String
-}
-
-impl Value for Int {
-  fn pub to_value_string -> String {
-    to_string
-  }
-}
-
-impl Value for Float {
-  fn pub to_value_string -> String {
-    to_string
-  }
-}
+import std.clone.Clone
+import std.io.Error
+import std.net.ip.IpAddress
+import std.net.socket.UdpSocket
+import std.string.(StringBuffer, ToString)
 
 # A metric to store in the metrics database.
 class pub Metric {
   let @name: String
   let @tags: Array[(String, String)]
-  let @fields: Array[(String, Value)]
+  let @fields: Array[(String, String)]
 
   fn pub static with(name: String, block: fn (mut Metric)) -> Metric {
     let metric = new(name)
@@ -47,8 +29,8 @@ class pub Metric {
     @tags.push((name, value))
   }
 
-  fn pub mut field(name: String, value: Value) {
-    @fields.push((name, value))
+  fn pub mut field[T: ToString](name: String, value: ref T) {
+    @fields.push((name, value.to_string))
   }
 }
 
@@ -58,7 +40,7 @@ impl ToString for Metric {
 
     buf.push(@name)
 
-    if @tags.length > 0 {
+    if @tags.size > 0 {
       buf.push(',')
 
       @tags.iter.each_with_index fn (index, pair) {
@@ -71,7 +53,7 @@ impl ToString for Metric {
       }
     }
 
-    if @fields.length > 0 {
+    if @fields.size > 0 {
       buf.push(' ')
 
       @fields.iter.each_with_index fn (index, pair) {
@@ -79,7 +61,7 @@ impl ToString for Metric {
 
         buf.push(pair.0)
         buf.push('=')
-        buf.push(pair.1.to_value_string)
+        buf.push(pair.1)
       }
     }
 

@@ -1,7 +1,7 @@
-import openflow::http::(DefaultDriver, Request, Response, TestDriver)
-import std::net::ip::IpAddress
-import std::net::socket::TcpServer
-import std::test::Tests
+import openflow.http.(DefaultDriver, Request, Response, TestDriver)
+import std.net.ip.IpAddress
+import std.net.socket.TcpServer
+import std.test.Tests
 
 class async Server {
   fn async accept(socket: uni TcpServer) {

@@ -1,10 +1,10 @@
-import openflow::config::(Humidity as Config)
-import openflow::itho::Itho
-import openflow::logger::Logger
-import openflow::metrics::(Metric, Metrics)
-import openflow::state::(State, Status)
-import std::process::(sleep)
-import std::time::(Duration, Instant)
+import openflow.config.(Humidity as Config)
+import openflow.itho.Itho
+import openflow.logger.Logger
+import openflow.metrics.(Metric, Metrics)
+import openflow.state.(State, Status)
+import std.process.(sleep)
+import std.time.(Duration, Instant)
 
 # The state of a single humidity sensor.
 class enum Humidity {
@@ -140,8 +140,12 @@ class pub async Input {
         case Dry -> false
       }
 
-      map.set(sensor.name, humid)
-      map
+      recover {
+        let map = recover map
+
+        map.set(sensor.name, humid)
+        map
+      }
     }
 
     apply(updates)

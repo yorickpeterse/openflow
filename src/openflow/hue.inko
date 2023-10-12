@@ -1,6 +1,7 @@
-import openflow::http::(Client, Error, Request, Response, retry)
-import std::json::(self, Json)
-import std::time::(DateTime, Duration)
+import openflow.http.(Client, Error, Request, Response, retry)
+import std.int.Format
+import std.json.Json
+import std.time.(DateTime, Duration)
 
 # The time after which a request times out.
 let TIMEOUT = 30
@@ -39,7 +40,7 @@ class pub Hue {
       .map_error fn (e) { e.to_string }
 
     let body = resp.body.drain_to_string
-    let root = match json.parse(body) {
+    let root = match Json.parse(body) {
       case Ok(Object(map)) -> map
       case _ -> throw 'Expected the response to be a JSON object'
     }
@@ -47,7 +48,7 @@ class pub Hue {
     let motion = Map.new
 
     root.into_iter.each fn (entry) {
-      let id = Int.from_base10(entry.key).unwrap
+      let id = Int.parse(entry.key, Format.Decimal).unwrap
       let val = match entry {
         case { @value = Object(map) } -> map
         case _ -> return
@@ -60,8 +61,14 @@ class pub Hue {
 
       match val.opt('type') {
         case Some(String('ZLLPresence')) -> match state.opt('presence') {
-          case Some(Bool(val)) -> motion.set(id, val)
-          case _ -> motion.set(id, false)
+          case Some(Bool(val)) -> {
+            motion.set(id, val)
+            nil
+          }
+          case _ -> {
+            motion.set(id, false)
+            nil
+          }
         }
         case _ -> {}
       }

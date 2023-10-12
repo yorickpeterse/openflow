@@ -1,15 +1,16 @@
-import helpers::(Snapshot, allow_api_calls, state, NullWriter)
-import openflow::http::(Client, Response, TestDriver)
-import openflow::hue::Hue
-import openflow::inputs::motion::(Input, Sensor)
-import openflow::logger::Logger
-import openflow::metrics::Metrics
-import openflow::state::(State, Status)
-import openflow::sync::Waiter
-import std::json::Json
-import std::net::ip::IpAddress
-import std::test::Tests
-import std::time::Duration
+import helpers.(Snapshot, allow_api_calls, state, NullWriter)
+import openflow.http.(Client, Driver, Response, TestDriver)
+import openflow.hue.Hue
+import openflow.inputs.motion.(Input, Sensor)
+import openflow.logger.Logger
+import openflow.metrics.Metrics
+import openflow.state.(State, Status)
+import openflow.sync.Waiter
+import std.io.Write
+import std.json.Json
+import std.net.ip.IpAddress
+import std.test.Tests
+import std.time.Duration
 
 impl Input {
   fn async mut run_iteration {
@@ -35,7 +36,7 @@ impl Input {
 
 fn input(state: State, motion: uni Array[Bool]) -> Input {
   let metrics = recover Metrics.new(IpAddress.v4(0, 0, 0, 0), port: 0)
-  let logger = Logger.new(recover NullWriter {})
+  let logger = Logger.new(recover NullWriter {} as Write)
   let driver = recover TestDriver.new
   let mut index = 0
 
@@ -55,7 +56,9 @@ fn input(state: State, motion: uni Array[Bool]) -> Input {
     }
   )
 
-  let hue = recover Hue.new(Client.with_driver(driver), user: 'hunter2')
+  let hue =
+    recover Hue.new(Client.with_driver(driver as Driver), user: 'hunter2')
+
   let input = Input.new(state, logger, metrics, hue)
 
   input.add_sensor(recover Sensor.new('office', id: 1))

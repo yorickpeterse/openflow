@@ -1,8 +1,8 @@
-import openflow::http::(Client, Driver, Request, Error, TestDriver, Response)
-import std::io::(Error as IoError)
-import openflow::itho::(Itho, RemoteStatus)
-import std::test::Tests
-import std::time::(Duration, ToInstant)
+import openflow.http.(Client, Driver, Request, Error, TestDriver, Response)
+import std.io.(Error as IoError)
+import openflow.itho.(Itho, RemoteStatus)
+import std.test.Tests
+import std.time.(Duration, ToInstant)
 
 class ErrorDriver {
   let @body: String
@@ -18,7 +18,7 @@ class ErrorDriver {
 }
 
 impl Driver for ErrorDriver {
-  fn pub mut timeout_after=(time: ref ToInstant) {}
+  fn pub mut timeout_after=[I: ToInstant](time: ref I) {}
 
   fn pub mut execute(request: ref Request) -> Result[Response, Error] {
     if @thrown {
@@ -88,7 +88,7 @@ fn pub tests(t: mut Tests) {
       then: fn (_) { Response.ok('OK'.to_byte_array) }
     )
 
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     t.true(itho.set(setting: 124, value: 50).ok?)
@@ -97,7 +97,7 @@ fn pub tests(t: mut Tests) {
   t.test('Itho.set with a network timeout') fn (t) {
     let driver =
       ErrorDriver.new('OK') fn { throw Error.Network(IoError.TimedOut) }
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     itho.retry_wait_time = Duration.from_secs(0)
@@ -109,7 +109,7 @@ fn pub tests(t: mut Tests) {
     let driver = ErrorDriver.new('OK') fn {
       Result.Ok(Response.new(status: 500, body: ByteArray.new))
     }
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     itho.retry_wait_time = Duration.from_secs(0)
@@ -125,7 +125,7 @@ fn pub tests(t: mut Tests) {
       then: fn (_) { Response.ok('{"current":42}'.to_byte_array) }
     )
 
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     t.equal(itho.get(124), Result.Ok(42))
@@ -139,7 +139,7 @@ fn pub tests(t: mut Tests) {
       then: fn (_) { Response.ok('[]'.to_byte_array) }
     )
 
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     t.true(itho.get(124).error?)
@@ -153,7 +153,7 @@ fn pub tests(t: mut Tests) {
       then: fn (_) { Response.ok('{}'.to_byte_array) }
     )
 
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     t.equal(itho.get(124), Result.Ok(0))
@@ -162,7 +162,7 @@ fn pub tests(t: mut Tests) {
   t.test('Itho.get with a network timeout') fn (t) {
     let driver = ErrorDriver
       .new('{"current":42}') fn { throw Error.Network(IoError.TimedOut) }
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     itho.retry_wait_time = Duration.from_secs(0)
@@ -174,7 +174,7 @@ fn pub tests(t: mut Tests) {
     let driver = ErrorDriver.new('{"current":42}') fn {
       Result.Ok(Response.new(status: 500, body: ByteArray.new))
     }
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     itho.retry_wait_time = Duration.from_secs(0)
@@ -200,7 +200,7 @@ fn pub tests(t: mut Tests) {
       }
     )
 
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
     let status = itho.status.unwrap
 
@@ -218,7 +218,7 @@ fn pub tests(t: mut Tests) {
       then: fn (_) { Response.ok('[]' .to_byte_array) }
     )
 
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     t.true(itho.status.error?)
@@ -232,7 +232,7 @@ fn pub tests(t: mut Tests) {
       then: fn (_) { Response.ok('{}'.to_byte_array) }
     )
 
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
     let status = itho.status.unwrap
 
@@ -245,7 +245,7 @@ fn pub tests(t: mut Tests) {
     let driver = ErrorDriver.new('{"CO2 plenum (ppm)":500}') fn {
       throw Error.Network(IoError.TimedOut)
     }
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     itho.retry_wait_time = Duration.from_secs(0)
@@ -257,7 +257,7 @@ fn pub tests(t: mut Tests) {
     let driver = ErrorDriver.new('{"CO2 plenum (ppm)":500}') fn {
       Result.Ok(Response.new(status: 500, body: ByteArray.new))
     }
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     itho.retry_wait_time = Duration.from_secs(0)
@@ -284,7 +284,7 @@ fn pub tests(t: mut Tests) {
       }
     )
 
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
     let remotes = itho.remotes.unwrap
     let remote = remotes.get('kitchen')
@@ -298,7 +298,7 @@ fn pub tests(t: mut Tests) {
       .new('{"kitchen": { "lastcmd": 13, "timestamp": 42 }}') fn {
         throw Error.Network(IoError.TimedOut)
       }
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     itho.retry_wait_time = Duration.from_secs(0)

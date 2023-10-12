@@ -1,4 +1,4 @@
-import std::clone::Clone
+import std.clone.Clone
 
 # A type that allows a process to wait until another process wakes it up.
 class pub Waiter {

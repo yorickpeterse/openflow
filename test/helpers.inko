@@ -1,12 +1,12 @@
-import openflow::config::(Flow, Itho as IthoConfig, Room as RoomConfig)
-import openflow::http::(Client, Response, Request, TestDriver)
-import openflow::itho::Itho
-import openflow::logger::Logger
-import openflow::metrics::Metrics
-import openflow::state::(Room, State, Status)
-import std::io::Write
-import std::net::ip::IpAddress
-import std::time::Duration
+import openflow.config.(Flow, Itho as IthoConfig, Room as RoomConfig)
+import openflow.http.(Client, Driver, Response, Request, TestDriver)
+import openflow.itho.Itho
+import openflow.logger.Logger
+import openflow.metrics.Metrics
+import openflow.state.(Room, State, Status)
+import std.io.Write
+import std.net.ip.IpAddress
+import std.time.Duration
 
 class pub NullWriter {}
 
@@ -55,8 +55,12 @@ impl Room {
 impl State {
   fn pub async snapshot(channel: Channel[Snapshot]) {
     let rooms = @rooms.iter.reduce(recover Map.new) fn (map, entry) {
-      map.set(entry.key, recover entry.value.snapshot)
-      map
+      recover {
+        let map = recover map
+
+        map.set(entry.key, recover entry.value.snapshot)
+        map
+      }
     }
 
     channel.send(recover Snapshot { @speed = @speed, @rooms = rooms })
@@ -143,8 +147,8 @@ fn pub state(driver: uni TestDriver) -> State {
 }
 
 fn pub state_with_rooms(driver: uni TestDriver, rooms: Array[RoomConfig]) -> State {
-  let itho = recover Itho.new(Client.with_driver(driver))
-  let logger = Logger.new(recover NullWriter {})
+  let itho = recover Itho.new(Client.with_driver(driver as Driver))
+  let logger = Logger.new(recover NullWriter {} as Write)
   let config = IthoConfig {
     @ip = IpAddress.v4(0, 0, 0, 0),
     @minimum_flow = 75,

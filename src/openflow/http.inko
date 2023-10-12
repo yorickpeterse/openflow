@@ -1,11 +1,11 @@
-import std::drop::(drop)
-import std::io::(Error as IoError, Read)
-import std::net::ip::IpAddress
-import std::net::socket::TcpClient
-import std::process::(sleep)
-import std::string::(StringBuffer, ToString)
-import std::time::(Instant, ToInstant)
-import std::time::Duration
+import std.drop.(drop)
+import std.int.Format
+import std.io.(Error as IoError, Read)
+import std.net.ip.IpAddress
+import std.net.socket.TcpClient
+import std.process.(sleep)
+import std.string.(StringBuffer, ToString)
+import std.time.(Duration, Instant, ToInstant)
 
 let READ_SIZE = 1024
 let TAB = 9
@@ -112,12 +112,12 @@ impl ToString for Error {
 # This parser automatically reads more bytes from the input stream is necessary,
 # and takes care to not block by performing reads when no more data is
 # available.
-class ResponseParser {
-  let @stream: mut Read
+class ResponseParser[T: mut + Read] {
+  let @stream: T
   let @buffer: ByteArray
 
   # Returns a new parser that will parse the given input stream.
-  fn pub static new(stream: mut Read) -> ResponseParser {
+  fn pub static new(stream: T) -> ResponseParser[T] {
     ResponseParser { @stream = stream, @buffer = ByteArray.new }
   }
 
@@ -128,7 +128,7 @@ class ResponseParser {
     # This is the minimum number of bytes needed to parse the version and
     # status. Instead of checking for the length when parsing these values, we
     # check for it here once.
-    if @buffer.length < 12 { throw Error.UnexpectedEof }
+    if @buffer.size < 12 { throw Error.UnexpectedEof }
 
     let version = try parse_version
     let status = try parse_status
@@ -138,7 +138,7 @@ class ResponseParser {
     # don't want to include this in the body, so we add 1 to the start.
     let body_start = headers_end + 1
     let mut body_size = headers.opt('content-length')
-      .then fn (val) { Int.from_base10(val) }
+      .then fn (val) { Int.parse(val, Format.Decimal) }
       .unwrap_or(-1)
 
     if body_size == -1 {
@@ -146,13 +146,13 @@ class ResponseParser {
       # but to read until the end of the stream, otherwise we may miss data.
       try @stream.read_all(@buffer).map_error fn (e) { Error.Network(e) }
 
-      body_size = @buffer.length - body_start
+      body_size = @buffer.size - body_start
     } else {
-      try read_exact(size: body_size - (@buffer.length - body_start))
+      try read_exact(size: body_size - (@buffer.size - body_start))
     }
 
     let body = if body_size > 0 {
-      @buffer.slice(start: body_start, length: body_size)
+      @buffer.slice(start: body_start, size: body_size)
     } else {
       ByteArray.new
     }
@@ -254,9 +254,7 @@ class ResponseParser {
         # character.
         headers.set(
           key,
-          buf
-            .slice(start: val_start, length: val_end - val_start + 1)
-            .into_string
+          buf.slice(start: val_start, size: val_end - val_start + 1).into_string
         )
 
         idx += 1
@@ -300,8 +298,8 @@ class ResponseParser {
     loop {
       try read(READ_SIZE)
 
-      while index < buf.length {
-        if buf.length > 4
+      while index < buf.size {
+        if buf.size > 4
           and buf.get(index) == LF
           and buf.get(index - 1) == CR
           and buf.get(index - 2) == LF
@@ -422,7 +420,7 @@ class pub Request {
 # A type for executing HTTP requests.
 trait pub Driver {
   # Sets the deadline after which requests must time out.
-  fn pub mut timeout_after=(time: ref ToInstant)
+  fn pub mut timeout_after=[I: ToInstant](time: ref I)
 
   # Executes the HTTP request.
   fn pub mut execute(request: ref Request) -> Result[Response, Error]
@@ -455,7 +453,7 @@ class pub DefaultDriver {
 }
 
 impl Driver for DefaultDriver {
-  fn pub mut timeout_after=(time: ref ToInstant) {
+  fn pub mut timeout_after=[I: ToInstant](time: ref I) {
     @deadline = Option.Some(time.to_instant)
   }
 
@@ -466,7 +464,7 @@ impl Driver for DefaultDriver {
 
     try sock.write_string(data).map_error fn (e) { Error.Network(e) }
 
-    let reader: Read = sock
+    let reader = sock as Read
 
     # This is a hack to ensure we drop the guard before the socket (due to it
     # being moved in a `Read`).
@@ -501,7 +499,7 @@ class pub TestDriver {
 }
 
 impl Driver for TestDriver {
-  fn pub mut timeout_after=(time: ref ToInstant) {
+  fn pub mut timeout_after=[I: ToInstant](time: ref I) {
     # Deadlines are ignored by this driver.
   }
 
@@ -529,7 +527,7 @@ class pub Client {
 
   # Returns a new HTTP client connected to the given IP and port.
   fn pub static new(ip: IpAddress) -> Client {
-    with_driver(DefaultDriver.new(ip, port: 80))
+    with_driver(DefaultDriver.new(ip, port: 80) as Driver)
   }
 
   # Returns a new HTTP client that uses the given driver.
@@ -538,7 +536,7 @@ class pub Client {
   }
 
   # Sets a point in time after which HTTP requests must time out.
-  fn pub mut timeout_after=(time: ref ToInstant) {
+  fn pub mut timeout_after=[I: ToInstant](time: ref I) {
     @driver.timeout_after = time
   }
 

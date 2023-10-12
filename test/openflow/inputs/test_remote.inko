@@ -1,14 +1,15 @@
-import helpers::(Snapshot, allow_api_calls, state, NullWriter)
-import openflow::http::(Client, Response, TestDriver)
-import openflow::inputs::remote::(Button, Input)
-import openflow::itho::Itho
-import openflow::logger::Logger
-import openflow::state::(State, Status)
-import openflow::sync::Waiter
-import std::int::ToInt
-import std::json::Json
-import std::test::Tests
-import std::time::Duration
+import helpers.(Snapshot, allow_api_calls, state, NullWriter)
+import openflow.http.(Client, Driver, Response, TestDriver)
+import openflow.inputs.remote.(Button, Input)
+import openflow.itho.Itho
+import openflow.logger.Logger
+import openflow.state.(State, Status)
+import openflow.sync.Waiter
+import std.int.ToInt
+import std.io.Write
+import std.json.Json
+import std.test.Tests
+import std.time.Duration
 
 class enum RemoteState {
   case Low(Int)
@@ -41,7 +42,7 @@ impl Input {
 }
 
 fn input(state: State, states: uni Array[RemoteState]) -> Input {
-  let logger = Logger.new(recover NullWriter {})
+  let logger = Logger.new(recover NullWriter {} as Write)
   let driver = recover {
     let states = recover states
     let driver = TestDriver.new
@@ -67,7 +68,7 @@ fn input(state: State, states: uni Array[RemoteState]) -> Input {
     driver
   }
 
-  let itho = recover Itho.new(Client.with_driver(driver))
+  let itho = recover Itho.new(Client.with_driver(driver as Driver))
   let input = Input.new(state, logger, itho, id: 'office')
 
   input.add_button(

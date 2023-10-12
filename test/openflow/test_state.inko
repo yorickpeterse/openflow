@@ -1,9 +1,9 @@
-import helpers::(Snapshot, allow_api_calls, state, state_with_rooms)
-import openflow::config::(Flow, Room as RoomConfig)
-import openflow::http::(Response, TestDriver)
-import openflow::state::(State, Status)
-import openflow::sync::Waiter
-import std::test::Tests
+import helpers.(Snapshot, allow_api_calls, state, state_with_rooms)
+import openflow.config.(Flow, Room as RoomConfig)
+import openflow.http.(Response, TestDriver)
+import openflow.state.(State, Status)
+import openflow.sync.Waiter
+import std.test.Tests
 
 fn pub tests(t: mut Tests) {
   t.test('Status.cmp') fn (t) {

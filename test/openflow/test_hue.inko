@@ -1,8 +1,8 @@
-import openflow::http::(Client, Driver, Error, Request, Response, TestDriver)
-import openflow::hue::Hue
-import std::io::(Error as IoError)
-import std::test::Tests
-import std::time::(Duration, ToInstant)
+import openflow.http.(Client, Driver, Error, Request, Response, TestDriver)
+import openflow.hue.Hue
+import std.io.(Error as IoError)
+import std.test.Tests
+import std.time.(Duration, ToInstant)
 
 class TimeoutDriver {
   let @timed_out: Bool
@@ -13,7 +13,7 @@ class TimeoutDriver {
 }
 
 impl Driver for TimeoutDriver {
-  fn pub mut timeout_after=(time: ref ToInstant) {}
+  fn pub mut timeout_after=[I: ToInstant](time: ref I) {}
 
   fn pub mut execute(request: ref Request) -> Result[Response, Error] {
     if @timed_out {
@@ -46,7 +46,7 @@ fn pub tests(t: mut Tests) {
       }
     )
 
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let hue = Hue.new(client, user: 'foo')
     let sensors = hue.sensors.unwrap
 
@@ -55,7 +55,7 @@ fn pub tests(t: mut Tests) {
   }
 
   t.test('Hue.sensors retries failed requests') fn (t) {
-    let client = Client.with_driver(TimeoutDriver.new)
+    let client = Client.with_driver(TimeoutDriver.new as Driver)
     let hue = Hue.new(client, user: 'foo')
 
     hue.retry_wait_time = Duration.from_secs(0)
@@ -73,7 +73,7 @@ fn pub tests(t: mut Tests) {
       }
     )
 
-    let client = Client.with_driver(driver)
+    let client = Client.with_driver(driver as Driver)
     let hue = Hue.new(client, user: 'foo')
 
     t.true(hue.sensors.error?)

@@ -1,9 +1,9 @@
-import openflow::hue::Hue
-import openflow::logger::Logger
-import openflow::metrics::(Metric, Metrics)
-import openflow::state::(State, Status)
-import std::process::(sleep)
-import std::time::(Duration, Instant)
+import openflow.hue.Hue
+import openflow.logger.Logger
+import openflow.metrics.(Metric, Metrics)
+import openflow.state.(State, Status)
+import std.process.(sleep)
+import std.time.(Duration, Instant)
 
 class enum Presence {
   # No presence is detected.
@@ -147,8 +147,12 @@ class pub async Input {
         case _ -> false
       }
 
-      map.set(sensor.name, enable)
-      map
+      recover {
+        let map = recover map
+
+        map.set(sensor.name, enable)
+        map
+      }
     }
 
     apply(updates)

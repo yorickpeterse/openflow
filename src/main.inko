@@ -1,20 +1,20 @@
-import openflow::config::Config
-import openflow::experimental_ext
-import openflow::http::Client
-import openflow::hue::Hue
-import openflow::inputs::co2::(Input as Co2Input, Sensor as Co2Sensor)
-import openflow::inputs::humidity::(Input as HumidityInput, Sensor as HumiditySensor)
-import openflow::inputs::motion::(Input as MotionInput, Sensor as MotionSensor)
-import openflow::inputs::remote::(Button, Input as RemoteInput)
-import openflow::itho::Itho
-import openflow::logger::Logger
-import openflow::metrics::Metrics
-import openflow::more_sense::MoreSense
-import openflow::state::(Room, State, Status)
-import openflow::sync::Waiter
-import std::env
-import std::process::(sleep)
-import std::time::Duration
+import openflow.config.Config
+import openflow.experimental_ext
+import openflow.http.Client
+import openflow.hue.Hue
+import openflow.inputs.co2.(Input as Co2Input, Sensor as Co2Sensor)
+import openflow.inputs.humidity.(Input as HumidityInput, Sensor as HumiditySensor)
+import openflow.inputs.motion.(Input as MotionInput, Sensor as MotionSensor)
+import openflow.inputs.remote.(Button, Input as RemoteInput)
+import openflow.itho.Itho
+import openflow.logger.Logger
+import openflow.metrics.Metrics
+import openflow.more_sense.MoreSense
+import openflow.state.(Room, State, Status)
+import openflow.sync.Waiter
+import std.env
+import std.process.(sleep)
+import std.time.Duration
 
 class async Main {
   fn async main {

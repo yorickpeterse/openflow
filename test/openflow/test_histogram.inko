@@ -1,5 +1,5 @@
-import openflow::histogram::Histogram
-import std::test::Tests
+import openflow.histogram.Histogram
+import std.test.Tests
 
 fn pub tests(t: mut Tests) {
   t.test('Histogram.median without values') fn (t) {
