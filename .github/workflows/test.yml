@@ -1,11 +1,6 @@
 ---
-name: Test
-
+name: Push
 on: push
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   test:
@@ -16,4 +11,5 @@ jobs:
       - run: microdnf install --quiet --assumeyes tar git
       - uses: actions/checkout@v4
       - run: inko --version
+      - run: inko pkg sync
       - run: inko test

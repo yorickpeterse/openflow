@@ -12,17 +12,49 @@ import openflow.metrics.Metrics
 import openflow.more_sense.MoreSense
 import openflow.state.(Room, State, Status)
 import openflow.sync.Waiter
+import optparse.Options
 import std.env
 import std.process.(sleep)
+import std.stdio.(STDERR, STDOUT)
+import std.sys.(exit)
 import std.time.Duration
+
+let DEFAULT_CONFIG = '/etc/openflow.json'
+let USAGE = 'Usage: openflow [OPTIONS]
+
+Examples:
+
+  openflow                      # Start using the default configuration file
+  openflow --config config.json # Use ./config.json as the configuration file'
 
 class async Main {
   fn async main {
+    let opts = Options.new
+
+    opts.flag('h', 'help', 'Show this help message')
+    opts.single('c', 'config', 'PATH', 'The configuration file to use')
+
+    let matches = match opts.parse(env.arguments) {
+      case Ok(matches) -> matches
+      case Error(err) -> {
+        STDERR.new.print("openflow failed to start: {err}")
+        exit(1)
+      }
+    }
+
+    if matches.contains?('help') {
+      STDOUT.new.print("{USAGE}\n\nOptions:\n\n{opts}")
+      return
+    }
+
+    run(matches.value('config').unwrap_or(DEFAULT_CONFIG))
+  }
+
+  fn run(config_path: String) {
     let logger = Logger.default
-    let conf_path = env.arguments.opt(0).unwrap_or('/etc/openflow.json')
-    let config = match Config.load(conf_path) {
+    let config = match Config.load(config_path) {
       case Ok(conf) -> conf
-      case Error(err) -> panic("failed to load {conf_path}: {err}")
+      case Error(err) -> panic("failed to load {config_path}: {err}")
     }
 
     let metrics =
