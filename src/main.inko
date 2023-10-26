@@ -57,9 +57,15 @@ class async Main {
       let name = conf.name
 
       conf.co2.as_ref.let fn (ip) {
-        co2_input.add_sensor(
+        let sensor =
           recover Co2Sensor.new(name, MoreSense.new(Client.new(ip.clone)))
-        )
+
+        match conf.co2_minimum {
+          case Some(val) -> sensor.co2_minimum = val
+          case _ -> {}
+        }
+
+        co2_input.add_sensor(sensor)
       }
 
       conf.motion.as_ref.let fn (id) {

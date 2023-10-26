@@ -230,6 +230,7 @@ fn pub tests(t: mut Tests) {
           @motion = Option.None,
           @humidity = Option.None,
           @co2 = Option.None,
+          @co2_minimum = Option.None,
         },
         RoomConfig {
           @name = 'kitchen',
@@ -247,6 +248,7 @@ fn pub tests(t: mut Tests) {
           @motion = Option.None,
           @humidity = Option.None,
           @co2 = Option.None,
+          @co2_minimum = Option.None,
         },
         RoomConfig {
           @name = 'office',
@@ -264,6 +266,7 @@ fn pub tests(t: mut Tests) {
           @motion = Option.None,
           @humidity = Option.None,
           @co2 = Option.None,
+          @co2_minimum = Option.None,
         },
         RoomConfig {
           @name = 'bedroom',
@@ -281,6 +284,7 @@ fn pub tests(t: mut Tests) {
           @motion = Option.None,
           @humidity = Option.None,
           @co2 = Option.None,
+          @co2_minimum = Option.None,
         },
         RoomConfig {
           @name = 'bathroom',
@@ -298,6 +302,7 @@ fn pub tests(t: mut Tests) {
           @motion = Option.None,
           @humidity = Option.None,
           @co2 = Option.None,
+          @co2_minimum = Option.None,
         },
       ]
     )

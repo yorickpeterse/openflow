@@ -463,16 +463,7 @@ impl Driver for DefaultDriver {
     let guard = @deadline.clone.map fn (t) { sock.socket.timeout_after = t }
 
     try sock.write_string(data).map_error fn (e) { Error.Network(e) }
-
-    let reader = sock as Read
-
-    # This is a hack to ensure we drop the guard before the socket (due to it
-    # being moved in a `Read`).
-    #
-    # Tracking issue: https://github.com/inko-lang/inko/issues/359
-    let guard = guard
-
-    ResponseParser.new(reader).parse
+    ResponseParser.new(mut sock).parse
   }
 }
 

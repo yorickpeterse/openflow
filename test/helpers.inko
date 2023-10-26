@@ -89,6 +89,7 @@ fn pub state(driver: uni TestDriver) -> State {
       @motion = Option.None,
       @humidity = Option.None,
       @co2 = Option.None,
+      @co2_minimum = Option.None,
     },
     RoomConfig {
       @name = 'office',
@@ -106,6 +107,7 @@ fn pub state(driver: uni TestDriver) -> State {
       @motion = Option.None,
       @humidity = Option.None,
       @co2 = Option.None,
+      @co2_minimum = Option.None,
     },
     RoomConfig {
       @name = 'super_fast',
@@ -123,6 +125,7 @@ fn pub state(driver: uni TestDriver) -> State {
       @motion = Option.None,
       @humidity = Option.None,
       @co2 = Option.None,
+      @co2_minimum = Option.None,
     },
     RoomConfig {
       @name = 'bathroom',
@@ -140,6 +143,7 @@ fn pub state(driver: uni TestDriver) -> State {
       @motion = Option.None,
       @humidity = Option.Some('RH bathroom 1'),
       @co2 = Option.None,
+      @co2_minimum = Option.None,
     },
   ]
 

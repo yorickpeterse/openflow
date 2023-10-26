@@ -170,6 +170,9 @@ class pub Room {
   # The IP address of a MoreSense CO2 sensor associated with this room.
   let pub @co2: Option[IpAddress]
 
+  # The minimum CO2 value to observe before enabling active ventilation.
+  let pub @co2_minimum: Option[Int]
+
   fn pub static from_json(
     name: String,
     object: ref Map[String, Json]
@@ -183,6 +186,7 @@ class pub Room {
     let motion = opt_int(object, 'motion')
     let humidity = opt_string(object, 'humidity')
     let co2 = try opt_ip(object, 'co2')
+    let co2_min = opt_int(object, 'co2_minimum')
 
     Result.Ok(Room {
       @name = name,
@@ -191,6 +195,7 @@ class pub Room {
       @motion = motion,
       @humidity = humidity,
       @co2 = co2,
+      @co2_minimum = co2_min,
     })
   }
 }

@@ -33,6 +33,9 @@ class pub Sensor {
   # The CO2 at the time of the last status change.
   let @last_change_co2: Int
 
+  # The lowest CO2 value at which to start active ventilation.
+  let pub @co2_minimum: Int
+
   fn pub static new(name: String, client: MoreSense) -> Sensor {
     Sensor {
       @name = name,
@@ -41,6 +44,7 @@ class pub Sensor {
       @status = Status.Default,
       @last_status_change = Instant.new,
       @last_change_co2 = 0,
+      @co2_minimum = 700,
     }
   }
 
@@ -130,6 +134,7 @@ class pub async Input {
   fn mut update {
     let updates = @sensors.iter_mut.reduce(recover Map.new) fn (map, sensor) {
       let new = sensor.update_co2
+      let min = sensor.co2_minimum
       let status = recover {
         if new >= 900 {
           Status.Maximum
@@ -139,7 +144,9 @@ class pub async Input {
           Status.MediumHigh
         } else if new >= 750 {
           Status.Medium
-        } else if new >= 700 or (new >= 650 and sensor.last_change_co2 >= 700) {
+        } else if new >= min
+          or (new >= (min - 50) and sensor.last_change_co2 >= min)
+        {
           Status.Low
         } else {
           Status.Default

@@ -28,6 +28,10 @@ impl Input {
   fn async mut reset_reduce_wait_time {
     @reduce_wait_time = Duration.from_secs(0)
   }
+
+  fn async mut update_co2_minimum(value: Int) {
+    @sensors.get_mut(0).co2_minimum = value
+  }
 }
 
 fn input(state: State, samples: uni Array[Int]) -> Input {
@@ -306,6 +310,22 @@ fn pub tests(t: mut Tests) {
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Medium)
 
     input.reset_reduce_wait_time
+    run(input)
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
+  }
+
+  t.test('Using a custom CO2 minimum threshold') fn (t) {
+    let state = state(allow_api_calls)
+    let samples = recover [
+      # Update 1
+      400, 400, 400, 400, 400, 400, 400, 400, 400, 400,
+      400, 400, 400, 400, 400, 400, 400, 400, 400, 400,
+      400, 400, 400, 400, 400, 400, 400, 400, 400, 400,
+    ]
+
+    let input = input(state, samples: samples)
+
+    input.update_co2_minimum(400)
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
   }
