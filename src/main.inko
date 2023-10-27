@@ -12,7 +12,7 @@ import openflow.metrics.Metrics
 import openflow.more_sense.MoreSense
 import openflow.state.(Room, State, Status)
 import openflow.sync.Waiter
-import optparse.Options
+import optparse.(Help, Options)
 import std.env
 import std.process.(sleep)
 import std.stdio.(STDERR, STDOUT)
@@ -20,19 +20,18 @@ import std.sys.(exit)
 import std.time.Duration
 
 let DEFAULT_CONFIG = '/etc/openflow.json'
-let USAGE = 'Usage: openflow [OPTIONS]
-
-Examples:
-
-  openflow                      # Start using the default configuration file
-  openflow --config config.json # Use ./config.json as the configuration file'
 
 class async Main {
   fn async main {
     let opts = Options.new
 
     opts.flag('h', 'help', 'Show this help message')
-    opts.single('c', 'config', 'PATH', 'The configuration file to use')
+    opts.single(
+      'c',
+      'config',
+      'PATH',
+      "The configuration file to use (default: {DEFAULT_CONFIG})"
+    )
 
     let matches = match opts.parse(env.arguments) {
       case Ok(matches) -> matches
@@ -43,7 +42,20 @@ class async Main {
     }
 
     if matches.contains?('help') {
-      STDOUT.new.print("{USAGE}\n\nOptions:\n\n{opts}")
+      let help = Help
+        .new('openflow')
+        .section('Examples')
+        .line(
+          'openflow                      # Start using the default configuration file'
+        )
+        .line(
+          'openflow --config config.json # Use ./config.json as the configuration file'
+        )
+        .section('Options')
+        .options(opts)
+        .to_string
+
+      STDOUT.new.write_string(help)
       return
     }
 
