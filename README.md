@@ -80,6 +80,13 @@ inko build src/main.inko -o openflow # Compile the code
 ./openflow                           # Start using /etc/openflow.json as the config file
 ```
 
+You can also use the container built from `main`:
+
+```bash
+docker pull ghcr.io/yorickpeterse/openflow:main
+docker run yorickpeterse/openflow:main openflow --help
+```
+
 For more information on how to use the executable, run `openflow --help`.
 
 # License
