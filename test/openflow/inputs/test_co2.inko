@@ -94,10 +94,11 @@ fn pub tests(t: mut Tests) {
       (750, Status.Medium),
       (800, Status.MediumHigh),
       (825, Status.MediumHigh),
-      (850, Status.High),
-      (875, Status.High),
-      (900, Status.Maximum),
-      (850, Status.Maximum),
+      (850, Status.MediumHigh),
+      (875, Status.MediumHigh),
+      (900, Status.High),
+      (1000, Status.Maximum),
+      (850, Status.MediumHigh),
       (800, Status.MediumHigh),
       (750, Status.MediumHigh),
       (700, Status.Low),
@@ -137,7 +138,7 @@ fn pub tests(t: mut Tests) {
 
     run(input)
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Maximum)
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.High)
   }
 
   t.test('Ignoring rooms that are humid') fn (t) {
@@ -281,7 +282,7 @@ fn pub tests(t: mut Tests) {
     let input = input(state, samples: samples)
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Maximum)
+    t.equal(Snapshot.of(state).rooms.get('office').status, Status.High)
 
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)

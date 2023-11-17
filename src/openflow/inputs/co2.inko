@@ -136,9 +136,9 @@ class pub async Input {
       let new = sensor.update_co2
       let min = sensor.co2_minimum
       let status = recover {
-        if new >= 900 {
+        if new >= 1000 {
           Status.Maximum
-        } else if new >= 850 {
+        } else if new >= 900 {
           Status.High
         } else if new >= 800 {
           Status.MediumHigh
