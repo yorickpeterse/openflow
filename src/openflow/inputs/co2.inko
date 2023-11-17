@@ -13,7 +13,7 @@ let SAMPLE_INTERVAL = 30
 
 # The interval (in seconds) at which to calculate a new CO2 value based on the
 # gathered samples.
-let UPDATE_INTERVAL = 1200
+let UPDATE_INTERVAL = 900
 
 # How many samples we should gather before updating the CO2 levels.
 let pub SAMPLES = UPDATE_INTERVAL / SAMPLE_INTERVAL
