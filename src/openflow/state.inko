@@ -99,7 +99,7 @@ impl ToString for Status {
   }
 }
 
-impl Equal[Status] for Status {
+impl Equal[ref Status] for Status {
   fn pub ==(other: ref Status) -> Bool {
     match (self, other) {
       case (Default, Default) -> true

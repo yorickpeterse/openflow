@@ -1,5 +1,5 @@
 import std.fs.file.ReadOnlyFile
-import std.fs.path.IntoPath
+import std.fs.path.ToPath
 import std.iter.Iter
 import std.json.Json
 import std.net.ip.IpAddress
@@ -384,7 +384,7 @@ class pub Config {
   let pub @remote: Option[Remote]
 
   # Load configuration from a JSON file.
-  fn pub static load[T: IntoPath](path: T) -> Result[Config, String] {
+  fn pub static load[T: ToPath](path: ref T) -> Result[Config, String] {
     let file = try ReadOnlyFile.new(path).map_error fn (e) { e.to_string }
     let bytes = ByteArray.new
 

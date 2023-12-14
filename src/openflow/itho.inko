@@ -39,7 +39,7 @@ class pub enum RemoteStatus {
   }
 }
 
-impl Equal[RemoteStatus] for RemoteStatus {
+impl Equal[ref RemoteStatus] for RemoteStatus {
   fn pub ==(other: ref RemoteStatus) -> Bool {
     match (self, other) {
       case (Unknown, Unknown) -> true
