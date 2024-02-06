@@ -460,7 +460,11 @@ impl Driver for DefaultDriver {
   fn pub mut execute(request: ref Request) -> Result[Response, Error] {
     let sock = try connect
     let data = request.generate(host: @ip.to_string, agent: 'inko')
-    let guard = @deadline.clone.map fn (t) { sock.socket.timeout_after = t }
+
+    match @deadline.clone {
+      case Some(v) -> sock.socket.timeout_after = v
+      case _ -> {}
+    }
 
     try sock.write_string(data).map_error fn (e) { Error.Network(e) }
     ResponseParser.new(mut sock).parse

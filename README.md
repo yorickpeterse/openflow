@@ -38,7 +38,7 @@ whenever possible, reducing the amount of noise produced.
 - An [Itho HRU/WPU/DemandFlow/QualityFlow wifi
   module](https://www.nrgwatch.nl/product/itho-non-cve-wifi-module/) with [these
   changes applied](https://github.com/arjenhiemstra/ithowifi/pull/144)
-- Inko 0.13.2 or newer
+- Inko 0.40.0 or newer
 - At least one MoreSense CO2 sensor
 - Optionally a bunch of Philips Hue motion sensors, depending on how many rooms
   you want to ventilate in response to motion

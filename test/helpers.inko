@@ -53,7 +53,7 @@ impl Room {
 }
 
 impl State {
-  fn pub async snapshot(channel: Channel[Snapshot]) {
+  fn pub async snapshot(channel: Channel[uni Snapshot]) {
     let rooms = @rooms.iter.reduce(recover Map.new) fn (map, entry) {
       recover {
         let map = recover map
