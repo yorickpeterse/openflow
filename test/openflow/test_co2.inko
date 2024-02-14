@@ -95,7 +95,7 @@ fn pub tests(t: mut Tests) {
     co2.add(1200)
     co2.add(1200)
     co2.update
-    t.equal(co2.value, 825)
+    t.equal(co2.value, 900)
   }
 
   t.test('Co2.update with a short increase in CO2') fn (t) {
@@ -110,7 +110,7 @@ fn pub tests(t: mut Tests) {
     co2.add(800)
     co2.update
 
-    t.equal(co2.value, 700)
+    t.equal(co2.value, 850)
   }
 
   t.test('Co2.update with an even distribution') fn (t) {

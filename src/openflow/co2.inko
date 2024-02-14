@@ -18,9 +18,6 @@ let BUCKETS = HIGH - LOW / SIZE + 1
 # The last/maximum bucket.
 let MAX_BUCKET = BUCKETS - 1
 
-# The bucket difference that indicates an outlier in the CO2 histogram.
-let OUTLIER_BUCKETS = 200 / SIZE
-
 fn co2_to_bucket(co2: Int) -> Int {
   if co2 <= LOW {
     0
@@ -63,22 +60,13 @@ class pub Co2 {
 
   # Updates the CO2 estimate if necessary.
   fn pub mut update {
-    let median = @histogram.median
-
-    # We remove any outliers to ensure they don't skew the mean. We only remove
-    # outliers towards the end of the histogram, as the sensors are quick to
-    # report an increase in CO2, while taking a bit longer to report reduced
-    # values (meaning outliers on the lower end are rare).
-    let sum_count = @histogram.iter.with_index.reduce((0, 0)) fn (acc, pair) {
-      let bucket = pair.0
-      let count = pair.1
-
-      if bucket - median >= OUTLIER_BUCKETS and count <= 3 {
-        acc
-      } else {
-        (acc.0 + (LOW + (bucket * SIZE) * count), acc.1 + count)
+    let sum_count =
+      @histogram.iter.with_index.reduce((0, 0)) fn (acc, buck_count) {
+        (
+          acc.0 + (LOW + (buck_count.0 * SIZE) * buck_count.1),
+          acc.1 + buck_count.1
+        )
       }
-    }
 
     let mean = if sum_count.1 > 0 { sum_count.0 / sum_count.1 } else { 0 }
 

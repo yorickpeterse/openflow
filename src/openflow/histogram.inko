@@ -24,24 +24,6 @@ class pub Histogram {
     @buckets.set(bucket, @buckets.get(bucket) + 1)
   }
 
-  # Returns the bucket that represents the median.
-  #
-  # If the histogram is empty, the first bucket is returned.
-  fn pub median -> Int {
-    let mid = @buckets.iter.reduce(0) fn (sum, count) { sum + count } + 1 / 2
-    let mut total = 0
-
-    @buckets
-      .iter
-      .with_index
-      .find_map fn move (pair) {
-        total += pair.1
-
-        if total > mid { Option.Some(pair.0) } else { Option.None }
-      }
-      .unwrap_or(0)
-  }
-
   # Resets the values of all buckets back to zero.
   fn pub mut reset {
     @buckets.size.times fn (index) { @buckets.set(index, 0) }
