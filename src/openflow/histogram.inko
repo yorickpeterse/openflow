@@ -1,4 +1,4 @@
-import std.iter.Stream
+import std.iter (Stream)
 
 # A histogram for tracking the occurrences of some value.
 class pub Histogram {

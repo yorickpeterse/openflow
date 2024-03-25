@@ -1,23 +1,23 @@
-import openflow.config.Config
+import openflow.config (Config)
 import openflow.experimental_ext
-import openflow.http.Client
-import openflow.hue.Hue
-import openflow.inputs.co2.(Input as Co2Input, Sensor as Co2Sensor)
-import openflow.inputs.humidity.(Input as HumidityInput, Sensor as HumiditySensor)
-import openflow.inputs.motion.(Input as MotionInput, Sensor as MotionSensor)
-import openflow.inputs.remote.(Button, Input as RemoteInput)
-import openflow.itho.Itho
-import openflow.logger.Logger
-import openflow.metrics.Metrics
-import openflow.more_sense.MoreSense
-import openflow.state.(Room, State, Status)
-import openflow.sync.Waiter
-import optparse.(Help, Options)
+import openflow.http (Client)
+import openflow.hue (Hue)
+import openflow.inputs.co2 (Input as Co2Input, Sensor as Co2Sensor)
+import openflow.inputs.humidity (Input as HumidityInput, Sensor as HumiditySensor)
+import openflow.inputs.motion (Input as MotionInput, Sensor as MotionSensor)
+import openflow.inputs.remote (Button, Input as RemoteInput)
+import openflow.itho (Itho)
+import openflow.logger (Logger)
+import openflow.metrics (Metrics)
+import openflow.more_sense (MoreSense)
+import openflow.state (Room, State, Status)
+import openflow.sync (Waiter)
+import optparse (Help, Options)
 import std.env
-import std.process.(sleep)
-import std.stdio.(STDERR, STDOUT)
-import std.sys.(exit)
-import std.time.Duration
+import std.process (sleep)
+import std.stdio (STDERR, STDOUT)
+import std.sys (exit)
+import std.time (Duration)
 
 let DEFAULT_CONFIG = '/etc/openflow.json'
 

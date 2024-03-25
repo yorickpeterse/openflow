@@ -1,15 +1,15 @@
-import helpers.(Snapshot, allow_api_calls, state, NullWriter)
-import openflow.http.(Client, Driver, Response, TestDriver)
-import openflow.inputs.remote.(Button, Input)
-import openflow.itho.Itho
-import openflow.logger.Logger
-import openflow.state.(State, Status)
-import openflow.sync.Waiter
-import std.int.ToInt
-import std.io.Write
-import std.json.Json
-import std.test.Tests
-import std.time.Duration
+import helpers (Snapshot, allow_api_calls, state, NullWriter)
+import openflow.http (Client, Driver, Response, TestDriver)
+import openflow.inputs.remote (Button, Input)
+import openflow.itho (Itho)
+import openflow.logger (Logger)
+import openflow.state (State, Status)
+import openflow.sync (Waiter)
+import std.int (ToInt)
+import std.io (Write)
+import std.json (Json)
+import std.test (Tests)
+import std.time (Duration)
 
 class enum RemoteState {
   case Low(Int)

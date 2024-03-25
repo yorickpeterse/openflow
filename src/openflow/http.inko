@@ -1,11 +1,11 @@
-import std.drop.(drop)
-import std.int.Format
-import std.io.(Error as IoError, Read)
-import std.net.ip.IpAddress
-import std.net.socket.TcpClient
-import std.process.(sleep)
-import std.string.(StringBuffer, ToString)
-import std.time.(Duration, Instant, ToInstant)
+import std.drop (drop)
+import std.int (Format)
+import std.io (Error as IoError, Read)
+import std.net.ip (IpAddress)
+import std.net.socket (TcpClient)
+import std.process (sleep)
+import std.string (StringBuffer, ToString)
+import std.time (Duration, Instant, ToInstant)
 
 let READ_SIZE = 1024
 let TAB = 9

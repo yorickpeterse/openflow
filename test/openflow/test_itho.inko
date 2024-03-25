@@ -1,8 +1,8 @@
-import openflow.http.(Client, Driver, Request, Error, TestDriver, Response)
-import std.io.(Error as IoError)
-import openflow.itho.(Itho, RemoteStatus)
-import std.test.Tests
-import std.time.(Duration, ToInstant)
+import openflow.http (Client, Driver, Request, Error, TestDriver, Response)
+import std.io (Error as IoError)
+import openflow.itho (Itho, RemoteStatus)
+import std.test (Tests)
+import std.time (Duration, ToInstant)
 
 class ErrorDriver {
   let @body: String

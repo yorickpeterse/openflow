@@ -1,16 +1,16 @@
-import helpers.(Snapshot, allow_api_calls, state, NullWriter)
-import openflow.http.(Client, Driver, Response, TestDriver)
-import openflow.inputs.co2.(SAMPLES, Input, Sensor)
-import openflow.logger.Logger
-import openflow.metrics.Metrics
-import openflow.more_sense.MoreSense
-import openflow.state.(State, Status)
-import openflow.sync.Waiter
-import std.io.Write
-import std.json.Json
-import std.net.ip.IpAddress
-import std.test.Tests
-import std.time.Duration
+import helpers (Snapshot, allow_api_calls, state, NullWriter)
+import openflow.http (Client, Driver, Response, TestDriver)
+import openflow.inputs.co2 (SAMPLES, Input, Sensor)
+import openflow.logger (Logger)
+import openflow.metrics (Metrics)
+import openflow.more_sense (MoreSense)
+import openflow.state (State, Status)
+import openflow.sync (Waiter)
+import std.io (Write)
+import std.json (Json)
+import std.net.ip (IpAddress)
+import std.test (Tests)
+import std.time (Duration)
 
 impl Input {
   fn async mut run_iteration {

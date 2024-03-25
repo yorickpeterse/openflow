@@ -1,12 +1,12 @@
-import openflow.config.(Flow, Itho as IthoConfig, Room as RoomConfig)
-import openflow.http.(Client, Driver, Response, Request, TestDriver)
-import openflow.itho.Itho
-import openflow.logger.Logger
-import openflow.metrics.Metrics
-import openflow.state.(Room, State, Status)
-import std.io.Write
-import std.net.ip.IpAddress
-import std.time.Duration
+import openflow.config (Flow, Itho as IthoConfig, Room as RoomConfig)
+import openflow.http (Client, Driver, Response, Request, TestDriver)
+import openflow.itho (Itho)
+import openflow.logger (Logger)
+import openflow.metrics (Metrics)
+import openflow.state (Room, State, Status)
+import std.io (Write)
+import std.net.ip (IpAddress)
+import std.time (Duration)
 
 class pub NullWriter {}
 

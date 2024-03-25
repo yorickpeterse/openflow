@@ -1,9 +1,9 @@
-import openflow.hue.Hue
-import openflow.logger.Logger
-import openflow.metrics.(Metric, Metrics)
-import openflow.state.(State, Status)
-import std.process.(sleep)
-import std.time.(Duration, Instant)
+import openflow.hue (Hue)
+import openflow.logger (Logger)
+import openflow.metrics (Metric, Metrics)
+import openflow.state (State, Status)
+import std.process (sleep)
+import std.time (Duration, Instant)
 
 class enum Presence {
   # No presence is detected.
@@ -81,8 +81,6 @@ class pub async Input {
       @metrics = metrics,
       @hue = hue,
       @sensors = recover [],
-      # Hue sensors only persist the "presence" value for about 15 seconds, so
-      # we need to poll them faster than that to reliably register motion.
       @sample_interval = recover Duration.from_secs(10),
       @motion_wait_time = recover Duration.from_secs(120),
       @pending_timeout = recover Duration.from_secs(300),

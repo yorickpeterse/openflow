@@ -1,14 +1,14 @@
-import openflow.config.(Room as RoomConfig, Itho as IthoConfig)
-import openflow.itho.Itho
-import openflow.logger.Logger
-import openflow.metrics.(Metric, Metrics)
-import openflow.sync.Waiter
-import std.clone.Clone
-import std.cmp.(Compare, Equal, Ordering, max, min)
-import std.fmt.(Format, Formatter)
-import std.process.(sleep)
-import std.string.ToString
-import std.time.(Duration, Instant)
+import openflow.config (Room as RoomConfig, Itho as IthoConfig)
+import openflow.itho (Itho)
+import openflow.logger (Logger)
+import openflow.metrics (Metric, Metrics)
+import openflow.sync (Waiter)
+import std.clone (Clone)
+import std.cmp (Compare, Equal, Ordering, max, min)
+import std.fmt (Format, Formatter)
+import std.process (sleep)
+import std.string (ToString)
+import std.time (Duration, Instant)
 
 # The maximum value of an exhaust valve setting.
 #

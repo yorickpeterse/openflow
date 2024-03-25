@@ -1,9 +1,9 @@
-import std.fs.file.ReadOnlyFile
-import std.fs.path.ToPath
-import std.iter.Iter
-import std.json.Json
-import std.net.ip.IpAddress
-import std.time.Duration
+import std.fs.file (ReadOnlyFile)
+import std.fs.path (ToPath)
+import std.iter (Iter)
+import std.json (Json)
+import std.net.ip (IpAddress)
+import std.time (Duration)
 
 fn opt_int(object: ref Map[String, Json], key: String) -> Option[Int] {
   match object.opt(key) {
