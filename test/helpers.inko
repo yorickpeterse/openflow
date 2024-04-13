@@ -1,12 +1,12 @@
-import openflow.config.(Flow, Itho as IthoConfig, Room as RoomConfig)
-import openflow.http.(Client, Driver, Response, Request, TestDriver)
-import openflow.itho.Itho
-import openflow.logger.Logger
-import openflow.metrics.Metrics
-import openflow.state.(Room, State, Status)
-import std.io.Write
-import std.net.ip.IpAddress
-import std.time.Duration
+import openflow.config (Flow, Itho as IthoConfig, Room as RoomConfig)
+import openflow.http (Client, Driver, Request, Response, TestDriver)
+import openflow.itho (Itho)
+import openflow.logger (Logger)
+import openflow.metrics (Metrics)
+import openflow.state (Room, State, Status)
+import std.io (Write)
+import std.net.ip (IpAddress)
+import std.time (Duration)
 
 class pub NullWriter {}
 
@@ -54,14 +54,14 @@ impl Room {
 
 impl State {
   fn pub async snapshot(channel: Channel[uni Snapshot]) {
-    let rooms = @rooms.iter.reduce(recover Map.new) fn (map, entry) {
+    let rooms = @rooms.iter.reduce(recover Map.new, fn (map, entry) {
       recover {
         let map = recover map
 
         map.set(entry.key, recover entry.value.snapshot)
         map
       }
-    }
+    })
 
     channel.send(recover Snapshot { @speed = @speed, @rooms = rooms })
   }
@@ -150,7 +150,10 @@ fn pub state(driver: uni TestDriver) -> State {
   state_with_rooms(driver, rooms)
 }
 
-fn pub state_with_rooms(driver: uni TestDriver, rooms: Array[RoomConfig]) -> State {
+fn pub state_with_rooms(
+  driver: uni TestDriver,
+  rooms: Array[RoomConfig],
+) -> State {
   let itho = recover Itho.new(Client.with_driver(driver as Driver))
   let logger = Logger.new(recover NullWriter {} as Write)
   let config = IthoConfig {
@@ -164,7 +167,7 @@ fn pub state_with_rooms(driver: uni TestDriver, rooms: Array[RoomConfig]) -> Sta
   let metrics = recover Metrics.new(IpAddress.v4(0, 0, 0, 0), port: 0)
   let state = State.new(itho, logger, metrics, config)
 
-  rooms.into_iter.each fn (conf) { state.add_room(Room.new(conf.name, conf)) }
+  rooms.into_iter.each(fn (conf) { state.add_room(Room.new(conf.name, conf)) })
   state
 }
 
@@ -173,7 +176,7 @@ fn pub allow_api_calls -> uni TestDriver {
 
   driver.request(
     matches: fn (req) { req.queries.opt('setsetting').some? },
-    then: fn (_) { Response.ok('OK'.to_byte_array) }
+    then: fn (_) { Response.ok('OK'.to_byte_array) },
   )
 
   driver

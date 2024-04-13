@@ -1,12 +1,12 @@
-import openflow.co2.(SIZE, Co2 as Co2)
+import openflow.co2 (Co2 as Co2, SIZE)
 import openflow.experimental_ext
-import openflow.logger.Logger
-import openflow.metrics.(Metric, Metrics)
-import openflow.more_sense.MoreSense
-import openflow.state.(State, Status)
-import std.cmp.(max)
-import std.process.(sleep)
-import std.time.(Duration, Instant)
+import openflow.logger (Logger)
+import openflow.metrics (Metric, Metrics)
+import openflow.more_sense (MoreSense)
+import openflow.state (State, Status)
+import std.cmp (max)
+import std.process (sleep)
+import std.time (Duration, Instant)
 
 # The interval (in seconds) at which to sample the CO2 sensors.
 let SAMPLE_INTERVAL = 30
@@ -123,16 +123,16 @@ class pub async Input {
   }
 
   fn mut iteration {
-    SAMPLES.times fn (_) {
+    SAMPLES.times(fn (_) {
       sleep(@sample_interval)
       sample
-    }
+    })
 
     update
   }
 
   fn mut update {
-    let updates = @sensors.iter_mut.reduce(recover Map.new) fn (map, sensor) {
+    let updates = @sensors.iter_mut.reduce(recover Map.new, fn (map, sensor) {
       let new = sensor.update_co2
       let min = sensor.co2_minimum
       let status = recover {
@@ -153,10 +153,10 @@ class pub async Input {
         }
       }
 
-      @metrics.add('co2_room') fn (m) {
+      @metrics.add('co2_room', fn (m) {
         m.tag('room', sensor.name)
         m.field('ppm', new)
-      }
+      })
 
       if status >= sensor.status or sensor.reduce?(@reduce_wait_time) {
         sensor.update_status(status.clone)
@@ -169,38 +169,40 @@ class pub async Input {
       } else {
         map
       }
-    }
+    })
 
     apply(updates)
   }
 
   fn mut sample {
-    @sensors.iter_mut.each fn (sensor) {
+    @sensors.iter_mut.each(fn (sensor) {
       match sensor.sample {
         case Ok(_) -> {}
-        case Error(e) -> error(sensor.name, "failed to read the CO2 value: {e}")
+        case Error(e) -> {
+          error(sensor.name, 'failed to read the CO2 value: ${e}')
+        }
       }
-    }
+    })
   }
 
   fn apply(updates: uni Map[String, Status]) {
-    @state.update_with(updates) fn move (rooms, updates) {
-      updates.into_iter.each fn (entry) {
-        entry.let fn (name, status) {
+    @state.update_with(updates, fn move (rooms, updates) {
+      updates.into_iter.each(fn (entry) {
+        entry.let(fn (name, status) {
           let room = rooms.get_mut(name)
 
           match room.status {
             case Humid or Button(_) -> {}
             case _ -> room.update(status)
           }
-        }
-      }
+        })
+      })
 
       false
-    }
+    })
   }
 
   fn mut error(room: String, message: String) {
-    @logger.error("{room}: {message}")
+    @logger.error('${room}: ${message}')
   }
 }

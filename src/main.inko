@@ -1,23 +1,25 @@
-import openflow.config.Config
+import openflow.config (Config)
 import openflow.experimental_ext
-import openflow.http.Client
-import openflow.hue.Hue
-import openflow.inputs.co2.(Input as Co2Input, Sensor as Co2Sensor)
-import openflow.inputs.humidity.(Input as HumidityInput, Sensor as HumiditySensor)
-import openflow.inputs.motion.(Input as MotionInput, Sensor as MotionSensor)
-import openflow.inputs.remote.(Button, Input as RemoteInput)
-import openflow.itho.Itho
-import openflow.logger.Logger
-import openflow.metrics.Metrics
-import openflow.more_sense.MoreSense
-import openflow.state.(Room, State, Status)
-import openflow.sync.Waiter
-import optparse.(Help, Options)
+import openflow.http (Client)
+import openflow.hue (Hue)
+import openflow.inputs.co2 (Input as Co2Input, Sensor as Co2Sensor)
+import openflow.inputs.humidity (
+  Input as HumidityInput, Sensor as HumiditySensor,
+)
+import openflow.inputs.motion (Input as MotionInput, Sensor as MotionSensor)
+import openflow.inputs.remote (Button, Input as RemoteInput)
+import openflow.itho (Itho)
+import openflow.logger (Logger)
+import openflow.metrics (Metrics)
+import openflow.more_sense (MoreSense)
+import openflow.state (Room, State, Status)
+import openflow.sync (Waiter)
+import optparse (Help, Options)
 import std.env
-import std.process.(sleep)
-import std.stdio.(STDERR, STDOUT)
-import std.sys.(exit)
-import std.time.Duration
+import std.process (sleep)
+import std.stdio (STDERR, STDOUT)
+import std.sys (exit)
+import std.time (Duration)
 
 let DEFAULT_CONFIG = '/etc/openflow.json'
 
@@ -30,13 +32,13 @@ class async Main {
       'c',
       'config',
       'PATH',
-      "The configuration file to use (default: {DEFAULT_CONFIG})"
+      'The configuration file to use (default: ${DEFAULT_CONFIG})',
     )
 
     let matches = match opts.parse(env.arguments) {
       case Ok(matches) -> matches
       case Error(err) -> {
-        STDERR.new.print("openflow failed to start: {err}")
+        STDERR.new.print('openflow failed to start: ${err}')
         exit(1)
       }
     }
@@ -46,10 +48,10 @@ class async Main {
         .new('openflow')
         .section('Examples')
         .line(
-          'openflow                      # Start using the default configuration file'
+          'openflow                      # Start using the default configuration file',
         )
         .line(
-          'openflow --config config.json # Use ./config.json as the configuration file'
+          'openflow --config config.json # Use ./config.json as the configuration file',
         )
         .section('Options')
         .options(opts)
@@ -59,24 +61,25 @@ class async Main {
       return
     }
 
-    run(matches.value('config').unwrap_or(DEFAULT_CONFIG))
+    run(matches.value('config').or(DEFAULT_CONFIG))
   }
 
   fn run(config_path: String) {
     let logger = Logger.default
     let config = match Config.load(config_path) {
       case Ok(conf) -> conf
-      case Error(err) -> panic("failed to load {config_path}: {err}")
+      case Error(err) -> panic('failed to load ${config_path}: ${err}')
     }
 
-    let metrics =
-      recover Metrics.new(config.metrics.ip.clone, config.metrics.port)
+    let metrics = recover {
+      Metrics.new(config.metrics.ip.clone, config.metrics.port)
+    }
 
     let state = State.new(
       recover Itho.new(Client.new(config.itho.ip.clone)),
       logger,
       recover metrics.clone,
-      config.itho
+      config.itho,
     )
 
     state.prepare
@@ -86,7 +89,7 @@ class async Main {
       state,
       logger,
       recover metrics.clone,
-      recover Hue.new(Client.new(config.hue.ip.clone), config.hue.user)
+      recover Hue.new(Client.new(config.hue.ip.clone), config.hue.user),
     )
 
     let humid_input = HumidityInput.new(
@@ -97,12 +100,13 @@ class async Main {
       config.humidity,
     )
 
-    config.rooms.iter.each fn (conf) {
+    config.rooms.iter.each(fn (conf) {
       let name = conf.name
 
-      conf.co2.as_ref.let fn (ip) {
-        let sensor =
-          recover Co2Sensor.new(name, MoreSense.new(Client.new(ip.clone)))
+      conf.co2.as_ref.let(fn (ip) {
+        let sensor = recover {
+          Co2Sensor.new(name, MoreSense.new(Client.new(ip.clone)))
+        }
 
         match conf.co2_minimum {
           case Some(val) -> sensor.co2_minimum = val
@@ -110,32 +114,32 @@ class async Main {
         }
 
         co2_input.add_sensor(sensor)
-      }
+      })
 
-      conf.motion.as_ref.let fn (id) {
+      conf.motion.as_ref.let(fn (id) {
         motion_input.add_sensor(recover MotionSensor.new(name, id))
-      }
+      })
 
-      conf.humidity.as_ref.let fn (id) {
+      conf.humidity.as_ref.let(fn (id) {
         humid_input.add_sensor(recover HumiditySensor.new(name, id))
-      }
+      })
 
       state.add_room(Room.new(name, conf))
-    }
+    })
 
-    config.remote.as_ref.let fn (remote) {
+    config.remote.as_ref.let(fn (remote) {
       let itho = recover Itho.new(Client.new(config.itho.ip.clone))
       let input = RemoteInput.new(state, logger, itho, remote.id)
 
-      remote.buttons.iter.each fn (cfg) {
+      remote.buttons.iter.each(fn (cfg) {
         input.add_button(
           cfg.name,
-          recover Button.new(cfg.rooms.clone, cfg.duration.clone)
+          recover Button.new(cfg.rooms.clone, cfg.duration.clone),
         )
-      }
+      })
 
       input.run
-    }
+    })
 
     co2_input.run
     motion_input.run

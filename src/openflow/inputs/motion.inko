@@ -1,9 +1,9 @@
-import openflow.hue.Hue
-import openflow.logger.Logger
-import openflow.metrics.(Metric, Metrics)
-import openflow.state.(State, Status)
-import std.process.(sleep)
-import std.time.(Duration, Instant)
+import openflow.hue (Hue)
+import openflow.logger (Logger)
+import openflow.metrics (Metric, Metrics)
+import openflow.state (State, Status)
+import std.process (sleep)
+import std.time (Duration, Instant)
 
 class enum Presence {
   # No presence is detected.
@@ -81,8 +81,6 @@ class pub async Input {
       @metrics = metrics,
       @hue = hue,
       @sensors = recover [],
-      # Hue sensors only persist the "presence" value for about 15 seconds, so
-      # we need to poll them faster than that to reliably register motion.
       @sample_interval = recover Duration.from_secs(10),
       @motion_wait_time = recover Duration.from_secs(120),
       @pending_timeout = recover Duration.from_secs(300),
@@ -105,13 +103,13 @@ class pub async Input {
     let sensors = match @hue.sensors {
       case Ok(val) -> val
       case Error(err) -> {
-        @logger.error("failed to get the Hue sensor states: {err}")
+        @logger.error('failed to get the Hue sensor states: ${err}')
         return
       }
     }
 
-    let updates = @sensors.iter_mut.reduce(recover Map.new) fn (map, sensor) {
-      let motion = sensors.motion.opt(sensor.id).unwrap_or(false)
+    let updates = @sensors.iter_mut.reduce(recover Map.new, fn (map, sensor) {
+      let motion = sensors.motion.opt(sensor.id).or(false)
 
       if motion {
         match sensor.presence {
@@ -153,14 +151,14 @@ class pub async Input {
         map.set(sensor.name, enable)
         map
       }
-    }
+    })
 
     apply(updates)
   }
 
   fn apply(updates: uni Map[String, Bool]) {
-    @state.update_with(updates) fn move (rooms, updates) {
-      updates.into_iter.reduce(false) fn (apply_now, entry) {
+    @state.update_with(updates, fn move (rooms, updates) {
+      updates.into_iter.reduce(false, fn (apply_now, entry) {
         let room = rooms.get_mut(entry.key)
         let enable = entry.value
 
@@ -172,11 +170,11 @@ class pub async Input {
         }
 
         apply_now or enable
-      }
-    }
+      })
+    })
   }
 
   fn mut info(sensor: ref Sensor, message: String) {
-    @logger.info("{sensor.name}: {message}")
+    @logger.info('${sensor.name}: ${message}')
   }
 }

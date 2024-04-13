@@ -1,9 +1,9 @@
-import std.fs.file.ReadOnlyFile
-import std.fs.path.ToPath
-import std.iter.Iter
-import std.json.Json
-import std.net.ip.IpAddress
-import std.time.Duration
+import std.fs.file (ReadOnlyFile)
+import std.fs.path (ToPath)
+import std.iter (Iter)
+import std.json (Json)
+import std.net.ip (IpAddress)
+import std.time (Duration)
 
 fn opt_int(object: ref Map[String, Json], key: String) -> Option[Int] {
   match object.opt(key) {
@@ -20,19 +20,19 @@ fn opt_string(object: ref Map[String, Json], key: String) -> Option[String] {
 }
 
 fn string(
-  object: ref Map[String,
-  Json], key: String
+  object: ref Map[String, Json],
+  key: String,
 ) -> Result[String, String] {
   match object.opt(key) {
     case Some(String(v)) -> Result.Ok(v)
-    case _ -> throw "The \"{key}\" value must be a string"
+    case _ -> throw 'The "${key}" value must be a string'
   }
 }
 
 fn int(object: ref Map[String, Json], key: String) -> Result[Int, String] {
   match object.opt(key) {
     case Some(Int(v)) -> Result.Ok(v)
-    case _ -> throw "The \"{key}\" value must be an integer"
+    case _ -> throw 'The "${key}" value must be an integer'
   }
 }
 
@@ -46,40 +46,41 @@ fn int_opt(object: ref Map[String, Json], key: String) -> Option[Int] {
 fn float(object: ref Map[String, Json], key: String) -> Result[Float, String] {
   match object.opt(key) {
     case Some(Float(v)) -> Result.Ok(v)
-    case _ -> throw "The \"{key}\" value must be a float"
+    case _ -> throw 'The "${key}" value must be a float'
   }
 }
 
 fn opt_ip(
   object: ref Map[String, Json],
-  key: String
+  key: String,
 ) -> Result[Option[IpAddress], String] {
   let res = match object.opt(key) {
-    case Some(String(str)) -> Option.Some(
-      match IpAddress.parse(str) {
-        case Some(ip) -> ip
-        case _ -> throw "The key \"{key}\" must be a valid IP address"
-      }
-    )
+    case Some(String(str)) -> {
+      Option.Some(
+        match IpAddress.parse(str) {
+          case Some(ip) -> ip
+          case _ -> throw 'The key "${key}" must be a valid IP address'
+        },
+      )
+    }
     case _ -> Option.None
   }
 
   Result.Ok(res)
 }
 
-fn ip(
-  object: ref Map[String, Json],
-  key: String
-) -> Result[IpAddress, String] {
+fn ip(object: ref Map[String, Json], key: String) -> Result[IpAddress, String] {
   match object.opt(key) {
-    case Some(String(str)) -> match IpAddress.parse(str) {
-      case Some(ip) -> return Result.Ok(ip)
-      case _ -> {}
+    case Some(String(str)) -> {
+      match IpAddress.parse(str) {
+        case Some(ip) -> return Result.Ok(ip)
+        case _ -> {}
+      }
     }
     case _ -> {}
   }
 
-  throw "The key \"{key}\" must be a valid IP address"
+  throw 'The key "${key}" must be a valid IP address'
 }
 
 # Configuration details for the air flow of a room.
@@ -126,7 +127,7 @@ class pub Flow {
   let pub @high: Int
 
   fn pub static from_json(
-    object: ref Map[String, Json]
+    object: ref Map[String, Json],
   ) -> Result[Flow, String] {
     let correct = try float(object, 'correction')
     let min = try int(object, 'minimum')
@@ -137,16 +138,18 @@ class pub Flow {
     let med_high = try int(object, 'medium_high')
     let high = try int(object, 'high')
 
-    Result.Ok(Flow {
-      @correction = correct,
-      @minimum = min,
-      @maximum = max,
-      @default = def,
-      @low = low,
-      @medium = med,
-      @medium_high = med_high,
-      @high = high,
-    })
+    Result.Ok(
+      Flow {
+        @correction = correct,
+        @minimum = min,
+        @maximum = max,
+        @default = def,
+        @low = low,
+        @medium = med,
+        @medium_high = med_high,
+        @high = high,
+      },
+    )
   }
 }
 
@@ -175,7 +178,7 @@ class pub Room {
 
   fn pub static from_json(
     name: String,
-    object: ref Map[String, Json]
+    object: ref Map[String, Json],
   ) -> Result[Room, String] {
     let exhaust = try int(object, 'exhaust')
     let flow = match object.opt('flow') {
@@ -188,15 +191,17 @@ class pub Room {
     let co2 = try opt_ip(object, 'co2')
     let co2_min = opt_int(object, 'co2_minimum')
 
-    Result.Ok(Room {
-      @name = name,
-      @flow = flow,
-      @exhaust = exhaust,
-      @motion = motion,
-      @humidity = humidity,
-      @co2 = co2,
-      @co2_minimum = co2_min,
-    })
+    Result.Ok(
+      Room {
+        @name = name,
+        @flow = flow,
+        @exhaust = exhaust,
+        @motion = motion,
+        @humidity = humidity,
+        @co2 = co2,
+        @co2_minimum = co2_min,
+      },
+    )
   }
 }
 
@@ -217,20 +222,24 @@ class pub Itho {
   # The maximum air flow supported by the unit.
   let pub @maximum_flow: Int
 
-  fn pub static from_json(object: ref Map[String, Json]) -> Result[Itho, String] {
+  fn pub static from_json(
+    object: ref Map[String, Json],
+  ) -> Result[Itho, String] {
     let ip = try ip(object, 'ip')
     let manual = try int(object, 'manual_id')
     let speed = try int(object, 'speed_id')
     let min = try int(object, 'minimum_flow')
     let max = try int(object, 'maximum_flow')
 
-    Result.Ok(Itho {
-      @ip = ip,
-      @manual_id = manual,
-      @speed_id = speed,
-      @minimum_flow = min,
-      @maximum_flow = max,
-    })
+    Result.Ok(
+      Itho {
+        @ip = ip,
+        @manual_id = manual,
+        @speed_id = speed,
+        @minimum_flow = min,
+        @maximum_flow = max,
+      },
+    )
   }
 }
 
@@ -243,7 +252,7 @@ class pub Metrics {
   let pub @port: Int
 
   fn pub static from_json(
-    object: ref Map[String, Json]
+    object: ref Map[String, Json],
   ) -> Result[Metrics, String] {
     let ip = try ip(object, 'ip')
     let port = try int(object, 'port')
@@ -261,7 +270,7 @@ class pub Hue {
   let pub @user: String
 
   fn pub static from_json(
-    object: ref Map[String, Json]
+    object: ref Map[String, Json],
   ) -> Result[Hue, String] {
     let ip = try ip(object, 'ip')
     let user = try string(object, 'user')
@@ -286,11 +295,11 @@ class pub Humidity {
   let pub @correction: Int
 
   fn pub static from_json(
-    object: ref Map[String, Json]
+    object: ref Map[String, Json],
   ) -> Result[Humidity, String] {
     let high = try int(object, 'high')
     let low = try int(object, 'low')
-    let correct = opt_int(object, 'correction').unwrap_or(-5)
+    let correct = opt_int(object, 'correction').or(-5)
 
     Result.Ok(Humidity { @high = high, @low = low, @correction = correct })
   }
@@ -309,18 +318,18 @@ class pub Button {
 
   fn pub static from_json(
     name: String,
-    object: ref Map[String, Json]
+    object: ref Map[String, Json],
   ) -> Result[Button, String] {
     let rooms = match object.opt('rooms') {
       case Some(Array(vals)) -> {
-        let iter = vals.iter.map fn (val) {
+        let iter = vals.iter.map(fn (val) {
           match val {
             case String(v) -> Result.Ok(v)
-            case _ -> Result.Error(
-              'each value in the "rooms" key must be a string'
-            )
+            case _ -> {
+              Result.Error('each value in the "rooms" key must be a string')
+            }
           }
-        }
+        })
 
         try Result.collect(iter)
       }
@@ -342,17 +351,17 @@ class pub Remote {
   let pub @buttons: Array[Button]
 
   fn pub static from_json(
-    object: ref Map[String, Json]
+    object: ref Map[String, Json],
   ) -> Result[Remote, String] {
     let id = try string(object, 'id')
     let buttons = match object.opt('buttons') {
       case Some(Object(map)) -> {
-        let iter = map.iter.map fn (entry) {
+        let iter = map.iter.map(fn (entry) {
           match entry.value {
             case Object(val) -> Button.from_json(entry.key, val)
             case _ -> Result.Error('each button must be a JSON object')
           }
-        }
+        })
 
         try Result.collect(iter)
       }
@@ -385,12 +394,12 @@ class pub Config {
 
   # Load configuration from a JSON file.
   fn pub static load[T: ToPath](path: ref T) -> Result[Config, String] {
-    let file = try ReadOnlyFile.new(path).map_error fn (e) { e.to_string }
+    let file = try ReadOnlyFile.new(path).map_error(fn (e) { e.to_string })
     let bytes = ByteArray.new
 
-    try file.read_all(bytes).map_error fn (e) { e.to_string }
+    try file.read_all(bytes).map_error(fn (e) { e.to_string })
 
-    let doc = try Json.parse(bytes.into_string).map_error fn (e) { e.to_string }
+    let doc = try Json.parse(bytes.into_string).map_error(fn (e) { e.to_string })
     let root = match doc {
       case Object(v) -> v
       case _ -> throw 'the top-level JSON value must be an object'
@@ -398,14 +407,14 @@ class pub Config {
 
     let rooms = match root.opt('rooms') {
       case Some(Object(map)) -> {
-        let iter = map.iter.map fn (entry) {
+        let iter = map.iter.map(fn (entry) {
           let name = entry.key
 
           match entry.value {
             case Object(map) -> Room.from_json(name, map)
-            case _ -> Result.Error("The \"{name}\" key must be an object")
+            case _ -> Result.Error('The "${name}" key must be an object')
           }
-        }
+        })
 
         try Result.collect(iter)
       }
@@ -438,13 +447,15 @@ class pub Config {
       case _ -> throw 'the "remote" key must be an object'
     }
 
-    Result.Ok(Config {
-      @rooms = rooms,
-      @itho = itho,
-      @metrics = metrics,
-      @hue = hue,
-      @humidity = humidity,
-      @remote = remote,
-    })
+    Result.Ok(
+      Config {
+        @rooms = rooms,
+        @itho = itho,
+        @metrics = metrics,
+        @hue = hue,
+        @humidity = humidity,
+        @remote = remote,
+      },
+    )
   }
 }

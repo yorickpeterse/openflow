@@ -1,8 +1,8 @@
-import openflow.http.(Client, Driver, Request, Error, TestDriver, Response)
-import std.io.(Error as IoError)
-import openflow.itho.(Itho, RemoteStatus)
-import std.test.Tests
-import std.time.(Duration, ToInstant)
+import openflow.http (Client, Driver, Error, Request, Response, TestDriver)
+import openflow.itho (Itho, RemoteStatus)
+import std.io (Error as IoError)
+import std.test (Tests)
+import std.time (Duration, ToInstant)
 
 class ErrorDriver {
   let @body: String
@@ -11,7 +11,7 @@ class ErrorDriver {
 
   fn static new(
     body: String,
-    error: fn -> Result[Response, Error]
+    error: fn -> Result[Response, Error],
   ) -> ErrorDriver {
     ErrorDriver { @body = body, @thrown = false, @error = error }
   }
@@ -31,7 +31,7 @@ impl Driver for ErrorDriver {
 }
 
 fn pub tests(t: mut Tests) {
-  t.test('RemoteStatus.name') fn (t) {
+  t.test('RemoteStatus.name', fn (t) {
     t.equal(RemoteStatus.Unknown.name, 'unknown')
     t.equal(RemoteStatus.Low.name, 'low')
     t.equal(RemoteStatus.High.name, 'high')
@@ -40,9 +40,9 @@ fn pub tests(t: mut Tests) {
     t.equal(RemoteStatus.Timer1.name, 'timer1')
     t.equal(RemoteStatus.Timer2.name, 'timer2')
     t.equal(RemoteStatus.Timer3.name, 'timer3')
-  }
+  })
 
-  t.test('RemoteStatus.==') fn (t) {
+  t.test('RemoteStatus.==', fn (t) {
     t.equal(RemoteStatus.Unknown, RemoteStatus.Unknown)
     t.equal(RemoteStatus.Low, RemoteStatus.Low)
     t.equal(RemoteStatus.High, RemoteStatus.High)
@@ -52,9 +52,9 @@ fn pub tests(t: mut Tests) {
     t.equal(RemoteStatus.Timer2, RemoteStatus.Timer2)
     t.equal(RemoteStatus.Timer3, RemoteStatus.Timer3)
     t.not_equal(RemoteStatus.Low, RemoteStatus.High)
-  }
+  })
 
-  t.test('RemoteStatus.to_string') fn (t) {
+  t.test('RemoteStatus.to_string', fn (t) {
     t.equal(RemoteStatus.Unknown.to_string, 'Unknown')
     t.equal(RemoteStatus.Low.to_string, 'Low')
     t.equal(RemoteStatus.High.to_string, 'High')
@@ -63,9 +63,9 @@ fn pub tests(t: mut Tests) {
     t.equal(RemoteStatus.Timer1.to_string, 'Timer1')
     t.equal(RemoteStatus.Timer2.to_string, 'Timer2')
     t.equal(RemoteStatus.Timer3.to_string, 'Timer3')
-  }
+  })
 
-  t.test('RemoteStatus.clone') fn (t) {
+  t.test('RemoteStatus.clone', fn (t) {
     t.equal(RemoteStatus.Unknown.clone, RemoteStatus.Unknown)
     t.equal(RemoteStatus.Low.clone, RemoteStatus.Low)
     t.equal(RemoteStatus.High.clone, RemoteStatus.High)
@@ -75,9 +75,9 @@ fn pub tests(t: mut Tests) {
     t.equal(RemoteStatus.Timer2.clone, RemoteStatus.Timer2)
     t.equal(RemoteStatus.Timer3.clone, RemoteStatus.Timer3)
     t.not_equal(RemoteStatus.Low.clone, RemoteStatus.High)
-  }
+  })
 
-  t.test('Itho.set') fn (t) {
+  t.test('Itho.set', fn (t) {
     let driver = TestDriver.new
 
     driver.request(
@@ -85,104 +85,108 @@ fn pub tests(t: mut Tests) {
         req.queries.opt('setsetting') == Option.Some('124')
           and req.queries.opt('value') == Option.Some('50')
       },
-      then: fn (_) { Response.ok('OK'.to_byte_array) }
+      then: fn (_) { Response.ok('OK'.to_byte_array) },
     )
 
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     t.true(itho.set(setting: 124, value: 50).ok?)
-  }
+  })
 
-  t.test('Itho.set with a network timeout') fn (t) {
-    let driver =
-      ErrorDriver.new('OK') fn { throw Error.Network(IoError.TimedOut) }
+  t.test('Itho.set with a network timeout', fn (t) {
+    let driver = ErrorDriver.new('OK', fn {
+      throw Error.Network(IoError.TimedOut)
+    })
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     itho.retry_wait_time = Duration.from_secs(0)
 
     t.true(itho.set(124, 50).ok?)
-  }
+  })
 
-  t.test('Itho.set with an internal server error') fn (t) {
-    let driver = ErrorDriver.new('OK') fn {
+  t.test('Itho.set with an internal server error', fn (t) {
+    let driver = ErrorDriver.new('OK', fn {
       Result.Ok(Response.new(status: 500, body: ByteArray.new))
-    }
+    })
+
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     itho.retry_wait_time = Duration.from_secs(0)
 
     t.true(itho.set(124, 50).ok?)
-  }
+  })
 
-  t.test('Itho.get with a valid response') fn (t) {
+  t.test('Itho.get with a valid response', fn (t) {
     let driver = TestDriver.new
 
     driver.request(
       matches: fn (req) { req.queries.opt('getsetting').some? },
-      then: fn (_) { Response.ok('{"current":42}'.to_byte_array) }
+      then: fn (_) { Response.ok('{"current":42}'.to_byte_array) },
     )
 
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     t.equal(itho.get(124), Result.Ok(42))
-  }
+  })
 
-  t.test('Itho.get with an invalid response') fn (t) {
+  t.test('Itho.get with an invalid response', fn (t) {
     let driver = TestDriver.new
 
     driver.request(
       matches: fn (req) { req.queries.opt('getsetting').some? },
-      then: fn (_) { Response.ok('[]'.to_byte_array) }
+      then: fn (_) { Response.ok('[]'.to_byte_array) },
     )
 
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     t.true(itho.get(124).error?)
-  }
+  })
 
-  t.test('Itho.get with a missing value') fn (t) {
+  t.test('Itho.get with a missing value', fn (t) {
     let driver = TestDriver.new
 
     driver.request(
       matches: fn (req) { req.queries.opt('getsetting').some? },
-      then: fn (_) { Response.ok('{}'.to_byte_array) }
+      then: fn (_) { Response.ok('{}'.to_byte_array) },
     )
 
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     t.equal(itho.get(124), Result.Ok(0))
-  }
+  })
 
-  t.test('Itho.get with a network timeout') fn (t) {
-    let driver = ErrorDriver
-      .new('{"current":42}') fn { throw Error.Network(IoError.TimedOut) }
+  t.test('Itho.get with a network timeout', fn (t) {
+    let driver = ErrorDriver.new('{"current":42}', fn {
+      throw Error.Network(IoError.TimedOut)
+    })
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     itho.retry_wait_time = Duration.from_secs(0)
 
     t.equal(itho.get(124), Result.Ok(42))
-  }
+  })
 
-  t.test('Itho.get with an internal server error') fn (t) {
-    let driver = ErrorDriver.new('{"current":42}') fn {
+  t.test('Itho.get with an internal server error', fn (t) {
+    let driver = ErrorDriver.new('{"current":42}', fn {
       Result.Ok(Response.new(status: 500, body: ByteArray.new))
-    }
+    })
+
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     itho.retry_wait_time = Duration.from_secs(0)
 
     t.equal(itho.get(124), Result.Ok(42))
-  }
+  })
 
-  t.test('Itho.status with a valid response') fn (t) {
+  t.test('Itho.status with a valid response', fn (t) {
     let driver = TestDriver.new
 
     driver.request(
@@ -195,77 +199,79 @@ fn pub tests(t: mut Tests) {
             "RH bathroom 1 (%)": 75.8,
             "RH bathroom 2 (%)": 0.0000123
           }'
-            .to_byte_array
+            .to_byte_array,
         )
-      }
+      },
     )
 
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
-    let status = itho.status.unwrap
+    let status = itho.status.get
 
     t.equal(status.co2, 750)
     t.equal(status.exhaust_speed, 45)
     t.equal(status.humidity.opt('RH bathroom 1 (%)'), Option.Some(75))
     t.equal(status.humidity.opt('RH bathroom 2 (%)'), Option.None)
-  }
+  })
 
-  t.test('Itho.status with an invalid response') fn (t) {
+  t.test('Itho.status with an invalid response', fn (t) {
     let driver = TestDriver.new
 
     driver.request(
       matches: fn (req) { req.queries.opt('get').some? },
-      then: fn (_) { Response.ok('[]' .to_byte_array) }
+      then: fn (_) { Response.ok('[]'.to_byte_array) },
     )
 
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     t.true(itho.status.error?)
-  }
+  })
 
-  t.test('Itho.status with missing values') fn (t) {
+  t.test('Itho.status with missing values', fn (t) {
     let driver = TestDriver.new
 
     driver.request(
       matches: fn (req) { req.queries.opt('get').some? },
-      then: fn (_) { Response.ok('{}'.to_byte_array) }
+      then: fn (_) { Response.ok('{}'.to_byte_array) },
     )
 
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
-    let status = itho.status.unwrap
+    let status = itho.status.get
 
     t.equal(status.co2, 0)
     t.equal(status.exhaust_speed, 0)
     t.equal(status.humidity.opt('RH bathroom (%)'), Option.None)
-  }
+  })
 
-  t.test('Itho.status with a network timeout') fn (t) {
-    let driver = ErrorDriver.new('{"CO2 plenum (ppm)":500}') fn {
+  t.test('Itho.status with a network timeout', fn (t) {
+    let driver = ErrorDriver.new('{"CO2 plenum (ppm)":500}', fn {
       throw Error.Network(IoError.TimedOut)
-    }
+    })
+
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     itho.retry_wait_time = Duration.from_secs(0)
 
-    t.equal(itho.status.unwrap.co2, 500)
-  }
+    t.equal(itho.status.get.co2, 500)
+  })
 
-  t.test('Itho.status with an internal server error') fn (t) {
-    let driver = ErrorDriver.new('{"CO2 plenum (ppm)":500}') fn {
+  t.test('Itho.status with an internal server error', fn (t) {
+    let driver = ErrorDriver.new('{"CO2 plenum (ppm)":500}', fn {
       Result.Ok(Response.new(status: 500, body: ByteArray.new))
-    }
+    })
+
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     itho.retry_wait_time = Duration.from_secs(0)
 
-    t.equal(itho.status.unwrap.co2, 500)
-  }
+    t.equal(itho.status.get.co2, 500)
+  })
 
-  t.test('Itho.remotes with a valid response') fn (t) {
+  t.test('Itho.remotes with a valid response', fn (t) {
     let driver = TestDriver.new
 
     driver.request(
@@ -279,34 +285,45 @@ fn pub tests(t: mut Tests) {
               "timestamp": 42
             }
           }'
-            .to_byte_array
+            .to_byte_array,
         )
-      }
+      },
     )
 
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
-    let remotes = itho.remotes.unwrap
+    let remotes = itho.remotes.get
     let remote = remotes.get('kitchen')
 
-    t.true(match remote.status { case Cook30 -> true, case _ -> false })
+    t.true(
+      match remote.status {
+        case Cook30 -> true
+        case _ -> false
+      },
+    )
     t.equal(remote.timestamp, 42)
-  }
+  })
 
-  t.test('Itho.remotes with a network timeout') fn (t) {
-    let driver = ErrorDriver
-      .new('{"kitchen": { "lastcmd": 13, "timestamp": 42 }}') fn {
-        throw Error.Network(IoError.TimedOut)
-      }
+  t.test('Itho.remotes with a network timeout', fn (t) {
+    let driver = ErrorDriver.new(
+      '{"kitchen": { "lastcmd": 13, "timestamp": 42 }}',
+      fn { throw Error.Network(IoError.TimedOut) },
+    )
+
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
 
     itho.retry_wait_time = Duration.from_secs(0)
 
-    let remotes = itho.remotes.unwrap
+    let remotes = itho.remotes.get
     let remote = remotes.get('kitchen')
 
-    t.true(match remote.status { case Cook30 -> true, case _ -> false })
+    t.true(
+      match remote.status {
+        case Cook30 -> true
+        case _ -> false
+      },
+    )
     t.equal(remote.timestamp, 42)
-  }
+  })
 }

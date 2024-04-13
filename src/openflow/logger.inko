@@ -1,6 +1,6 @@
-import std.io.Write
-import std.stdio.STDOUT
-import std.time.DateTime
+import std.io (Write)
+import std.stdio (STDOUT)
+import std.time (DateTime)
 
 fn pad_zero(value: Int) -> String {
   value.to_string.pad_start(with: '0', chars: 2)
@@ -9,8 +9,7 @@ fn pad_zero(value: Int) -> String {
 fn iso8601_time -> String {
   let time = DateTime.new
 
-  "{time.year}-{pad_zero(time.month)}-{pad_zero(time.day)} \
-    {pad_zero(time.hour)}:{pad_zero(time.minute)}:{pad_zero(time.second)}"
+  '${time.year}-${pad_zero(time.month)}-${pad_zero(time.day)} ${pad_zero(time.hour)}:${pad_zero(time.minute)}:${pad_zero(time.second)}'
 }
 
 # A process for logging messages to an output stream.
@@ -19,7 +18,7 @@ class pub async Logger {
 
   # Returns a logger using the default output stream (STDOUT).
   fn pub static default -> Logger {
-    Logger { @stream = recover { STDOUT.new as Write } }
+    Logger { @stream = recover STDOUT.new as Write }
   }
 
   fn pub static new(stream: uni Write) -> Logger {
@@ -37,6 +36,6 @@ class pub async Logger {
   fn mut write(severity: String, message: String) {
     # Logging failing isn't a big deal, but having to handle potential failures
     # _every_ time _is_, so we simply discard any errors.
-    let _ = @stream.write_string("{iso8601_time}: {severity}: {message}\n")
+    let _ = @stream.write_string('${iso8601_time}: ${severity}: ${message}\n')
   }
 }

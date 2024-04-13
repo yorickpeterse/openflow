@@ -1,14 +1,14 @@
-import openflow.config.(Room as RoomConfig, Itho as IthoConfig)
-import openflow.itho.Itho
-import openflow.logger.Logger
-import openflow.metrics.(Metric, Metrics)
-import openflow.sync.Waiter
-import std.clone.Clone
-import std.cmp.(Compare, Equal, Ordering, max, min)
-import std.fmt.(Format, Formatter)
-import std.process.(sleep)
-import std.string.ToString
-import std.time.(Duration, Instant)
+import openflow.config (Itho as IthoConfig, Room as RoomConfig)
+import openflow.itho (Itho)
+import openflow.logger (Logger)
+import openflow.metrics (Metric, Metrics)
+import openflow.sync (Waiter)
+import std.clone (Clone)
+import std.cmp (Compare, Equal, Ordering, max, min)
+import std.fmt (Format, Formatter)
+import std.process (sleep)
+import std.string (ToString)
+import std.time (Duration, Instant)
 
 # The maximum value of an exhaust valve setting.
 #
@@ -23,6 +23,7 @@ let ADJUST_TIME = 5
 
 fn exhaust_percentage(flow: Int, total_flow: Int) -> Int {
   if flow >= total_flow { return EXHAUST_MAX }
+
   if flow == 0 { return 0 }
 
   let raw = flow * 100 / total_flow * EXHAUST_MAX / 100
@@ -216,22 +217,24 @@ class pub Room {
   let @current_flow: Int
 
   fn pub static new(name: String, config: ref RoomConfig) -> uni Room {
-    recover Room {
-      @name = name,
-      @status = Status.Default,
-      @flow_correction = config.flow.correction,
-      @exhaust_id = config.exhaust,
-      @exhaust_value = -1,
-      @default_flow = config.flow.default,
-      @low_flow = config.flow.low,
-      @medium_flow = config.flow.medium,
-      @medium_high_flow = config.flow.medium_high,
-      @high_flow = config.flow.high,
-      @minimum_flow = config.flow.minimum,
-      @maximum_flow = config.flow.maximum,
-      @base_flow = 0,
-      @current_flow = 0,
-      @last_update = Instant.new,
+    recover {
+      Room {
+        @name = name,
+        @status = Status.Default,
+        @flow_correction = config.flow.correction,
+        @exhaust_id = config.exhaust,
+        @exhaust_value = -1,
+        @default_flow = config.flow.default,
+        @low_flow = config.flow.low,
+        @medium_flow = config.flow.medium,
+        @medium_high_flow = config.flow.medium_high,
+        @high_flow = config.flow.high,
+        @minimum_flow = config.flow.minimum,
+        @maximum_flow = config.flow.maximum,
+        @base_flow = 0,
+        @current_flow = 0,
+        @last_update = Instant.new,
+      }
     }
   }
 
@@ -312,10 +315,10 @@ class pub async State {
   }
 
   fn pub async mut prepare {
-    if @itho.get(@manual_id).unwrap_or(0) == 1 { return }
+    if @itho.get(@manual_id).or(0) == 1 { return }
 
     @logger.info('Enabling manual control')
-    @itho.set(@manual_id, value: 1).unwrap
+    @itho.set(@manual_id, value: 1).get
     sleep(Duration.from_nanos(@rooms.size * ADJUST_TIME))
   }
 
@@ -324,7 +327,7 @@ class pub async State {
   #
   # If the block returns `true`, the changes are applied immediately.
   fn pub async mut update(block: uni fn (mut Map[String, Room]) -> Bool) {
-    if recover { block }.call(@rooms) { apply_state }
+    if block.call(@rooms) { apply_state }
   }
 
   # Run a closure in the context of the current state, passing the extra data to
@@ -335,7 +338,7 @@ class pub async State {
     data: uni T,
     block: uni fn (mut Map[String, Room], T) -> Bool,
   ) {
-    if recover { block }.call(@rooms, data) { apply_state }
+    if block.call(@rooms, data) { apply_state }
   }
 
   # Applies the state to the ventilation system.
@@ -349,8 +352,10 @@ class pub async State {
   }
 
   fn mut apply_state {
-    let total_flow =
-      max(@minimum_flow, min(update_flow_per_room, @maximum_flow))
+    let total_flow = max(
+      @minimum_flow,
+      min(update_flow_per_room, @maximum_flow),
+    )
 
     let new_speed = flow_percentage(total_flow)
 
@@ -359,58 +364,56 @@ class pub async State {
     # adjusted.
     if new_speed < @speed { update_speed(new_speed) }
 
-    @rooms.iter_mut.each_with_index fn (index, entry) {
+    @rooms.iter_mut.each_with_index(fn (index, entry) {
       let room = entry.value
       let flow = room.current_flow
       let new = exhaust_percentage(flow, total_flow)
       let old = room.exhaust_value
 
-      @metrics.add('air_flow') fn (m) {
+      @metrics.add('air_flow', fn (m) {
         m.tag('room', room.name)
         m.field('rate', flow)
-      }
+      })
 
       if new == old { return }
 
       info(
         room,
-        "changing exhaust from {old} to {new} ({room.status}, {flow} m3/h)"
+        'changing exhaust from ${old} to ${new} (${room.status}, ${flow} m3/h)',
       )
 
-      @itho
-        .set(setting: room.exhaust_id, value: new)
-        .expect("the exhaust setting couldn't be updated")
+      @itho.set(setting: room.exhaust_id, value: new).or_panic(
+        "the exhaust setting couldn't be updated",
+      )
 
       room.exhaust_value = new
       wait_for_valve
-    }
+    })
 
     if new_speed > @speed { update_speed(new_speed) }
 
-    @metrics.add('exhaust_speed') fn (m) {
-      m.field('percentage', new_speed)
-    }
+    @metrics.add('exhaust_speed', fn (m) { m.field('percentage', new_speed) })
   }
 
   fn mut update_speed(speed: Int) {
-    @logger.info("Changing exhaust speed from {@speed}% to {speed}%")
-    @itho
-      .set(setting: @speed_id, value: speed)
-      .expect("the exhaust speed couldn't be updated")
+    @logger.info('Changing exhaust speed from ${@speed}% to ${speed}%')
+    @itho.set(setting: @speed_id, value: speed).or_panic(
+      "the exhaust speed couldn't be updated",
+    )
 
     @speed = speed
     wait_for_valve
   }
 
   fn mut update_flow_per_room -> Int {
-    let humid = @rooms.values.any? fn (room) {
+    let humid = @rooms.values.any?(fn (room) {
       match room.status {
         case Humid -> true
         case _ -> false
       }
-    }
+    })
 
-    let mut total = @rooms.iter_mut.reduce(0) fn (sum, entry) {
+    let mut total = @rooms.iter_mut.reduce(0, fn (sum, entry) {
       let room = entry.value
       let base = if humid {
         match room.status {
@@ -431,18 +434,18 @@ class pub async State {
 
       room.update_flow(base, @maximum_flow)
       sum + room.current_flow
-    }
+    })
 
     if total >= @minimum_flow { return total }
 
     assign_default_flow(total)
-    @rooms.values.reduce(0) fn (sum, room) { sum + room.current_flow }
+    @rooms.values.reduce(0, fn (sum, room) { sum + room.current_flow })
   }
 
   fn mut assign_default_flow(total: Int) {
     let mut extra = @minimum_flow - total
 
-    @rooms.iter_mut.each fn move (e) {
+    @rooms.iter_mut.each(fn move (e) {
       let room = match e.value.status {
         case Default if e.value.default_flow > 0 -> e.value
         case _ -> return
@@ -456,7 +459,7 @@ class pub async State {
 
       extra -= add
       room.update_flow(room.base_flow + add, @maximum_flow)
-    }
+    })
   }
 
   fn flow_percentage(flow: Int) -> Int {
@@ -464,7 +467,7 @@ class pub async State {
   }
 
   fn mut info(room: ref Room, message: String) {
-    @logger.info("{room.name}: {message}")
+    @logger.info('${room.name}: ${message}')
   }
 
   fn wait_for_valve {

@@ -1,7 +1,7 @@
-import openflow.http.(Client, Error, Request, Response, retry)
-import std.int.Format
-import std.json.Json
-import std.time.(DateTime, Duration)
+import openflow.http (Client, Error, Request, Response, retry)
+import std.int (Format)
+import std.json (Json)
+import std.time (DateTime, Duration)
 
 # The time after which a request times out.
 let TIMEOUT = 30
@@ -30,14 +30,13 @@ class pub Hue {
   }
 
   fn pub mut sensors -> Result[Sensors, String] {
-    let request = Request.get("/api/{@user}/sensors")
+    let request = Request.get('/api/${@user}/sensors')
     let timeout = Duration.from_secs(TIMEOUT)
-    let resp =
-      try retry(@retry_wait_time) fn {
-        @client.timeout_after = timeout
-        @client.execute(request)
-      }
-      .map_error fn (e) { e.to_string }
+    let resp = try retry(@retry_wait_time, fn {
+      @client.timeout_after = timeout
+      @client.execute(request)
+    })
+      .map_error(fn (e) { e.to_string })
 
     let body = resp.body.drain_to_string
     let root = match Json.parse(body) {
@@ -47,8 +46,8 @@ class pub Hue {
 
     let motion = Map.new
 
-    root.into_iter.each fn (entry) {
-      let id = Int.parse(entry.key, Format.Decimal).unwrap
+    root.into_iter.each(fn (entry) {
+      let id = Int.parse(entry.key, Format.Decimal).get
       let val = match entry {
         case { @value = Object(map) } -> map
         case _ -> return
@@ -60,19 +59,21 @@ class pub Hue {
       }
 
       match val.opt('type') {
-        case Some(String('ZLLPresence')) -> match state.opt('presence') {
-          case Some(Bool(val)) -> {
-            motion.set(id, val)
-            nil
-          }
-          case _ -> {
-            motion.set(id, false)
-            nil
+        case Some(String('ZLLPresence')) -> {
+          match state.opt('presence') {
+            case Some(Bool(val)) -> {
+              motion.set(id, val)
+              nil
+            }
+            case _ -> {
+              motion.set(id, false)
+              nil
+            }
           }
         }
         case _ -> {}
       }
-    }
+    })
 
     Result.Ok(Sensors { @motion = motion })
   }

@@ -1,10 +1,10 @@
-import openflow.config.(Humidity as Config)
-import openflow.itho.Itho
-import openflow.logger.Logger
-import openflow.metrics.(Metric, Metrics)
-import openflow.state.(State, Status)
-import std.process.(sleep)
-import std.time.(Duration, Instant)
+import openflow.config (Humidity as Config)
+import openflow.itho (Itho)
+import openflow.logger (Logger)
+import openflow.metrics (Metric, Metrics)
+import openflow.state (State, Status)
+import std.process (sleep)
+import std.time (Duration, Instant)
 
 # The state of a single humidity sensor.
 class enum Humidity {
@@ -114,13 +114,13 @@ class pub async Input {
     let status = match @itho.status {
       case Ok(val) -> val
       case Error(err) -> {
-        @logger.error("failed to get the Itho status: {err}")
+        @logger.error('failed to get the Itho status: ${err}')
         return
       }
     }
 
-    let updates = @sensors.iter_mut.reduce(recover Map.new) fn (map, sensor) {
-      let mut humidity = status.humidity.opt(sensor.id).unwrap_or(0)
+    let updates = @sensors.iter_mut.reduce(recover Map.new, fn (map, sensor) {
+      let mut humidity = status.humidity.opt(sensor.id).or(0)
 
       # The Itho sensors aren't entirely accurate, often reporting values 5-10%
       # higher than reality, but only if the humidity is in the range of 60-90%.
@@ -128,10 +128,10 @@ class pub async Input {
       # report values as low as 45%, when in reality the humidity was higher).
       if humidity >= 60 { humidity += @correction }
 
-      @metrics.add('humidity') fn (m) {
+      @metrics.add('humidity', fn (m) {
         m.tag('room', sensor.name)
         m.field('percentage', humidity)
-      }
+      })
 
       update_sensor(sensor, humidity)
 
@@ -146,13 +146,13 @@ class pub async Input {
         map.set(sensor.name, humid)
         map
       }
-    }
+    })
 
     apply(updates)
   }
 
   fn mut update_sensor(sensor: mut Sensor, humidity: Int) {
-    if humidity >= @high  {
+    if humidity >= @high {
       match sensor.humidity {
         case Humid -> sensor.update_time
         case _ -> sensor.update(Humidity.Humid)
@@ -161,6 +161,7 @@ class pub async Input {
       match sensor.humidity {
         case Humid if humidity <= @low -> sensor.update(Humidity.Drying)
         case Humid if humidity > @low -> sensor.update_time
+
         # When ventilation kicks in, the humidity drops, but after a little
         # while increases again. This check ensures that we don't disable
         # ventilation prematurely just because the reached the low target for a
@@ -181,8 +182,8 @@ class pub async Input {
   }
 
   fn apply(updates: uni Map[String, Bool]) {
-    @state.update_with(updates) fn move (rooms, updates) {
-      updates.into_iter.reduce(false) fn (apply_now, entry) {
+    @state.update_with(updates, fn move (rooms, updates) {
+      updates.into_iter.reduce(false, fn (apply_now, entry) {
         let humid = entry.value
         let room = rooms.get_mut(entry.key)
 
@@ -193,11 +194,11 @@ class pub async Input {
         }
 
         apply_now or humid
-      }
-    }
+      })
+    })
   }
 
   fn mut info(room: String, message: String) {
-    @logger.info("{room}: {message}")
+    @logger.info('${room}: ${message}')
   }
 }

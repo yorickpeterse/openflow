@@ -1,4 +1,4 @@
-import std.iter.Stream
+import std.iter (Stream)
 
 # A histogram for tracking the occurrences of some value.
 class pub Histogram {
@@ -26,7 +26,7 @@ class pub Histogram {
 
   # Resets the values of all buckets back to zero.
   fn pub mut reset {
-    @buckets.size.times fn (index) { @buckets.set(index, 0) }
+    @buckets.size.times(fn (index) { @buckets.set(index, 0) })
   }
 
   # Returns an iterator over the counts in the histogram.

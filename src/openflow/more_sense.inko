@@ -1,6 +1,6 @@
-import openflow.http.(Client, Request, retry)
-import std.json.Json
-import std.time.Duration
+import openflow.http (Client, Request, retry)
+import std.json (Json)
+import std.time (Duration)
 
 # The time after which a request times out, excluding retries.
 let TIMEOUT = 30
@@ -21,17 +21,18 @@ class pub MoreSense {
   fn pub mut co2 -> Result[Int, String] {
     let request = Request.get('/VALUES')
     let timeout = Duration.from_secs(TIMEOUT)
-    let resp =
-      try retry(@retry_wait_time) fn {
-        @client.timeout_after = timeout
-        @client.execute(request)
-      }
-      .map_error fn (e) { e.to_string }
+    let resp = try retry(@retry_wait_time, fn {
+      @client.timeout_after = timeout
+      @client.execute(request)
+    })
+      .map_error(fn (e) { e.to_string })
 
     match Json.parse(resp.body.drain_to_string) {
-      case Ok(Object(map)) -> match map.opt('CO2') {
-        case Some(Int(val)) -> Result.Ok(val)
-        case _ -> throw 'Expected the "CO2" key to be an integer'
+      case Ok(Object(map)) -> {
+        match map.opt('CO2') {
+          case Some(Int(val)) -> Result.Ok(val)
+          case _ -> throw 'Expected the "CO2" key to be an integer'
+        }
       }
       case _ -> throw 'Expected the response to be a JSON object'
     }

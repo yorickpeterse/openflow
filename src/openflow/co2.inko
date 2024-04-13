@@ -1,5 +1,5 @@
-import openflow.histogram.Histogram
-import std.time.(Duration, Instant)
+import openflow.histogram (Histogram)
+import std.time (Duration, Instant)
 
 # The lower bound of the histogram. All values up to this value are tracked in
 # the first bucket.
@@ -47,10 +47,7 @@ class pub Co2 {
   let @value: Int
 
   fn pub static new -> Co2 {
-    Co2 {
-      @histogram = Histogram.new(BUCKETS),
-      @value = 0,
-    }
+    Co2 { @histogram = Histogram.new(BUCKETS), @value = 0 }
   }
 
   # Returns the current CO2 estimate.
@@ -60,13 +57,15 @@ class pub Co2 {
 
   # Updates the CO2 estimate if necessary.
   fn pub mut update {
-    let sum_count =
-      @histogram.iter.with_index.reduce((0, 0)) fn (acc, buck_count) {
+    let sum_count = @histogram.iter.with_index.reduce(
+      (0, 0),
+      fn (acc, buck_count) {
         (
           acc.0 + (LOW + (buck_count.0 * SIZE) * buck_count.1),
-          acc.1 + buck_count.1
+          acc.1 + buck_count.1,
         )
-      }
+      },
+    )
 
     let mean = if sum_count.1 > 0 { sum_count.0 / sum_count.1 } else { 0 }
 

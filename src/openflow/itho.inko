@@ -1,12 +1,12 @@
-import openflow.http.(Client, Error, Request, Response, retry)
-import std.clone.Clone
-import std.cmp.Equal
-import std.fmt.(Format, Formatter)
-import std.int.ToInt
-import std.json.Json
-import std.process.(sleep)
-import std.string.ToString
-import std.time.Duration
+import openflow.http (Client, Error, Request, Response, retry)
+import std.clone (Clone)
+import std.cmp (Equal)
+import std.fmt (Format, Formatter)
+import std.int (ToInt)
+import std.json (Json)
+import std.process (sleep)
+import std.string (ToString)
+import std.time (Duration)
 
 # The path to the API endpoint.
 let PATH = '/api.html'
@@ -135,9 +135,9 @@ class pub Itho {
     request.query('setsetting', setting.to_string)
     request.query('value', value.to_int.to_string)
 
-    retry(@retry_wait_time) fn { execute(request, timeout) }
-      .map fn (_) { nil }
-      .map_error fn (e) { e.to_string }
+    retry(@retry_wait_time, fn { execute(request, timeout) })
+      .map(fn (_) { nil })
+      .map_error(fn (e) { e.to_string })
   }
 
   # Returns the value of a setting.
@@ -150,8 +150,8 @@ class pub Itho {
 
     request.query('getsetting', setting.to_string)
 
-    let resp = try retry(@retry_wait_time) fn { execute(request, timeout) }
-      .map_error fn (e) { e.to_string }
+    let resp = try retry(@retry_wait_time, fn { execute(request, timeout) })
+      .map_error(fn (e) { e.to_string })
 
     let body = resp.body.drain_to_string
     let root = match Json.parse(body) {
@@ -175,8 +175,8 @@ class pub Itho {
 
     request.query('get', 'ithostatus')
 
-    let resp = try retry(@retry_wait_time) fn { execute(request, timeout) }
-      .map_error fn (e) { e.to_string }
+    let resp = try retry(@retry_wait_time, fn { execute(request, timeout) })
+      .map_error(fn (e) { e.to_string })
 
     let body = resp.body.drain_to_string
     let root = match Json.parse(body) {
@@ -197,7 +197,7 @@ class pub Itho {
       case _ -> 0
     }
 
-    root.iter.each fn (pair) {
+    root.iter.each(fn (pair) {
       if pair.key.starts_with?('RH ').false? { return }
 
       let value = match pair.value {
@@ -209,10 +209,14 @@ class pub Itho {
       # Sensors that aren't connected report a value that's very close to zero,
       # which due to the conversion to an Int is turned into zero.
       if value > 0 { humidity.set(pair.key, value) }
-    }
+    })
 
     Result.Ok(
-      Status { @co2 = co2, @exhaust_speed = exhaust_speed, @humidity = humidity }
+      Status {
+        @co2 = co2,
+        @exhaust_speed = exhaust_speed,
+        @humidity = humidity,
+      },
     )
   }
 
@@ -222,8 +226,8 @@ class pub Itho {
 
     request.query('get', 'remotesinfo')
 
-    let resp = try retry(@retry_wait_time) fn { execute(request, timeout) }
-      .map_error fn (e) { e.to_string }
+    let resp = try retry(@retry_wait_time, fn { execute(request, timeout) })
+      .map_error(fn (e) { e.to_string })
 
     let body = resp.body.drain_to_string
     let root = match Json.parse(body) {
@@ -231,7 +235,7 @@ class pub Itho {
       case _ -> throw 'Expected the response to be a JSON object'
     }
 
-    let result = root.into_iter.reduce(Map.new) fn (map, entry) {
+    let result = root.into_iter.reduce(Map.new, fn (map, entry) {
       let obj = match entry.value {
         case Object(obj) -> obj
         case _ -> return map
@@ -254,14 +258,14 @@ class pub Itho {
 
       map.set(entry.key, Remote { @status = status, @timestamp = timestamp })
       map
-    }
+    })
 
     Result.Ok(result)
   }
 
   fn mut execute(
     request: ref Request,
-    timeout: ref Duration
+    timeout: ref Duration,
   ) -> Result[Response, Error] {
     @client.timeout_after = timeout
 

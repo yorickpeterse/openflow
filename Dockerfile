@@ -1,4 +1,4 @@
-FROM ghcr.io/inko-lang/inko:latest AS builder
+FROM ghcr.io/inko-lang/inko:main AS builder
 ADD . /openflow
 WORKDIR /openflow
 RUN microdnf install --assumeyes git

@@ -1,16 +1,16 @@
-import helpers.(Snapshot, allow_api_calls, state, NullWriter)
-import openflow.http.(Client, Driver, Response, TestDriver)
-import openflow.hue.Hue
-import openflow.inputs.motion.(Input, Sensor)
-import openflow.logger.Logger
-import openflow.metrics.Metrics
-import openflow.state.(State, Status)
-import openflow.sync.Waiter
-import std.io.Write
-import std.json.Json
-import std.net.ip.IpAddress
-import std.test.Tests
-import std.time.Duration
+import helpers (NullWriter, Snapshot, allow_api_calls, state)
+import openflow.http (Client, Driver, Response, TestDriver)
+import openflow.hue (Hue)
+import openflow.inputs.motion (Input, Sensor)
+import openflow.logger (Logger)
+import openflow.metrics (Metrics)
+import openflow.state (State, Status)
+import openflow.sync (Waiter)
+import std.io (Write)
+import std.json (Json)
+import std.net.ip (IpAddress)
+import std.test (Tests)
+import std.time (Duration)
 
 impl Input {
   fn async mut run_iteration {
@@ -53,11 +53,12 @@ fn input(state: State, motion: uni Array[Bool]) -> Input {
       sensor.set('state', Json.Object(state))
       root.set('1', Json.Object(sensor))
       Response.ok(Json.Object(root).to_string.to_byte_array)
-    }
+    },
   )
 
-  let hue =
-    recover Hue.new(Client.with_driver(driver as Driver), user: 'hunter2')
+  let hue = recover {
+    Hue.new(Client.with_driver(driver as Driver), user: 'hunter2')
+  }
 
   let input = Input.new(state, logger, metrics, hue)
 
@@ -74,24 +75,24 @@ fn run(input: Input) {
 }
 
 fn pub tests(t: mut Tests) {
-  t.test('Detection motion for the first time') fn (t) {
+  t.test('Detection motion for the first time', fn (t) {
     let state = state(allow_api_calls)
     let input = input(state, motion: recover [true])
 
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
-  }
+  })
 
-  t.test('Detection motion twice in a row') fn (t) {
+  t.test('Detection motion twice in a row', fn (t) {
     let state = state(allow_api_calls)
     let input = input(state, motion: recover [true, true])
 
     run(input)
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
-  }
+  })
 
-  t.test('Detection motion without additional motion') fn (t) {
+  t.test('Detection motion without additional motion', fn (t) {
     let state = state(allow_api_calls)
     let input = input(state, motion: recover [true, false, true])
 
@@ -101,9 +102,9 @@ fn pub tests(t: mut Tests) {
     run(input)
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
-  }
+  })
 
-  t.test('Enabling ventilation when enough motion is detected') fn (t) {
+  t.test('Enabling ventilation when enough motion is detected', fn (t) {
     let state = state(allow_api_calls)
     let input = input(state, motion: recover [true, true])
 
@@ -111,28 +112,34 @@ fn pub tests(t: mut Tests) {
     input.reset_motion_wait_time
     run(input)
     t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
-  }
+  })
 
-  t.test('Keeping ventilation enabled after no more motion is detected') fn (t) {
-    let state = state(allow_api_calls)
-    let input = input(state, motion: recover [true, true, false])
+  t.test(
+    'Keeping ventilation enabled after no more motion is detected',
+    fn (t) {
+      let state = state(allow_api_calls)
+      let input = input(state, motion: recover [true, true, false])
 
-    run(input)
-    input.reset_motion_wait_time
-    run(input)
-    run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
-  }
+      run(input)
+      input.reset_motion_wait_time
+      run(input)
+      run(input)
+      t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
+    },
+  )
 
-  t.test('Disabling ventilation after no motion is detected for long enough') fn (t) {
-    let state = state(allow_api_calls)
-    let input = input(state, motion: recover [true, true, false])
+  t.test(
+    'Disabling ventilation after no motion is detected for long enough',
+    fn (t) {
+      let state = state(allow_api_calls)
+      let input = input(state, motion: recover [true, true, false])
 
-    run(input)
-    input.reset_motion_wait_time
-    run(input)
-    input.reset_ventilation_timeout
-    run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
-  }
+      run(input)
+      input.reset_motion_wait_time
+      run(input)
+      input.reset_ventilation_timeout
+      run(input)
+      t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+    },
+  )
 }

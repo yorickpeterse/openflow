@@ -1,9 +1,9 @@
-import openflow.config.(Button as Config)
-import openflow.itho.(Itho, Remote, RemoteStatus)
-import openflow.logger.Logger
-import openflow.state.(State, Status)
-import std.process.(sleep)
-import std.time.(Duration, Instant)
+import openflow.config (Button as Config)
+import openflow.itho (Itho, Remote, RemoteStatus)
+import openflow.logger (Logger)
+import openflow.state (State, Status)
+import std.process (sleep)
+import std.time (Duration, Instant)
 
 class pub Button {
   let @rooms: Array[String]
@@ -73,7 +73,9 @@ class pub async Input {
     match @itho.remotes.map(fn (s) { s.remove(@id) }) {
       case Ok(Some(remote)) -> check(remote)
       case Ok(None) -> @logger.error('no state was found for the remote')
-      case Error(err) -> @logger.error("failed to get the remote status: {err}")
+      case Error(err) -> {
+        @logger.error('failed to get the remote status: ${err}')
+      }
     }
   }
 
@@ -93,7 +95,7 @@ class pub async Input {
       }
 
       if reset {
-        @logger.info("The {@status} timer expired")
+        @logger.info('The ${@status} timer expired')
         reset_rooms
         @status = RemoteStatus.Low
       }
@@ -109,49 +111,51 @@ class pub async Input {
         @logger.info('Resetting the remote to its default state')
         reset_rooms
       }
-      case state -> match @buttons.opt(state.name) {
-        case Some(btn) -> {
-          enable(recover btn.rooms.clone)
-          @deadline = btn.duration.to_instant
+      case state -> {
+        match @buttons.opt(state.name) {
+          case Some(btn) -> {
+            enable(recover btn.rooms.clone)
+            @deadline = btn.duration.to_instant
+          }
+          case _ -> {}
         }
-        case _ -> {}
       }
     }
   }
 
   fn enable(rooms: uni Array[String]) {
-    @state.update_with(rooms) fn (rooms, enable) {
-      rooms.iter_mut.each fn (entry) {
+    @state.update_with(rooms, fn (rooms, enable) {
+      rooms.iter_mut.each(fn (entry) {
         let room = entry.value
 
         match room.status.clone {
           case Button(old) -> room.update(old)
           case _ -> {}
         }
-      }
+      })
 
-      enable.into_iter.each fn (name) {
+      enable.into_iter.each(fn (name) {
         let room = rooms.get_mut(name)
 
         room.update(recover Status.Button(room.status.clone))
-      }
+      })
 
       true
-    }
+    })
   }
 
   fn reset_rooms {
-    @state.update fn (rooms) {
-      rooms.iter_mut.each fn (entry) {
+    @state.update(fn (rooms) {
+      rooms.iter_mut.each(fn (entry) {
         let room = entry.value
 
         match room.status.clone {
           case Button(old) -> room.update(old)
           case _ -> {}
         }
-      }
+      })
 
       true
-    }
+    })
   }
 }
