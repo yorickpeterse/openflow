@@ -5,6 +5,6 @@ RUN microdnf install --assumeyes git
 RUN inko pkg sync
 RUN inko build -o build/openflow
 
-FROM ghcr.io/inko-lang/inko:latest
+FROM ghcr.io/inko-lang/inko:main
 COPY --from=builder ["/openflow/build/openflow", "/usr/bin/openflow"]
 CMD ["/usr/bin/openflow"]
