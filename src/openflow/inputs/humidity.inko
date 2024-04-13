@@ -161,7 +161,6 @@ class pub async Input {
       match sensor.humidity {
         case Humid if humidity <= @low -> sensor.update(Humidity.Drying)
         case Humid if humidity > @low -> sensor.update_time
-
         # When ventilation kicks in, the humidity drops, but after a little
         # while increases again. This check ensures that we don't disable
         # ventilation prematurely just because the reached the low target for a

@@ -171,13 +171,14 @@ class ResponseParser[T: mut + Read] {
   fn mut parse_version -> Result[Version, Error] {
     let buf = @buffer
 
-    if buf.get(0) == H
-      and buf.get(1) == T
-      and buf.get(2) == T
-      and buf.get(3) == P
-      and buf.get(4) == SLASH
-      and buf.get(5) == ONE
-      and buf.get(6) == DOT
+    if
+      buf.get(0) == H
+        and buf.get(1) == T
+        and buf.get(2) == T
+        and buf.get(3) == P
+        and buf.get(4) == SLASH
+        and buf.get(5) == ONE
+        and buf.get(6) == DOT
     {
       let minor = match buf.get(7) {
         case ZERO -> 0
@@ -302,11 +303,12 @@ class ResponseParser[T: mut + Read] {
       try read(READ_SIZE)
 
       while index < buf.size {
-        if buf.size > 4
-          and buf.get(index) == LF
-          and buf.get(index - 1) == CR
-          and buf.get(index - 2) == LF
-          and buf.get(index - 3) == CR
+        if
+          buf.size > 4
+            and buf.get(index) == LF
+            and buf.get(index - 1) == CR
+            and buf.get(index - 2) == LF
+            and buf.get(index - 3) == CR
         {
           return Result.Ok(index)
         }
