@@ -23,6 +23,17 @@ jobs:
       - run: inko --version
       - run: inko pkg sync
       - run: inko test
+
+  fmt:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/inko-lang/inko:main
+    steps:
+      - run: microdnf install --quiet --assumeyes tar git
+      - uses: actions/checkout@v4
+      - run: inko --version
+      - run: inko fmt --check
+
   container:
     runs-on: ubuntu-latest
     permissions:
@@ -30,6 +41,7 @@ jobs:
       packages: write
     needs:
       - test
+      - fmt
     if: github.ref_name == 'main'
     steps:
       - uses: actions/checkout@v4
