@@ -126,14 +126,14 @@ fn pub tests(t: mut Tests) {
     let living = snap.rooms.get('living_room')
     let bath = snap.rooms.get('bathroom')
 
-    t.equal(snap.speed, 23)
+    t.equal(snap.speed, 21)
     t.equal(living.status, Status.Button(Status.Default))
-    t.equal(living.flow, 70)
-    t.equal(living.exhaust, 3500)
+    t.equal(living.flow, 50)
+    t.equal(living.exhaust, 2700)
     t.equal(bath.flow, 0)
     t.equal(bath.exhaust, 0)
-    t.equal(office.flow, 11)
-    t.equal(office.exhaust, 600)
+    t.equal(office.flow, 22)
+    t.equal(office.exhaust, 1200)
   })
 
   t.test('State.apply with a Humid status room', fn (t) {
@@ -228,6 +228,7 @@ fn pub tests(t: mut Tests) {
             @low = 40,
             @medium = 50,
             @medium_high = 65,
+            @button = 70,
             @high = 75,
           },
           @motion = Option.None,
@@ -247,6 +248,7 @@ fn pub tests(t: mut Tests) {
             @medium = 50,
             @medium_high = 65,
             @high = 75,
+            @button = 80,
           },
           @motion = Option.None,
           @humidity = Option.None,
@@ -265,6 +267,7 @@ fn pub tests(t: mut Tests) {
             @medium = 60,
             @medium_high = 65,
             @high = 75,
+            @button = 80,
           },
           @motion = Option.None,
           @humidity = Option.None,
@@ -283,6 +286,7 @@ fn pub tests(t: mut Tests) {
             @medium = 50,
             @medium_high = 65,
             @high = 75,
+            @button = 80,
           },
           @motion = Option.None,
           @humidity = Option.None,
@@ -301,6 +305,7 @@ fn pub tests(t: mut Tests) {
             @medium = 50,
             @medium_high = 65,
             @high = 75,
+            @button = 120,
           },
           @motion = Option.None,
           @humidity = Option.None,

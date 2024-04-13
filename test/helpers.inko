@@ -11,12 +11,12 @@ import std.time (Duration)
 class pub NullWriter {}
 
 impl Write for NullWriter {
-  fn pub mut write_bytes(bytes: ref ByteArray) -> Result[Int, Never] {
-    Result.Ok(0)
+  fn pub mut write_bytes(bytes: ref ByteArray) -> Result[Nil, Never] {
+    Result.Ok(nil)
   }
 
-  fn pub mut write_string(string: String) -> Result[Int, Never] {
-    Result.Ok(0)
+  fn pub mut write_string(string: String) -> Result[Nil, Never] {
+    Result.Ok(nil)
   }
 
   fn pub mut flush -> Result[Nil, Never] {
@@ -85,6 +85,7 @@ fn pub state(driver: uni TestDriver) -> State {
         @medium = 50,
         @medium_high = 65,
         @high = 75,
+        @button = 50,
       },
       @motion = Option.None,
       @humidity = Option.None,
@@ -103,6 +104,7 @@ fn pub state(driver: uni TestDriver) -> State {
         @medium = 50,
         @medium_high = 65,
         @high = 90,
+        @button = 80,
       },
       @motion = Option.None,
       @humidity = Option.None,
@@ -121,6 +123,7 @@ fn pub state(driver: uni TestDriver) -> State {
         @medium = 50,
         @medium_high = 65,
         @high = 75,
+        @button = 400,
       },
       @motion = Option.None,
       @humidity = Option.None,
@@ -139,6 +142,7 @@ fn pub state(driver: uni TestDriver) -> State {
         @medium = 50,
         @medium_high = 65,
         @high = 75,
+        @button = 120,
       },
       @motion = Option.None,
       @humidity = Option.Some('RH bathroom 1'),

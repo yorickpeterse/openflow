@@ -126,6 +126,10 @@ class pub Flow {
   # The air flow in m3/h for the "high" setting.
   let pub @high: Int
 
+  # The air flow in m3/h to apply when enabling ventilation in response to a
+  # button.
+  let pub @button: Int
+
   fn pub static from_json(
     object: ref Map[String, Json],
   ) -> Result[Flow, String] {
@@ -137,6 +141,7 @@ class pub Flow {
     let med = try int(object, 'medium')
     let med_high = try int(object, 'medium_high')
     let high = try int(object, 'high')
+    let button = opt_int(object, 'button').or(max)
 
     Result.Ok(
       Flow {
@@ -148,6 +153,7 @@ class pub Flow {
         @medium = med,
         @medium_high = med_high,
         @high = high,
+        @button = button,
       },
     )
   }

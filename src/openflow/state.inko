@@ -210,6 +210,9 @@ class pub Room {
   # The maximum air flow in m3/hour, without the flow correction.
   let @maximum_flow: Int
 
+  # The button air flow in m3/hour, without the flow correction.
+  let @button_flow: Int
+
   # The air flow in m3/hour, without the flow correction applied
   let @base_flow: Int
 
@@ -231,6 +234,7 @@ class pub Room {
         @high_flow = config.flow.high,
         @minimum_flow = config.flow.minimum,
         @maximum_flow = config.flow.maximum,
+        @button_flow = config.flow.button,
         @base_flow = 0,
         @current_flow = 0,
         @last_update = Instant.new,
@@ -428,7 +432,8 @@ class pub async State {
           case Medium -> room.medium_flow
           case MediumHigh -> room.medium_high_flow
           case High -> room.high_flow
-          case Maximum or Button(_) or Humid -> room.maximum_flow
+          case Button(_) -> room.button_flow
+          case Maximum or Humid -> room.maximum_flow
         }
       }
 
