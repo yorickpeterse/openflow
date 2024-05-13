@@ -54,7 +54,7 @@ fn pub tests(t: mut Tests) {
     let port = socket.local_address.get.port
     let driver = DefaultDriver.new(ip, port)
 
-    Server {}.accept(socket)
+    Server().accept(socket)
 
     let request = Request.get('/')
     let response = driver.execute(request).get

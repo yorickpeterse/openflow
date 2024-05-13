@@ -44,11 +44,11 @@ class pub Snapshot {
 
 impl Room {
   fn snapshot -> RoomSnapshot {
-    RoomSnapshot {
-      @status = @status.clone,
-      @exhaust = @exhaust_value,
-      @flow = @current_flow,
-    }
+    RoomSnapshot(
+      status: @status.clone,
+      exhaust: @exhaust_value,
+      flow: @current_flow,
+    )
   }
 }
 
@@ -63,7 +63,7 @@ impl State {
       }
     })
 
-    channel.send(recover Snapshot { @speed = @speed, @rooms = rooms })
+    channel.send(recover Snapshot(speed: @speed, rooms: rooms))
   }
 
   fn sleep(time: ref Duration) {
@@ -73,82 +73,82 @@ impl State {
 
 fn pub state(driver: uni TestDriver) -> State {
   let rooms = [
-    RoomConfig {
-      @name = 'living_room',
-      @exhaust = 10,
-      @flow = Flow {
-        @correction = 1.0,
-        @minimum = 0,
-        @maximum = 70,
-        @default = 0,
-        @low = 40,
-        @medium = 50,
-        @medium_high = 65,
-        @high = 75,
-        @button = 50,
-      },
-      @motion = Option.None,
-      @humidity = Option.None,
-      @co2 = Option.None,
-      @co2_minimum = Option.None,
-    },
-    RoomConfig {
-      @name = 'office',
-      @exhaust = 11,
-      @flow = Flow {
-        @correction = 1.1,
-        @minimum = 10,
-        @maximum = 80,
-        @default = 20,
-        @low = 5,
-        @medium = 50,
-        @medium_high = 65,
-        @high = 90,
-        @button = 80,
-      },
-      @motion = Option.None,
-      @humidity = Option.None,
-      @co2 = Option.None,
-      @co2_minimum = Option.None,
-    },
-    RoomConfig {
-      @name = 'super_fast',
-      @exhaust = 15,
-      @flow = Flow {
-        @correction = 1.0,
-        @minimum = 0,
-        @maximum = 400,
-        @default = 0,
-        @low = 40,
-        @medium = 50,
-        @medium_high = 65,
-        @high = 75,
-        @button = 400,
-      },
-      @motion = Option.None,
-      @humidity = Option.None,
-      @co2 = Option.None,
-      @co2_minimum = Option.None,
-    },
-    RoomConfig {
-      @name = 'bathroom',
-      @exhaust = 15,
-      @flow = Flow {
-        @correction = 1.0,
-        @minimum = 0,
-        @maximum = 120,
-        @default = 10,
-        @low = 40,
-        @medium = 50,
-        @medium_high = 65,
-        @high = 75,
-        @button = 120,
-      },
-      @motion = Option.None,
-      @humidity = Option.Some('RH bathroom 1'),
-      @co2 = Option.None,
-      @co2_minimum = Option.None,
-    },
+    RoomConfig(
+      name: 'living_room',
+      exhaust: 10,
+      flow: Flow(
+        correction: 1.0,
+        minimum: 0,
+        maximum: 70,
+        default: 0,
+        low: 40,
+        medium: 50,
+        medium_high: 65,
+        high: 75,
+        button: 50,
+      ),
+      motion: Option.None,
+      humidity: Option.None,
+      co2: Option.None,
+      co2_minimum: Option.None,
+    ),
+    RoomConfig(
+      name: 'office',
+      exhaust: 11,
+      flow: Flow(
+        correction: 1.1,
+        minimum: 10,
+        maximum: 80,
+        default: 20,
+        low: 5,
+        medium: 50,
+        medium_high: 65,
+        high: 90,
+        button: 80,
+      ),
+      motion: Option.None,
+      humidity: Option.None,
+      co2: Option.None,
+      co2_minimum: Option.None,
+    ),
+    RoomConfig(
+      name: 'super_fast',
+      exhaust: 15,
+      flow: Flow(
+        correction: 1.0,
+        minimum: 0,
+        maximum: 400,
+        default: 0,
+        low: 40,
+        medium: 50,
+        medium_high: 65,
+        high: 75,
+        button: 400,
+      ),
+      motion: Option.None,
+      humidity: Option.None,
+      co2: Option.None,
+      co2_minimum: Option.None,
+    ),
+    RoomConfig(
+      name: 'bathroom',
+      exhaust: 15,
+      flow: Flow(
+        correction: 1.0,
+        minimum: 0,
+        maximum: 120,
+        default: 10,
+        low: 40,
+        medium: 50,
+        medium_high: 65,
+        high: 75,
+        button: 120,
+      ),
+      motion: Option.None,
+      humidity: Option.Some('RH bathroom 1'),
+      co2: Option.None,
+      co2_minimum: Option.None,
+    ),
   ]
 
   state_with_rooms(driver, rooms)
@@ -159,14 +159,14 @@ fn pub state_with_rooms(
   rooms: Array[RoomConfig],
 ) -> State {
   let itho = recover Itho.new(Client.with_driver(driver as Driver))
-  let logger = Logger.new(recover NullWriter {} as Write)
-  let config = IthoConfig {
-    @ip = IpAddress.v4(0, 0, 0, 0),
-    @minimum_flow = 75,
-    @maximum_flow = 350,
-    @speed_id = 124,
-    @manual_id = 111,
-  }
+  let logger = Logger.new(recover NullWriter() as Write)
+  let config = IthoConfig(
+    ip: IpAddress.v4(0, 0, 0, 0),
+    minimum_flow: 75,
+    maximum_flow: 350,
+    speed_id: 124,
+    manual_id: 111,
+  )
 
   let metrics = recover Metrics.new(IpAddress.v4(0, 0, 0, 0), port: 0)
   let state = State.new(itho, logger, metrics, config)

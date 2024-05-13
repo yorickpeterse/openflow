@@ -14,7 +14,7 @@ class pub MoreSense {
   let pub @retry_wait_time: Duration
 
   fn pub static new(client: Client) -> MoreSense {
-    MoreSense { @client = client, @retry_wait_time = Duration.from_secs(5) }
+    MoreSense(client: client, retry_wait_time: Duration.from_secs(5))
   }
 
   # Returns the current CO2 value.

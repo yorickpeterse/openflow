@@ -32,12 +32,7 @@ class pub Sensor {
   let @last_update: Instant
 
   fn pub static new(name: String, id: String) -> Sensor {
-    Sensor {
-      @name = name,
-      @id = id,
-      @humidity = Humidity.Dry,
-      @last_update = Instant.new,
-    }
+    Sensor(name: name, id: id, humidity: Humidity.Dry, last_update: Instant.new)
   }
 
   fn mut update(humidity: Humidity) {
@@ -85,18 +80,18 @@ class pub async Input {
     itho: uni Itho,
     config: ref Config,
   ) -> Input {
-    Input {
-      @state = state,
-      @logger = logger,
-      @metrics = metrics,
-      @itho = itho,
-      @sensors = recover [],
-      @high = config.high,
-      @low = config.low,
-      @correction = config.correction,
-      @low_time = recover Duration.from_secs(1800),
-      @interval = recover Duration.from_secs(30),
-    }
+    Input(
+      state: state,
+      logger: logger,
+      metrics: metrics,
+      itho: itho,
+      sensors: recover [],
+      high: config.high,
+      low: config.low,
+      correction: config.correction,
+      low_time: recover Duration.from_secs(1800),
+      interval: recover Duration.from_secs(30),
+    )
   }
 
   fn pub async mut add_sensor(sensor: uni Sensor) {

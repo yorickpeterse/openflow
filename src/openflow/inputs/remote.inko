@@ -10,7 +10,7 @@ class pub Button {
   let @duration: Duration
 
   fn pub static new(rooms: Array[String], duration: Duration) -> Button {
-    Button { @rooms = rooms, @duration = duration }
+    Button(rooms: rooms, duration: duration)
   }
 }
 
@@ -45,17 +45,17 @@ class pub async Input {
     itho: uni Itho,
     id: String,
   ) -> Input {
-    Input {
-      @state = state,
-      @logger = logger,
-      @itho = itho,
-      @status = recover RemoteStatus.Low,
-      @interval = recover Duration.from_secs(15),
-      @timestamp = 0,
-      @deadline = recover Instant.new,
-      @id = id,
-      @buttons = recover Map.new,
-    }
+    Input(
+      state: state,
+      logger: logger,
+      itho: itho,
+      status: recover RemoteStatus.Low,
+      interval: recover Duration.from_secs(15),
+      timestamp: 0,
+      deadline: recover Instant.new,
+      id: id,
+      buttons: recover Map.new,
+    )
   }
 
   fn pub async mut add_button(name: String, button: uni Button) {

@@ -37,15 +37,15 @@ class pub Sensor {
   let pub @co2_minimum: Int
 
   fn pub static new(name: String, client: MoreSense) -> Sensor {
-    Sensor {
-      @name = name,
-      @client = client,
-      @co2 = Co2.new,
-      @status = Status.Default,
-      @last_status_change = Instant.new,
-      @last_change_co2 = 0,
-      @co2_minimum = 700,
-    }
+    Sensor(
+      name: name,
+      client: client,
+      co2: Co2.new,
+      status: Status.Default,
+      last_status_change: Instant.new,
+      last_change_co2: 0,
+      co2_minimum: 700,
+    )
   }
 
   fn mut sample -> Result[Nil, String] {
@@ -104,14 +104,14 @@ class pub async Input {
     logger: Logger,
     metrics: uni Metrics,
   ) -> Input {
-    Input {
-      @state = state,
-      @logger = logger,
-      @metrics = metrics,
-      @sensors = recover [],
-      @sample_interval = recover Duration.from_secs(SAMPLE_INTERVAL),
-      @reduce_wait_time = recover Duration.from_secs(1800),
-    }
+    Input(
+      state: state,
+      logger: logger,
+      metrics: metrics,
+      sensors: recover [],
+      sample_interval: recover Duration.from_secs(SAMPLE_INTERVAL),
+      reduce_wait_time: recover Duration.from_secs(1800),
+    )
   }
 
   fn pub async mut add_sensor(sensor: uni Sensor) {

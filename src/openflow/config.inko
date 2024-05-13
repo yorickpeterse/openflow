@@ -1,5 +1,5 @@
 import std.fs.file (ReadOnlyFile)
-import std.fs.path (ToPath)
+import std.fs.path (Path)
 import std.iter (Iter)
 import std.json (Json)
 import std.net.ip (IpAddress)
@@ -144,17 +144,17 @@ class pub Flow {
     let button = opt_int(object, 'button').or(max)
 
     Result.Ok(
-      Flow {
-        @correction = correct,
-        @minimum = min,
-        @maximum = max,
-        @default = def,
-        @low = low,
-        @medium = med,
-        @medium_high = med_high,
-        @high = high,
-        @button = button,
-      },
+      Flow(
+        correction: correct,
+        minimum: min,
+        maximum: max,
+        default: def,
+        low: low,
+        medium: med,
+        medium_high: med_high,
+        high: high,
+        button: button,
+      ),
     )
   }
 }
@@ -198,15 +198,15 @@ class pub Room {
     let co2_min = opt_int(object, 'co2_minimum')
 
     Result.Ok(
-      Room {
-        @name = name,
-        @flow = flow,
-        @exhaust = exhaust,
-        @motion = motion,
-        @humidity = humidity,
-        @co2 = co2,
-        @co2_minimum = co2_min,
-      },
+      Room(
+        name: name,
+        flow: flow,
+        exhaust: exhaust,
+        motion: motion,
+        humidity: humidity,
+        co2: co2,
+        co2_minimum: co2_min,
+      ),
     )
   }
 }
@@ -238,13 +238,13 @@ class pub Itho {
     let max = try int(object, 'maximum_flow')
 
     Result.Ok(
-      Itho {
-        @ip = ip,
-        @manual_id = manual,
-        @speed_id = speed,
-        @minimum_flow = min,
-        @maximum_flow = max,
-      },
+      Itho(
+        ip: ip,
+        manual_id: manual,
+        speed_id: speed,
+        minimum_flow: min,
+        maximum_flow: max,
+      ),
     )
   }
 }
@@ -263,7 +263,7 @@ class pub Metrics {
     let ip = try ip(object, 'ip')
     let port = try int(object, 'port')
 
-    Result.Ok(Metrics { @ip = ip, @port = port })
+    Result.Ok(Metrics(ip: ip, port: port))
   }
 }
 
@@ -281,7 +281,7 @@ class pub Hue {
     let ip = try ip(object, 'ip')
     let user = try string(object, 'user')
 
-    Result.Ok(Hue { @ip = ip, @user = user })
+    Result.Ok(Hue(ip: ip, user: user))
   }
 }
 
@@ -307,7 +307,7 @@ class pub Humidity {
     let low = try int(object, 'low')
     let correct = opt_int(object, 'correction').or(-5)
 
-    Result.Ok(Humidity { @high = high, @low = low, @correction = correct })
+    Result.Ok(Humidity(high: high, low: low, correction: correct))
   }
 }
 
@@ -344,7 +344,7 @@ class pub Button {
 
     let duration = Duration.from_secs(try int(object, 'duration'))
 
-    Result.Ok(Button { @name = name, @rooms = rooms, @duration = duration })
+    Result.Ok(Button(name: name, rooms: rooms, duration: duration))
   }
 }
 
@@ -374,7 +374,7 @@ class pub Remote {
       case _ -> throw 'the "buttons" key must be an object'
     }
 
-    Result.Ok(Remote { @id = id, @buttons = buttons })
+    Result.Ok(Remote(id: id, buttons: buttons))
   }
 }
 
@@ -399,7 +399,7 @@ class pub Config {
   let pub @remote: Option[Remote]
 
   # Load configuration from a JSON file.
-  fn pub static load[T: ToPath](path: ref T) -> Result[Config, String] {
+  fn pub static load(path: Path) -> Result[Config, String] {
     let file = try ReadOnlyFile.new(path).map_error(fn (e) { e.to_string })
     let bytes = ByteArray.new
 
@@ -454,14 +454,14 @@ class pub Config {
     }
 
     Result.Ok(
-      Config {
-        @rooms = rooms,
-        @itho = itho,
-        @metrics = metrics,
-        @hue = hue,
-        @humidity = humidity,
-        @remote = remote,
-      },
+      Config(
+        rooms: rooms,
+        itho: itho,
+        metrics: metrics,
+        hue: hue,
+        humidity: humidity,
+        remote: remote,
+      ),
     )
   }
 }

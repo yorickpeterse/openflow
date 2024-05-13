@@ -5,7 +5,7 @@ class pub Waiter {
   let @channel: Channel[Nil]
 
   fn pub static new -> uni Waiter {
-    recover Waiter { @channel = Channel.new(size: 1) }
+    recover Waiter(Channel.new(size: 1))
   }
 
   fn pub notify {
@@ -19,6 +19,6 @@ class pub Waiter {
 
 impl Clone[uni Waiter] for Waiter {
   fn pub clone -> uni Waiter {
-    recover Waiter { @channel = @channel }
+    recover Waiter(@channel)
   }
 }

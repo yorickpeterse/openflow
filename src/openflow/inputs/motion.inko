@@ -25,12 +25,12 @@ class pub Sensor {
   let @last_update: Instant
 
   fn pub static new(name: String, id: Int) -> Sensor {
-    Sensor {
-      @name = name,
-      @id = id,
-      @presence = Presence.False,
-      @last_update = Instant.new,
-    }
+    Sensor(
+      name: name,
+      id: id,
+      presence: Presence.False,
+      last_update: Instant.new,
+    )
   }
 
   fn mut update(presence: Presence) {
@@ -75,17 +75,17 @@ class pub async Input {
     metrics: uni Metrics,
     hue: uni Hue,
   ) -> Input {
-    Input {
-      @state = state,
-      @logger = logger,
-      @metrics = metrics,
-      @hue = hue,
-      @sensors = recover [],
-      @sample_interval = recover Duration.from_secs(10),
-      @motion_wait_time = recover Duration.from_secs(120),
-      @pending_timeout = recover Duration.from_secs(300),
-      @ventilation_timeout = recover Duration.from_secs(900),
-    }
+    Input(
+      state: state,
+      logger: logger,
+      metrics: metrics,
+      hue: hue,
+      sensors: recover [],
+      sample_interval: recover Duration.from_secs(10),
+      motion_wait_time: recover Duration.from_secs(120),
+      pending_timeout: recover Duration.from_secs(300),
+      ventilation_timeout: recover Duration.from_secs(900),
+    )
   }
 
   fn pub async mut add_sensor(sensor: uni Sensor) {

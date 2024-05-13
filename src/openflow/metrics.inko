@@ -22,7 +22,7 @@ class pub Metric {
   }
 
   fn pub static new(name: String) -> Metric {
-    Metric { @name = name, @tags = [], @fields = [] }
+    Metric(name: name, tags: [], fields: [])
   }
 
   fn pub mut tag(name: String, value: String) {
@@ -86,7 +86,7 @@ class pub Metrics {
       'failed to set up the socket for the metrics database',
     )
 
-    Metrics { @ip = ip, @port = port, @socket = sock }
+    Metrics(ip: ip, port: port, socket: sock)
   }
 
   fn pub mut add(name: String, block: fn (mut Metric)) {
@@ -103,12 +103,12 @@ class pub Metrics {
 
 impl Clone[Metrics] for Metrics {
   fn pub clone -> Metrics {
-    Metrics {
-      @ip = @ip.clone,
-      @port = @port,
-      @socket = @socket.try_clone.or_panic(
+    Metrics(
+      ip: @ip.clone,
+      port: @port,
+      socket: @socket.try_clone.or_panic(
         'failed to clone socket for the metrics database',
       ),
-    }
+    )
   }
 }

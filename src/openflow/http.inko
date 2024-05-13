@@ -57,7 +57,7 @@ class pub Version {
   let pub @minor: Int
 
   fn pub static new(major: Int, minor: Int) -> Version {
-    Version { @major = major, @minor = minor }
+    Version(major: major, minor: minor)
   }
 }
 
@@ -118,7 +118,7 @@ class ResponseParser[T: mut + Read] {
 
   # Returns a new parser that will parse the given input stream.
   fn pub static new(stream: T) -> ResponseParser[T] {
-    ResponseParser { @stream = stream, @buffer = ByteArray.new }
+    ResponseParser(stream: stream, buffer: ByteArray.new)
   }
 
   # Parser the input stream into a response.
@@ -159,12 +159,7 @@ class ResponseParser[T: mut + Read] {
     }
 
     Result.Ok(
-      Response {
-        @version = version,
-        @status = status,
-        @headers = headers,
-        @body = body,
-      },
+      Response(version: version, status: status, headers: headers, body: body),
     )
   }
 
@@ -358,12 +353,12 @@ class pub Response {
 
   # Returns a new HTTP 1.1 response with the given status and body.
   fn pub static new(status: Int, body: ByteArray) -> Response {
-    Response {
-      @version = Version.new(1, 1),
-      @status = status,
-      @headers = Map.new,
-      @body = body,
-    }
+    Response(
+      version: Version.new(1, 1),
+      status: status,
+      headers: Map.new,
+      body: body,
+    )
   }
 
   # Returns a new HTTP 1.1 OK response.
@@ -385,7 +380,7 @@ class pub Request {
 
   # Returns a new GET request.
   fn pub static get(path: String) -> Request {
-    Request { @method = 'GET', @path = path, @queries = Map.new }
+    Request(method: 'GET', path: path, queries: Map.new)
   }
 
   # Adds a query string key/value pair to the request.
@@ -440,7 +435,7 @@ class pub DefaultDriver {
   let @deadline: Option[Instant]
 
   fn pub static new(ip: IpAddress, port: Int) -> DefaultDriver {
-    DefaultDriver { @ip = ip, @port = port, @deadline = Option.None }
+    DefaultDriver(ip: ip, port: port, deadline: Option.None)
   }
 
   fn connect -> Result[TcpClient, Error] {
@@ -483,7 +478,7 @@ class pub TestDriver {
   ]
 
   fn pub static new -> TestDriver {
-    TestDriver { @requests = [] }
+    TestDriver([])
   }
 
   # Adds a new request/response pair to the test driver.
@@ -534,7 +529,7 @@ class pub Client {
 
   # Returns a new HTTP client that uses the given driver.
   fn pub static with_driver(driver: Driver) -> Client {
-    Client { @driver = driver }
+    Client(driver)
   }
 
   # Sets a point in time after which HTTP requests must time out.

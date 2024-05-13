@@ -8,7 +8,7 @@ class TimeoutDriver {
   let @timed_out: Bool
 
   fn static new -> TimeoutDriver {
-    TimeoutDriver { @timed_out = false }
+    TimeoutDriver(false)
   }
 }
 

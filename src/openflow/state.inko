@@ -221,24 +221,24 @@ class pub Room {
 
   fn pub static new(name: String, config: ref RoomConfig) -> uni Room {
     recover {
-      Room {
-        @name = name,
-        @status = Status.Default,
-        @flow_correction = config.flow.correction,
-        @exhaust_id = config.exhaust,
-        @exhaust_value = -1,
-        @default_flow = config.flow.default,
-        @low_flow = config.flow.low,
-        @medium_flow = config.flow.medium,
-        @medium_high_flow = config.flow.medium_high,
-        @high_flow = config.flow.high,
-        @minimum_flow = config.flow.minimum,
-        @maximum_flow = config.flow.maximum,
-        @button_flow = config.flow.button,
-        @base_flow = 0,
-        @current_flow = 0,
-        @last_update = Instant.new,
-      }
+      Room(
+        name: name,
+        status: Status.Default,
+        flow_correction: config.flow.correction,
+        exhaust_id: config.exhaust,
+        exhaust_value: -1,
+        default_flow: config.flow.default,
+        low_flow: config.flow.low,
+        medium_flow: config.flow.medium,
+        medium_high_flow: config.flow.medium_high,
+        high_flow: config.flow.high,
+        minimum_flow: config.flow.minimum,
+        maximum_flow: config.flow.maximum,
+        button_flow: config.flow.button,
+        base_flow: 0,
+        current_flow: 0,
+        last_update: Instant.new,
+      )
     }
   }
 
@@ -301,17 +301,17 @@ class pub async State {
   ) -> State {
     let min = config.minimum_flow
 
-    State {
-      @itho = itho,
-      @metrics = metrics,
-      @minimum_flow = min,
-      @maximum_flow = config.maximum_flow,
-      @speed_id = config.speed_id,
-      @manual_id = config.manual_id,
-      @speed = 0,
-      @rooms = recover Map.new,
-      @logger = logger,
-    }
+    State(
+      itho: itho,
+      metrics: metrics,
+      minimum_flow: min,
+      maximum_flow: config.maximum_flow,
+      speed_id: config.speed_id,
+      manual_id: config.manual_id,
+      speed: 0,
+      rooms: recover Map.new,
+      logger: logger,
+    )
   }
 
   fn pub async mut add_room(room: uni Room) {

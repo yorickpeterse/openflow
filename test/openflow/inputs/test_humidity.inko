@@ -29,7 +29,7 @@ impl Input {
 
 fn input(state: State, humidity: uni Array[Int], correction: Int) -> Input {
   let metrics = recover Metrics.new(IpAddress.v4(0, 0, 0, 0), port: 0)
-  let logger = Logger.new(recover NullWriter {} as Write)
+  let logger = Logger.new(recover NullWriter() as Write)
   let driver = recover TestDriver.new
   let mut index = 0
 
@@ -48,7 +48,7 @@ fn input(state: State, humidity: uni Array[Int], correction: Int) -> Input {
   )
 
   let itho = recover Itho.new(Client.with_driver(driver as Driver))
-  let conf = Humidity { @high = 80, @low = 75, @correction = correction }
+  let conf = Humidity(high: 80, low: 75, correction: correction)
   let input = Input.new(state, logger, metrics, itho, conf)
 
   input.add_sensor(recover Sensor.new('bathroom', id: 'RH bathroom 1'))

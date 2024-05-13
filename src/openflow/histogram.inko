@@ -6,7 +6,7 @@ class pub Histogram {
 
   # Returns a new `Histogram` with `buckets` buckets.
   fn pub static new(buckets: Int) -> Histogram {
-    Histogram { @buckets = Array.filled(with: 0, times: buckets) }
+    Histogram(Array.filled(with: 0, times: buckets))
   }
 
   # Returns the value of the bucket.

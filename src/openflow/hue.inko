@@ -22,11 +22,7 @@ class pub Hue {
   let pub @retry_wait_time: Duration
 
   fn pub static new(client: Client, user: String) -> Hue {
-    Hue {
-      @client = client,
-      @user = user,
-      @retry_wait_time = Duration.from_secs(5),
-    }
+    Hue(client: client, user: user, retry_wait_time: Duration.from_secs(5))
   }
 
   fn pub mut sensors -> Result[Sensors, String] {
@@ -75,6 +71,6 @@ class pub Hue {
       }
     })
 
-    Result.Ok(Sensors { @motion = motion })
+    Result.Ok(Sensors(motion))
   }
 }

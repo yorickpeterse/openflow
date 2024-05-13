@@ -18,11 +18,11 @@ class pub async Logger {
 
   # Returns a logger using the default output stream (STDOUT).
   fn pub static default -> Logger {
-    Logger { @stream = recover STDOUT.new as Write }
+    Logger(recover STDOUT.new as Write)
   }
 
   fn pub static new(stream: uni Write) -> Logger {
-    Logger { @stream = stream }
+    Logger(stream)
   }
 
   fn pub async mut info(message: String) {

@@ -47,7 +47,7 @@ class pub Co2 {
   let @value: Int
 
   fn pub static new -> Co2 {
-    Co2 { @histogram = Histogram.new(BUCKETS), @value = 0 }
+    Co2(histogram: Histogram.new(BUCKETS), value: 0)
   }
 
   # Returns the current CO2 estimate.

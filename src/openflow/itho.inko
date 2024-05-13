@@ -120,7 +120,7 @@ class pub Itho {
   let pub @retry_wait_time: Duration
 
   fn pub static new(client: Client) -> Itho {
-    Itho { @client = client, @retry_wait_time = Duration.from_secs(10) }
+    Itho(client: client, retry_wait_time: Duration.from_secs(10))
   }
 
   # Sets a setting.
@@ -212,11 +212,7 @@ class pub Itho {
     })
 
     Result.Ok(
-      Status {
-        @co2 = co2,
-        @exhaust_speed = exhaust_speed,
-        @humidity = humidity,
-      },
+      Status(co2: co2, exhaust_speed: exhaust_speed, humidity: humidity),
     )
   }
 
@@ -256,7 +252,7 @@ class pub Itho {
         case _ -> 0
       }
 
-      map.set(entry.key, Remote { @status = status, @timestamp = timestamp })
+      map.set(entry.key, Remote(status: status, timestamp: timestamp))
       map
     })
 
