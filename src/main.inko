@@ -66,7 +66,7 @@ class async Main {
 
   fn run(config_path: String) {
     let logger = Logger.default
-    let config = match Config.load(config_path) {
+    let config = match Config.load(config_path.to_path) {
       case Ok(conf) -> conf
       case Error(err) -> panic('failed to load ${config_path}: ${err}')
     }
