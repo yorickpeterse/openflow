@@ -1,7 +1,7 @@
 import helpers (NullWriter, Snapshot, allow_api_calls, state)
 import openflow.config (Humidity)
 import openflow.http (Client, Driver, Response, TestDriver)
-import openflow.inputs.humidity (Input, Sensor)
+import openflow.inputs.humidity (Input, Samples, Sensor)
 import openflow.itho (Itho)
 import openflow.logger (Logger)
 import openflow.metrics (Metrics)
@@ -48,7 +48,12 @@ fn input(state: State, humidity: uni Array[Int], correction: Int) -> Input {
   )
 
   let itho = recover Itho.new(Client.with_driver(driver as Driver))
-  let conf = Humidity(high: 80, low: 75, correction: correction)
+  let conf = Humidity(
+    high: 80,
+    low: 75,
+    max_increase: 15,
+    correction: correction,
+  )
   let input = Input.new(state, logger, metrics, itho, conf)
 
   input.add_sensor(recover Sensor.new('bathroom', id: 'RH bathroom 1'))
@@ -64,6 +69,31 @@ fn run(input: Input) {
 }
 
 fn pub tests(t: mut Tests) {
+  t.test('Samples.new', fn (t) {
+    let buf = Samples.new(1)
+
+    t.equal(buf.index, 0)
+    t.equal(buf.values.size, 1)
+  })
+
+  t.test('Samples.push', fn (t) {
+    let buf = Samples.new(2)
+
+    t.equal(buf.push(10), 0)
+    t.equal(buf.index, 1)
+
+    t.equal(buf.push(20), 0)
+    t.equal(buf.index, 0)
+
+    t.equal(buf.values.get(0), 10)
+    t.equal(buf.values.get(1), 20)
+
+    t.equal(buf.push(30), 10)
+    t.equal(buf.push(40), 20)
+    t.equal(buf.values.get(0), 30)
+    t.equal(buf.values.get(1), 40)
+  })
+
   t.test('No ventilation is applied when the humidity is OK', fn (t) {
     let state = state(allow_api_calls)
     let input = input(state, humidity: recover [70], correction: 0)
@@ -148,6 +178,36 @@ fn pub tests(t: mut Tests) {
       run(input) # Transitions the state to "drying"
       run(input) # Transitions the state to "humid" again
       t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Humid)
+    },
+  )
+
+  t.test(
+    'Ventilation is applied when the humidity increase is too big',
+    fn (t) {
+      let state = state(allow_api_calls)
+      let input = input(
+        state,
+        humidity: recover {
+          [
+            55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 70, 70, 70, 70, 70, 70, 70,
+            70, 70, 70, 70, 70, 30, 0,
+          ]
+        },
+        correction: 0,
+      )
+
+      11.times(fn (_) { run(input) })
+      t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Humid)
+
+      11.times(fn (_) { run(input) })
+      t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Humid)
+
+      input.reset_low_time
+      run(input)
+      t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
+
+      run(input)
+      t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
     },
   )
 }

@@ -293,6 +293,10 @@ class pub Humidity {
   # The threshold at which to return to normal ventilation.
   let pub @low: Int
 
+  # If humidity increases by this value then ventilation is enabled, regardless
+  # of the absolute value.
+  let pub @max_increase: Int
+
   # The value to add to the raw sensor values to obtain the correct value.
   #
   # The Itho humidity sensors appear to not be entirely accurate, sometimes
@@ -305,9 +309,17 @@ class pub Humidity {
   ) -> Result[Humidity, String] {
     let high = try int(object, 'high')
     let low = try int(object, 'low')
+    let max_increase = opt_int(object, 'max_increase').or(15)
     let correct = opt_int(object, 'correction').or(-5)
 
-    Result.Ok(Humidity(high: high, low: low, correction: correct))
+    Result.Ok(
+      Humidity(
+        high: high,
+        low: low,
+        max_increase: max_increase,
+        correction: correct,
+      ),
+    )
   }
 }
 

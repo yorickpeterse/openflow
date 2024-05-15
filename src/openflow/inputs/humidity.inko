@@ -6,6 +6,30 @@ import openflow.state (State, Status)
 import std.process (sleep)
 import std.time (Duration, Instant)
 
+# The amount of time between checking the sensor status.
+let CHECK_INTERVAL = 30
+
+# The amount of time to maintain humidity samples for.
+let SAMPLE_INTERVAL = 300
+
+# The number of humidity samples to maintain.
+let HUMIDITY_SAMPLES = 300 / 30
+
+# A ring buffer of humidity samples.
+class pub Samples {
+  let @values: Array[Int]
+  let @index: Int
+
+  fn pub static new(capacity: Int) -> Samples {
+    Samples(values: Array.filled(capacity, with: 0), index: 0)
+  }
+
+  # Pushes a new value into the buffer, returning the oldest value.
+  fn pub mut push(value: Int) -> Int {
+    @values.swap(@index := (@index + 1 % @values.size), value)
+  }
+}
+
 # The state of a single humidity sensor.
 class enum Humidity {
   # The room is dry, no ventilation is necessary.
@@ -29,10 +53,17 @@ class pub Sensor {
   let @name: String
   let @id: String
   let @humidity: Humidity
-  let @last_update: Instant
+  let @samples: Samples
+  let @last_status_update: Instant
 
   fn pub static new(name: String, id: String) -> Sensor {
-    Sensor(name: name, id: id, humidity: Humidity.Dry, last_update: Instant.new)
+    Sensor(
+      name: name,
+      id: id,
+      humidity: Humidity.Dry,
+      samples: Samples.new(HUMIDITY_SAMPLES),
+      last_status_update: Instant.new,
+    )
   }
 
   fn mut update(humidity: Humidity) {
@@ -41,7 +72,7 @@ class pub Sensor {
   }
 
   fn mut update_time {
-    @last_update = Instant.new
+    @last_status_update = Instant.new
   }
 }
 
@@ -63,6 +94,10 @@ class pub async Input {
   # enough.
   let @low: Int
 
+  # If humidity increases by this value then ventilation is enabled, regardless
+  # of the absolute value.
+  let @max_increase: Int
+
   # The value to add to the raw sensor values to obtain the correct value.
   let @correction: Int
 
@@ -71,7 +106,7 @@ class pub async Input {
   let @low_time: Duration
 
   # The interval at which to check the humidity sensors.
-  let @interval: Duration
+  let @check_interval: Duration
 
   fn pub static new(
     state: State,
@@ -88,9 +123,10 @@ class pub async Input {
       sensors: recover [],
       high: config.high,
       low: config.low,
+      max_increase: config.max_increase,
       correction: config.correction,
       low_time: recover Duration.from_secs(1800),
-      interval: recover Duration.from_secs(30),
+      check_interval: recover Duration.from_secs(CHECK_INTERVAL),
     )
   }
 
@@ -101,7 +137,7 @@ class pub async Input {
   fn pub async mut run {
     loop {
       iteration
-      sleep(@interval)
+      sleep(@check_interval)
     }
   }
 
@@ -147,7 +183,18 @@ class pub async Input {
   }
 
   fn mut update_sensor(sensor: mut Sensor, humidity: Int) {
-    if humidity >= @high {
+    let large_increase = match sensor.samples.push(humidity) {
+      case n if n > 0 and humidity - n >= @max_increase -> {
+        info(
+          sensor.name,
+          'humidity increased by more than ${@max_increase}%, enabling ventilation',
+        )
+        true
+      }
+      case _ -> false
+    }
+
+    if humidity >= @high or large_increase {
       match sensor.humidity {
         case Humid -> sensor.update_time
         case _ -> sensor.update(Humidity.Humid)
@@ -166,7 +213,7 @@ class pub async Input {
         case Drying if humidity >= (@low + (@high - @low / 2)) -> {
           sensor.update(Humidity.Humid)
         }
-        case Drying if sensor.last_update.elapsed >= @low_time -> {
+        case Drying if sensor.last_status_update.elapsed >= @low_time -> {
           info(sensor.name, 'the room dried up, disabling ventilation')
           sensor.update(Humidity.Dry)
         }
