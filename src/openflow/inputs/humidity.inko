@@ -184,20 +184,23 @@ class pub async Input {
 
   fn mut update_sensor(sensor: mut Sensor, humidity: Int) {
     let large_increase = match sensor.samples.push(humidity) {
-      case n if n > 0 and humidity - n >= @max_increase -> {
-        info(
-          sensor.name,
-          'humidity increased by more than ${@max_increase}%, enabling ventilation',
-        )
-        true
-      }
+      case n if n > 0 and humidity - n >= @max_increase -> true
       case _ -> false
     }
 
     if humidity >= @high or large_increase {
       match sensor.humidity {
         case Humid -> sensor.update_time
-        case _ -> sensor.update(Humidity.Humid)
+        case _ -> {
+          if large_increase {
+            info(
+              sensor.name,
+              'humidity increased by more than ${@max_increase}%, enabling ventilation',
+            )
+          }
+
+          sensor.update(Humidity.Humid)
+        }
       }
     } else {
       match sensor.humidity {
