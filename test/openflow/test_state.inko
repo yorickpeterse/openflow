@@ -2,7 +2,7 @@ import helpers (Snapshot, allow_api_calls, state, state_with_rooms)
 import openflow.config (Flow, Room as RoomConfig)
 import openflow.http (Response, TestDriver)
 import openflow.state (State, Status)
-import openflow.sync (Waiter)
+import std.sync (Future)
 import std.test (Tests)
 
 fn pub tests(t: mut Tests) {
@@ -24,7 +24,6 @@ fn pub tests(t: mut Tests) {
   })
 
   t.test('State.prepare when manual control is disabled', fn (t) {
-    let chan = Channel.new(size: 1)
     let driver = recover TestDriver.new
 
     driver.request(
@@ -32,18 +31,25 @@ fn pub tests(t: mut Tests) {
       then: fn (_) { Response.ok('{"current":0}'.to_byte_array) },
     )
 
-    driver.request(
-      matches: fn (req) { req.queries.opt('setsetting').some? },
-      then: fn (_) {
-        chan.send(true)
-        Response.ok('OK'.to_byte_array)
-      },
-    )
+    let future = match Future.new {
+      case (future, promise) -> {
+        let mut prom_opt = recover Option.Some(promise)
+
+        driver.request(
+          matches: fn (req) { req.queries.opt('setsetting').some? },
+          then: fn move (_) {
+            (prom_opt := recover Option.None).get.set(true)
+            Response.ok('OK'.to_byte_array)
+          },
+        )
+        future
+      }
+    }
 
     let state = state(driver)
 
     state.prepare
-    t.true(chan.receive)
+    t.true(future.get)
   })
 
   t.test('State.prepare when manual control is enabled', fn (t) {
@@ -100,7 +106,9 @@ fn pub tests(t: mut Tests) {
       false
     })
 
-    state.apply(Waiter.new)
+    match Future.new {
+      case (_, promise) -> state.apply(promise)
+    }
 
     let snap = Snapshot.of(state)
     let living = snap.rooms.get('living_room')
@@ -119,7 +127,9 @@ fn pub tests(t: mut Tests) {
       false
     })
 
-    state.apply(Waiter.new)
+    match Future.new {
+      case (_, promise) -> state.apply(promise)
+    }
 
     let snap = Snapshot.of(state)
     let office = snap.rooms.get('office')
@@ -145,7 +155,9 @@ fn pub tests(t: mut Tests) {
       false
     })
 
-    state.apply(Waiter.new)
+    match Future.new {
+      case (_, promise) -> state.apply(promise)
+    }
 
     let snap = Snapshot.of(state)
     let living = snap.rooms.get('living_room')
@@ -170,7 +182,10 @@ fn pub tests(t: mut Tests) {
         false
       })
 
-      state.apply(Waiter.new)
+      match Future.new {
+        case (_, promise) -> state.apply(promise)
+      }
+
       t.equal(Snapshot.of(state).rooms.get('office').flow, 11)
     },
   )
@@ -183,7 +198,10 @@ fn pub tests(t: mut Tests) {
       false
     })
 
-    state.apply(Waiter.new)
+    match Future.new {
+      case (_, promise) -> state.apply(promise)
+    }
+
     t.equal(Snapshot.of(state).rooms.get('office').flow, 88)
   })
 
@@ -195,7 +213,9 @@ fn pub tests(t: mut Tests) {
       false
     })
 
-    state.apply(Waiter.new)
+    match Future.new {
+      case (_, promise) -> state.apply(promise)
+    }
 
     let snap = Snapshot.of(state)
     let fast = snap.rooms.get('super_fast')
@@ -324,7 +344,9 @@ fn pub tests(t: mut Tests) {
       false
     })
 
-    state.apply(Waiter.new)
+    match Future.new {
+      case (_, promise) -> state.apply(promise)
+    }
 
     let snap = Snapshot.of(state)
     let living = snap.rooms.get('living_room')
@@ -344,7 +366,9 @@ fn pub tests(t: mut Tests) {
   t.test('State.apply with remaining ventilation', fn (t) {
     let state = state(allow_api_calls)
 
-    state.apply(Waiter.new)
+    match Future.new {
+      case (_, promise) -> state.apply(promise)
+    }
 
     let snap = Snapshot.of(state)
     let office = snap.rooms.get('office')

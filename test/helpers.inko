@@ -6,6 +6,7 @@ import openflow.metrics (Metrics)
 import openflow.state (Room, State, Status)
 import std.io (Write)
 import std.net.ip (IpAddress)
+import std.sync (Future, Promise)
 import std.time (Duration)
 
 class pub NullWriter {}
@@ -35,10 +36,12 @@ class pub Snapshot {
   let pub @rooms: Map[String, RoomSnapshot]
 
   fn pub static of(state: State) -> Snapshot {
-    let chan = Channel.new(size: 1)
-
-    state.snapshot(chan)
-    chan.receive
+    match Future.new {
+      case (future, promise) -> {
+        state.snapshot(promise)
+        future.get
+      }
+    }
   }
 }
 
@@ -53,7 +56,7 @@ impl Room {
 }
 
 impl State {
-  fn pub async snapshot(channel: Channel[uni Snapshot]) {
+  fn pub async snapshot(promise: uni Promise[uni Snapshot]) {
     let rooms = @rooms.iter.reduce(recover Map.new, fn (map, entry) {
       recover {
         let map = recover map
@@ -63,7 +66,7 @@ impl State {
       }
     })
 
-    channel.send(recover Snapshot(speed: @speed, rooms: rooms))
+    promise.set(recover Snapshot(speed: @speed, rooms: rooms))
   }
 
   fn sleep(time: ref Duration) {

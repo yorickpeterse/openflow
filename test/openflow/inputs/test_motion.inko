@@ -5,10 +5,10 @@ import openflow.inputs.motion (Input, Sensor)
 import openflow.logger (Logger)
 import openflow.metrics (Metrics)
 import openflow.state (State, Status)
-import openflow.sync (Waiter)
 import std.io (Write)
 import std.json (Json)
 import std.net.ip (IpAddress)
+import std.sync (Future, Promise)
 import std.test (Tests)
 import std.time (Duration)
 
@@ -29,8 +29,8 @@ impl Input {
     @pending_timeout = Duration.from_secs(0)
   }
 
-  fn async mut wait(waiter: uni Waiter) {
-    waiter.notify
+  fn async mut wait(promise: uni Promise[Nil]) {
+    promise.set(nil)
   }
 }
 
@@ -67,11 +67,14 @@ fn input(state: State, motion: uni Array[Bool]) -> Input {
 }
 
 fn run(input: Input) {
-  let waiter = Waiter.new
-
   input.run_iteration
-  input.wait(waiter.clone)
-  waiter.wait
+
+  match Future.new {
+    case (future, promise) -> {
+      input.wait(promise)
+      future.get
+    }
+  }
 }
 
 fn pub tests(t: mut Tests) {

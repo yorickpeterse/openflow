@@ -1,5 +1,5 @@
 import std.io (Write)
-import std.stdio (STDOUT)
+import std.stdio (Stdout)
 import std.time (DateTime)
 
 fn pad_zero(value: Int) -> String {
@@ -16,9 +16,9 @@ fn iso8601_time -> String {
 class pub async Logger {
   let @stream: Write
 
-  # Returns a logger using the default output stream (STDOUT).
+  # Returns a logger using the default output stream (Stdout).
   fn pub static default -> Logger {
-    Logger(recover STDOUT.new as Write)
+    Logger(recover Stdout.new as Write)
   }
 
   fn pub static new(stream: uni Write) -> Logger {

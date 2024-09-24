@@ -2,12 +2,12 @@ import openflow.config (Itho as IthoConfig, Room as RoomConfig)
 import openflow.itho (Itho)
 import openflow.logger (Logger)
 import openflow.metrics (Metric, Metrics)
-import openflow.sync (Waiter)
 import std.clone (Clone)
 import std.cmp (Compare, Equal, Ordering, max, min)
 import std.fmt (Format, Formatter)
 import std.process (sleep)
 import std.string (ToString)
+import std.sync (Promise)
 import std.time (Duration, Instant)
 
 # The maximum value of an exhaust valve setting.
@@ -350,9 +350,9 @@ class pub async State {
   # The given channel is sent a message after applying the changes. This allows
   # other processes to wait until the changes are applied, regardless of how
   # long that takes.
-  fn pub async mut apply(waiter: uni Waiter) {
+  fn pub async mut apply(promise: uni Promise[Nil]) {
     apply_state
-    waiter.notify
+    promise.set(nil)
   }
 
   fn mut apply_state {

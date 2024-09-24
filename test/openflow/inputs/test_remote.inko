@@ -4,10 +4,10 @@ import openflow.inputs.remote (Button, Input)
 import openflow.itho (Itho)
 import openflow.logger (Logger)
 import openflow.state (State, Status)
-import openflow.sync (Waiter)
 import std.int (ToInt)
 import std.io (Write)
 import std.json (Json)
+import std.sync (Future, Promise)
 import std.test (Tests)
 import std.time (Duration)
 
@@ -36,8 +36,8 @@ impl Input {
     iteration
   }
 
-  fn async mut wait(waiter: uni Waiter) {
-    waiter.notify
+  fn async mut wait(promise: uni Promise[Nil]) {
+    promise.set(nil)
   }
 }
 
@@ -80,11 +80,14 @@ fn input(state: State, states: uni Array[RemoteState]) -> Input {
 }
 
 fn run(input: Input) {
-  let waiter = Waiter.new
-
   input.run_iteration
-  input.wait(waiter.clone)
-  waiter.wait
+
+  match Future.new {
+    case (future, promise) -> {
+      input.wait(promise)
+      future.get
+    }
+  }
 }
 
 fn pub tests(t: mut Tests) {

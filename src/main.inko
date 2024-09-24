@@ -13,11 +13,11 @@ import openflow.logger (Logger)
 import openflow.metrics (Metrics)
 import openflow.more_sense (MoreSense)
 import openflow.state (Room, State, Status)
-import openflow.sync (Waiter)
 import std.env
 import std.optparse (Help, Options)
 import std.process (sleep)
-import std.stdio (STDERR, STDOUT)
+import std.stdio (Stderr, Stdout)
+import std.sync (Future)
 import std.sys (exit)
 import std.time (Duration)
 
@@ -38,7 +38,7 @@ class async Main {
     let matches = match opts.parse(env.arguments) {
       case Ok(matches) -> matches
       case Error(err) -> {
-        STDERR.new.print('openflow failed to start: ${err}')
+        Stderr.new.print('openflow failed to start: ${err}')
         exit(1)
       }
     }
@@ -57,7 +57,7 @@ class async Main {
         .options(opts)
         .to_string
 
-      STDOUT.new.write_string(help)
+      Stdout.new.write_string(help)
       return
     }
 
@@ -145,11 +145,14 @@ class async Main {
     motion_input.run
     humid_input.run
 
-    let waiter = Waiter.new
-
     loop {
-      state.apply(waiter.clone)
-      waiter.wait
+      match Future.new {
+        case (future, promise) -> {
+          state.apply(promise)
+          future.get
+        }
+      }
+
       sleep(Duration.from_secs(60))
     }
   }
