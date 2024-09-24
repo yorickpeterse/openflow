@@ -1,5 +1,4 @@
 import openflow.config (Config)
-import openflow.experimental_ext
 import openflow.http (Client)
 import openflow.hue (Hue)
 import openflow.inputs.co2 (Input as Co2Input, Sensor as Co2Sensor)
@@ -12,7 +11,7 @@ import openflow.itho (Itho)
 import openflow.logger (Logger)
 import openflow.metrics (Metrics)
 import openflow.more_sense (MoreSense)
-import openflow.state (Room, State, Status)
+import openflow.state (Room, State)
 import std.env
 import std.optparse (Help, Options)
 import std.process (sleep)
@@ -103,43 +102,55 @@ class async Main {
     config.rooms.iter.each(fn (conf) {
       let name = conf.name
 
-      conf.co2.as_ref.let(fn (ip) {
-        let sensor = recover {
-          Co2Sensor.new(name, MoreSense.new(Client.new(ip.clone)))
+      match conf.co2 {
+        case Some(ip) -> {
+          let sensor = recover {
+            Co2Sensor.new(name, MoreSense.new(Client.new(ip.clone)))
+          }
+
+          match conf.co2_minimum {
+            case Some(val) -> sensor.co2_minimum = val
+            case _ -> {}
+          }
+
+          co2_input.add_sensor(sensor)
         }
+        case _ -> {}
+      }
 
-        match conf.co2_minimum {
-          case Some(val) -> sensor.co2_minimum = val
-          case _ -> {}
+      match conf.motion {
+        case Some(id) -> {
+          motion_input.add_sensor(recover MotionSensor.new(name, id))
         }
+        case _ -> {}
+      }
 
-        co2_input.add_sensor(sensor)
-      })
-
-      conf.motion.as_ref.let(fn (id) {
-        motion_input.add_sensor(recover MotionSensor.new(name, id))
-      })
-
-      conf.humidity.as_ref.let(fn (id) {
-        humid_input.add_sensor(recover HumiditySensor.new(name, id))
-      })
+      match conf.humidity {
+        case Some(id) -> {
+          humid_input.add_sensor(recover HumiditySensor.new(name, id))
+        }
+        case _ -> {}
+      }
 
       state.add_room(Room.new(name, conf))
     })
 
-    config.remote.as_ref.let(fn (remote) {
-      let itho = recover Itho.new(Client.new(config.itho.ip.clone))
-      let input = RemoteInput.new(state, logger, itho, remote.id)
+    match config.remote {
+      case Some(remote) -> {
+        let itho = recover Itho.new(Client.new(config.itho.ip.clone))
+        let input = RemoteInput.new(state, logger, itho, remote.id)
 
-      remote.buttons.iter.each(fn (cfg) {
-        input.add_button(
-          cfg.name,
-          recover Button.new(cfg.rooms.clone, cfg.duration.clone),
-        )
-      })
+        remote.buttons.iter.each(fn (cfg) {
+          input.add_button(
+            cfg.name,
+            recover Button.new(cfg.rooms.clone, cfg.duration.clone),
+          )
+        })
 
-      input.run
-    })
+        input.run
+      }
+      case _ -> {}
+    }
 
     co2_input.run
     motion_input.run

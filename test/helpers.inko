@@ -1,5 +1,5 @@
 import openflow.config (Flow, Itho as IthoConfig, Room as RoomConfig)
-import openflow.http (Client, Driver, Request, Response, TestDriver)
+import openflow.http (Client, Driver, Response, TestDriver)
 import openflow.itho (Itho)
 import openflow.logger (Logger)
 import openflow.metrics (Metrics)
@@ -7,7 +7,6 @@ import openflow.state (Room, State, Status)
 import std.io (Write)
 import std.net.ip (IpAddress)
 import std.sync (Future, Promise)
-import std.time (Duration)
 
 class pub NullWriter {}
 
@@ -67,10 +66,6 @@ impl State {
     })
 
     promise.set(recover Snapshot(speed: @speed, rooms: rooms))
-  }
-
-  fn sleep(time: ref Duration) {
-    # This disables sleep() calls when running tests.
   }
 }
 
@@ -169,6 +164,7 @@ fn pub state_with_rooms(
     maximum_flow: 350,
     speed_id: 124,
     manual_id: 111,
+    adjust_time: 0,
   )
 
   let metrics = recover Metrics.new(IpAddress.v4(0, 0, 0, 0), port: 0)

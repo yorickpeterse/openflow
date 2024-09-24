@@ -1,4 +1,3 @@
-import openflow.config (Button as Config)
 import openflow.itho (Itho, Remote, RemoteStatus)
 import openflow.logger (Logger)
 import openflow.state (State, Status)

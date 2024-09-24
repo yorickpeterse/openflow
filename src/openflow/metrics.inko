@@ -3,7 +3,6 @@
 # This module provides types for sending metrics to a VictoriaMetrics/InfluxDB
 # database, using the InfluxDB line protocol over UDP.
 import std.clone (Clone)
-import std.io (Error)
 import std.net.ip (IpAddress)
 import std.net.socket (UdpSocket)
 import std.string (StringBuffer, ToString)

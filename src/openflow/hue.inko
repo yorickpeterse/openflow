@@ -1,7 +1,7 @@
-import openflow.http (Client, Error, Request, Response, retry)
+import openflow.http (Client, Request, retry)
 import std.int (Format)
 import std.json (Json)
-import std.time (DateTime, Duration)
+import std.time (Duration)
 
 # The time after which a request times out.
 let TIMEOUT = 30

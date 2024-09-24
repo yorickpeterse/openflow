@@ -1,7 +1,7 @@
 import helpers (Snapshot, allow_api_calls, state, state_with_rooms)
 import openflow.config (Flow, Room as RoomConfig)
 import openflow.http (Response, TestDriver)
-import openflow.state (State, Status)
+import openflow.state (Status)
 import std.sync (Future)
 import std.test (Tests)
 

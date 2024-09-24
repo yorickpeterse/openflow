@@ -1,6 +1,6 @@
 import openflow.hue (Hue)
 import openflow.logger (Logger)
-import openflow.metrics (Metric, Metrics)
+import openflow.metrics (Metrics)
 import openflow.state (State, Status)
 import std.process (sleep)
 import std.time (Duration, Instant)

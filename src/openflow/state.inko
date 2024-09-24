@@ -1,7 +1,7 @@
 import openflow.config (Itho as IthoConfig, Room as RoomConfig)
 import openflow.itho (Itho)
 import openflow.logger (Logger)
-import openflow.metrics (Metric, Metrics)
+import openflow.metrics (Metrics)
 import std.clone (Clone)
 import std.cmp (Compare, Equal, Ordering, max, min)
 import std.fmt (Format, Formatter)
@@ -16,10 +16,6 @@ import std.time (Duration, Instant)
 # noise when opening them this far. The actual Itho hardware also appears to
 # limit the setting to this value.
 let EXHAUST_MAX = 4000
-
-# The amount of time to wait (in seconds) for exhaust valves to adjust
-# themselves.
-let ADJUST_TIME = 5
 
 fn exhaust_percentage(flow: Int, total_flow: Int) -> Int {
   if flow >= total_flow { return EXHAUST_MAX }
@@ -293,6 +289,10 @@ class pub async State {
   let @itho: Itho
   let @metrics: Metrics
 
+  # The amount of time to wait (in seconds) for exhaust valves to adjust
+  # themselves.
+  let @adjust_time: Duration
+
   fn pub static new(
     itho: uni Itho,
     logger: Logger,
@@ -311,6 +311,7 @@ class pub async State {
       speed: 0,
       rooms: recover Map.new,
       logger: logger,
+      adjust_time: recover Duration.from_secs(config.adjust_time),
     )
   }
 
@@ -323,7 +324,7 @@ class pub async State {
 
     @logger.info('Enabling manual control')
     @itho.set(@manual_id, value: 1).get
-    sleep(Duration.from_nanos(@rooms.size * ADJUST_TIME))
+    sleep(@adjust_time * @rooms.size)
   }
 
   # Run a closure in the context of the current state to allow updating of the
@@ -476,6 +477,6 @@ class pub async State {
   }
 
   fn wait_for_valve {
-    sleep(Duration.from_secs(ADJUST_TIME))
+    sleep(@adjust_time)
   }
 }

@@ -1,10 +1,8 @@
-import openflow.co2 (Co2 as Co2, SIZE)
-import openflow.experimental_ext
+import openflow.co2 (Co2 as Co2)
 import openflow.logger (Logger)
-import openflow.metrics (Metric, Metrics)
+import openflow.metrics (Metrics)
 import openflow.more_sense (MoreSense)
 import openflow.state (State, Status)
-import std.cmp (max)
 import std.process (sleep)
 import std.time (Duration, Instant)
 
@@ -188,14 +186,16 @@ class pub async Input {
   fn apply(updates: uni Map[String, Status]) {
     @state.update_with(updates, fn move (rooms, updates) {
       updates.into_iter.each(fn (entry) {
-        entry.let(fn (name, status) {
-          let room = rooms.get_mut(name)
+        match entry {
+          case { @key = name, @value = status } -> {
+            let room = rooms.get_mut(name)
 
-          match room.status {
-            case Humid or Button(_) -> {}
-            case _ -> room.update(status)
+            match room.status {
+              case Humid or Button(_) -> {}
+              case _ -> room.update(status)
+            }
           }
-        })
+        }
       })
 
       false
