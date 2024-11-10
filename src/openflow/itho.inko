@@ -3,6 +3,7 @@ import std.clone (Clone)
 import std.cmp (Equal)
 import std.fmt (Format, Formatter)
 import std.int (ToInt)
+import std.io (Buffer)
 import std.json (Json)
 import std.string (ToString)
 import std.time (Duration)
@@ -152,8 +153,7 @@ class pub Itho {
     let resp = try retry(@retry_wait_time, fn { execute(request, timeout) })
       .map_error(fn (e) { e.to_string })
 
-    let body = resp.body.drain_to_string
-    let root = match Json.parse(body) {
+    let root = match Json.parse(Buffer.new(resp.body)) {
       case Ok(Object(map)) -> map
       case _ -> throw 'Expected the response to be a JSON object'
     }
@@ -177,8 +177,7 @@ class pub Itho {
     let resp = try retry(@retry_wait_time, fn { execute(request, timeout) })
       .map_error(fn (e) { e.to_string })
 
-    let body = resp.body.drain_to_string
-    let root = match Json.parse(body) {
+    let root = match Json.parse(Buffer.new(resp.body)) {
       case Ok(Object(map)) -> map
       case _ -> throw 'Expected the response to be a JSON object'
     }
@@ -224,8 +223,7 @@ class pub Itho {
     let resp = try retry(@retry_wait_time, fn { execute(request, timeout) })
       .map_error(fn (e) { e.to_string })
 
-    let body = resp.body.drain_to_string
-    let root = match Json.parse(body) {
+    let root = match Json.parse(Buffer.new(resp.body)) {
       case Ok(Object(map)) -> map
       case _ -> throw 'Expected the response to be a JSON object'
     }

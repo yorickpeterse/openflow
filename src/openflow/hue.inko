@@ -1,5 +1,6 @@
 import openflow.http (Client, Request, retry)
 import std.int (Format)
+import std.io (Buffer)
 import std.json (Json)
 import std.time (Duration)
 
@@ -34,8 +35,7 @@ class pub Hue {
     })
       .map_error(fn (e) { e.to_string })
 
-    let body = resp.body.drain_to_string
-    let root = match Json.parse(body) {
+    let root = match Json.parse(Buffer.new(resp.body)) {
       case Ok(Object(map)) -> map
       case _ -> throw 'Expected the response to be a JSON object'
     }

@@ -1,4 +1,5 @@
 import openflow.http (Client, Request, retry)
+import std.io (Buffer)
 import std.json (Json)
 import std.time (Duration)
 
@@ -27,7 +28,7 @@ class pub MoreSense {
     })
       .map_error(fn (e) { e.to_string })
 
-    match Json.parse(resp.body.drain_to_string) {
+    match Json.parse(Buffer.new(resp.body)) {
       case Ok(Object(map)) -> {
         match map.opt('CO2') {
           case Some(Int(val)) -> Result.Ok(val)

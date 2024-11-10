@@ -417,11 +417,7 @@ class pub Config {
   # Load configuration from a JSON file.
   fn pub static load(path: Path) -> Result[Config, String] {
     let file = try ReadOnlyFile.new(path).map_error(fn (e) { e.to_string })
-    let bytes = ByteArray.new
-
-    try file.read_all(bytes).map_error(fn (e) { e.to_string })
-
-    let doc = try Json.parse(bytes.into_string).map_error(fn (e) { e.to_string })
+    let doc = try Json.parse(file).map_error(fn (e) { e.to_string })
     let root = match doc {
       case Object(v) -> v
       case _ -> throw 'the top-level JSON value must be an object'
