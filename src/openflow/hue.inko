@@ -8,7 +8,7 @@ import std.time (Duration)
 let TIMEOUT = 30
 
 # The sensor states.
-class pub Sensors {
+class pub inline Sensors {
   # A Map that maps sensor IDs to a boolean indicating if motion is detected.
   let pub @motion: Map[Int, Bool]
 }

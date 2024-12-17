@@ -8,7 +8,7 @@ import std.net.socket (UdpSocket)
 import std.string (StringBuffer, ToString)
 
 # A metric to store in the metrics database.
-class pub Metric {
+class pub inline Metric {
   let @name: String
   let @tags: Array[(String, String)]
   let @fields: Array[(String, String)]
@@ -69,7 +69,7 @@ impl ToString for Metric {
 }
 
 # A type for sending metrics to a server.
-class pub Metrics {
+class pub inline Metrics {
   let @ip: IpAddress
   let @port: Int
   let @socket: UdpSocket

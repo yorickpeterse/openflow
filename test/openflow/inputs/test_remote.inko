@@ -11,7 +11,7 @@ import std.sync (Future, Promise)
 import std.test (Tests)
 import std.time (Duration)
 
-class enum RemoteState {
+class copy enum RemoteState {
   case Low(Int)
   case Timer1(Int)
 

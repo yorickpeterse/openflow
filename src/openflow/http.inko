@@ -51,7 +51,7 @@ fn pub retry(
 }
 
 # The version of an HTTP response.
-class pub Version {
+class pub copy Version {
   let pub @major: Int
   let pub @minor: Int
 
@@ -61,7 +61,7 @@ class pub Version {
 }
 
 # An error produced when executing a request or parsing the response.
-class pub enum Error {
+class pub inline enum Error {
   # The format of the response version is invalid.
   case InvalidVersion
 
@@ -334,7 +334,7 @@ class ResponseParser[T: mut + Read] {
 }
 
 # A response returned by a server.
-class pub Response {
+class pub inline Response {
   # The HTTP version, such as 1.0 or 1.1.
   let pub @version: Version
 
@@ -367,7 +367,7 @@ class pub Response {
 }
 
 # An HTTP request.
-class pub Request {
+class pub inline Request {
   # The HTTP request method, such as "GET" or "POST".
   let pub @method: String
 
@@ -518,7 +518,7 @@ impl Driver for TestDriver {
 }
 
 # An HTTP 1.x client.
-class pub Client {
+class pub inline Client {
   let @driver: Driver
 
   # Returns a new HTTP client connected to the given IP and port.

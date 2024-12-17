@@ -31,7 +31,7 @@ class pub Samples {
 }
 
 # The state of a single humidity sensor.
-class enum Humidity {
+class copy enum Humidity {
   # The room is dry, no ventilation is necessary.
   case Dry
 

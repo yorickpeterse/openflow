@@ -4,7 +4,7 @@ import openflow.state (State, Status)
 import std.process (sleep)
 import std.time (Duration, Instant)
 
-class pub Button {
+class pub inline Button {
   let @rooms: Array[String]
   let @duration: Duration
 

@@ -4,33 +4,33 @@ import openflow.itho (Itho)
 import openflow.logger (Logger)
 import openflow.metrics (Metrics)
 import openflow.state (Room, State, Status)
-import std.io (Write)
+import std.io (Error, Write)
 import std.net.ip (IpAddress)
 import std.sync (Future, Promise)
 
 class pub NullWriter {}
 
 impl Write for NullWriter {
-  fn pub mut write_bytes(bytes: ref ByteArray) -> Result[Nil, Never] {
+  fn pub mut write_bytes(bytes: ref ByteArray) -> Result[Nil, Error] {
     Result.Ok(nil)
   }
 
-  fn pub mut write_string(string: String) -> Result[Nil, Never] {
+  fn pub mut write_string(string: String) -> Result[Nil, Error] {
     Result.Ok(nil)
   }
 
-  fn pub mut flush -> Result[Nil, Never] {
+  fn pub mut flush -> Result[Nil, Error] {
     Result.Ok(nil)
   }
 }
 
-class pub RoomSnapshot {
+class pub inline RoomSnapshot {
   let pub @status: Status
   let pub @flow: Int
   let pub @exhaust: Int
 }
 
-class pub Snapshot {
+class pub inline Snapshot {
   let pub @speed: Int
   let pub @rooms: Map[String, RoomSnapshot]
 

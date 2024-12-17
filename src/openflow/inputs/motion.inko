@@ -5,7 +5,7 @@ import openflow.state (State, Status)
 import std.process (sleep)
 import std.time (Duration, Instant)
 
-class enum Presence {
+class copy enum Presence {
   # No presence is detected.
   case False
 
