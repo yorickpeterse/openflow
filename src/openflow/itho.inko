@@ -15,7 +15,7 @@ let PATH = '/api.html'
 let TIMEOUT = 60
 
 # A type describing the status of an RF remote.
-class pub copy enum RemoteStatus {
+type pub copy enum RemoteStatus {
   case Unknown
   case Low
   case High
@@ -91,7 +91,7 @@ impl Clone[RemoteStatus] for RemoteStatus {
   }
 }
 
-class pub copy Remote {
+type pub copy Remote {
   # The current status of the remote.
   let pub @status: RemoteStatus
 
@@ -101,7 +101,7 @@ class pub copy Remote {
 
 # A type containing various statistics reported by the Itho WiFi module, such as
 # the CO2 levels and the humidity.
-class pub inline Status {
+type pub inline Status {
   # The CO2 concentration in the plenum.
   let pub @co2: Int
 
@@ -113,7 +113,7 @@ class pub inline Status {
 }
 
 # An API/HTTP client for interacting with the Itho WiFi add-on API.
-class pub Itho {
+type pub Itho {
   let @client: Client
 
   # The amount of time to wait after retrying a failed operation.

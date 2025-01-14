@@ -30,7 +30,7 @@ fn exhaust_percentage(flow: Int, total_flow: Int) -> Int {
 }
 
 # The ventilation status of a room.
-class pub enum Status {
+type pub enum Status {
   # The default state, optionally applying a minimum amount of ventilation based
   # on the total ventilation need.
   case Default
@@ -161,7 +161,7 @@ impl Format for Status {
 }
 
 # The state of a single room.
-class pub Room {
+type pub Room {
   # The unique ID/name of the room.
   let pub @name: String
 
@@ -265,7 +265,7 @@ class pub Room {
 
 # The state of the ventilation system, along with the means to update and apply
 # changes.
-class pub async State {
+type pub async State {
   # The minimum global air flow.
   let @minimum_flow: Int
 

@@ -7,13 +7,13 @@ fn pad_zero(value: Int) -> String {
 }
 
 fn iso8601_time -> String {
-  let time = DateTime.new
+  let time = DateTime.utc
 
   '${time.year}-${pad_zero(time.month)}-${pad_zero(time.day)} ${pad_zero(time.hour)}:${pad_zero(time.minute)}:${pad_zero(time.second)}'
 }
 
 # A process for logging messages to an output stream.
-class pub async Logger {
+type pub async Logger {
   let @stream: Write
 
   # Returns a logger using the default output stream (Stdout).

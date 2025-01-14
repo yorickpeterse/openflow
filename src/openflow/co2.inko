@@ -37,7 +37,7 @@ fn bucket_to_co2(bucket: Int) -> Int {
 
 # A type for tracking the estimated CO2 levels over time, while taking into
 # account sporadic/temporary changes in the reported value.
-class pub Co2 {
+type pub Co2 {
   # The histogram used to keep track of how many times certain CO2 levels are
   # reported.
   let @histogram: Histogram

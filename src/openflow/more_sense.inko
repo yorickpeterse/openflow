@@ -8,7 +8,7 @@ let TIMEOUT = 30
 
 # An API/HTTP client for interacting with MoreSense (https://moresense-nl.com/)
 # CO2 sensors.
-class pub MoreSense {
+type pub MoreSense {
   let @client: Client
 
   # The amount of time to wait after retrying a failed operation.

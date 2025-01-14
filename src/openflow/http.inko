@@ -51,7 +51,7 @@ fn pub retry(
 }
 
 # The version of an HTTP response.
-class pub copy Version {
+type pub copy Version {
   let pub @major: Int
   let pub @minor: Int
 
@@ -61,7 +61,7 @@ class pub copy Version {
 }
 
 # An error produced when executing a request or parsing the response.
-class pub inline enum Error {
+type pub inline enum Error {
   # The format of the response version is invalid.
   case InvalidVersion
 
@@ -111,7 +111,7 @@ impl ToString for Error {
 # This parser automatically reads more bytes from the input stream is necessary,
 # and takes care to not block by performing reads when no more data is
 # available.
-class ResponseParser[T: mut + Read] {
+type ResponseParser[T: mut + Read] {
   let @stream: T
   let @buffer: ByteArray
 
@@ -334,7 +334,7 @@ class ResponseParser[T: mut + Read] {
 }
 
 # A response returned by a server.
-class pub inline Response {
+type pub inline Response {
   # The HTTP version, such as 1.0 or 1.1.
   let pub @version: Version
 
@@ -367,7 +367,7 @@ class pub inline Response {
 }
 
 # An HTTP request.
-class pub inline Request {
+type pub inline Request {
   # The HTTP request method, such as "GET" or "POST".
   let pub @method: String
 
@@ -428,7 +428,7 @@ trait pub Driver {
 # The default driver.
 #
 # This driver is a pure Inko HTTP driver.
-class pub DefaultDriver {
+type pub DefaultDriver {
   let @ip: IpAddress
   let @port: Int
   let @deadline: Option[Instant]
@@ -441,12 +441,12 @@ class pub DefaultDriver {
     @deadline
       .clone
       .map(fn (deadline) {
-        TcpClient.with_timeout(@ip.clone, @port, deadline).map_error(fn (e) {
+        TcpClient.with_timeout([@ip], @port, deadline).map_error(fn (e) {
           Error.Network(e)
         })
       })
       .or_else(fn {
-        TcpClient.new(@ip.clone, @port).map_error(fn (e) { Error.Network(e) })
+        TcpClient.new([@ip], @port).map_error(fn (e) { Error.Network(e) })
       })
   }
 }
@@ -471,7 +471,7 @@ impl Driver for DefaultDriver {
 }
 
 # An HTTP driver to use for writing tests.
-class pub TestDriver {
+type pub TestDriver {
   let pub @requests: Array[
     (fn (ref Request) -> Bool, fn (ref Request) -> Response),
   ]
@@ -518,7 +518,7 @@ impl Driver for TestDriver {
 }
 
 # An HTTP 1.x client.
-class pub inline Client {
+type pub inline Client {
   let @driver: Driver
 
   # Returns a new HTTP client connected to the given IP and port.

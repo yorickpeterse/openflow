@@ -8,14 +8,14 @@ import std.time (Duration)
 let TIMEOUT = 30
 
 # The sensor states.
-class pub inline Sensors {
+type pub inline Sensors {
   # A Map that maps sensor IDs to a boolean indicating if motion is detected.
   let pub @motion: Map[Int, Bool]
 }
 
 # An API/HTTP client for interacting with the Philips Hue bridge and motion
 # sensors.
-class pub Hue {
+type pub Hue {
   let @client: Client
   let @user: String
 

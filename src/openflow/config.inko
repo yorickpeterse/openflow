@@ -83,7 +83,7 @@ fn ip(object: ref Map[String, Json], key: String) -> Result[IpAddress, String] {
 }
 
 # Configuration details for the air flow of a room.
-class pub Flow {
+type pub Flow {
   # The value to multiply the flow by to obtain the true air flow.
   #
   # Given a configured air flow of X m3/h, the actual air flow may end up lower
@@ -159,7 +159,7 @@ class pub Flow {
 }
 
 # Configuration details for a single room.
-class pub Room {
+type pub Room {
   # The unique name of the room.
   let pub @name: String
 
@@ -211,7 +211,7 @@ class pub Room {
 }
 
 # Configuration details for the Itho ventilation unit.
-class pub Itho {
+type pub Itho {
   # The IP address of the Itho WiFi module.
   let pub @ip: IpAddress
 
@@ -254,7 +254,7 @@ class pub Itho {
 }
 
 # Configuration details for the metrics database
-class pub Metrics {
+type pub Metrics {
   # The IP address to connect to.
   let pub @ip: IpAddress
 
@@ -272,7 +272,7 @@ class pub Metrics {
 }
 
 # Configuration details for the Hue API
-class pub Hue {
+type pub Hue {
   # The IP address to connect to.
   let pub @ip: IpAddress
 
@@ -290,7 +290,7 @@ class pub Hue {
 }
 
 # Configuration settings for the humidity sensors.
-class pub Humidity {
+type pub Humidity {
   # The threshold at which to start ventilating at maximum speed.
   let pub @high: Int
 
@@ -328,7 +328,7 @@ class pub Humidity {
 }
 
 # Configuration details for a single button.
-class pub Button {
+type pub Button {
   # The name of the button state.
   let pub @name: String
 
@@ -365,7 +365,7 @@ class pub Button {
 }
 
 # Configuration details for the RF remote.
-class pub Remote {
+type pub Remote {
   # The ID/name of the remote as used in the API.
   let pub @id: String
 
@@ -395,7 +395,7 @@ class pub Remote {
 }
 
 # All configuration details.
-class pub Config {
+type pub Config {
   # The configuration details for each room to ventilate.
   let pub @rooms: Array[Room]
 

@@ -5,7 +5,7 @@ import openflow.state (State, Status)
 import std.process (sleep)
 import std.time (Duration, Instant)
 
-class copy enum Presence {
+type copy enum Presence {
   # No presence is detected.
   case False
 
@@ -18,7 +18,7 @@ class copy enum Presence {
 }
 
 # The state of a single motion sensor.
-class pub Sensor {
+type pub Sensor {
   let @name: String
   let @id: Int
   let @presence: Presence
@@ -41,7 +41,7 @@ class pub Sensor {
 
 # A process monitoring a set of Philips Hue motion sensors, adjusting
 # ventilation based on motion.
-class pub async Input {
+type pub async Input {
   let @state: State
   let @logger: Logger
   let @metrics: Metrics

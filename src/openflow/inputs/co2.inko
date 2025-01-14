@@ -17,7 +17,7 @@ let UPDATE_INTERVAL = 900
 let pub SAMPLES = UPDATE_INTERVAL / SAMPLE_INTERVAL
 
 # The state of a single CO2 sensor.
-class pub Sensor {
+type pub Sensor {
   let @name: String
   let @client: MoreSense
   let @co2: Co2
@@ -82,7 +82,7 @@ class pub Sensor {
 
 # A process monitoring a set of CO2 sensors, adjusting ventilation based on the
 # CO2 levels.
-class pub async Input {
+type pub async Input {
   let @state: State
   let @logger: Logger
   let @metrics: Metrics

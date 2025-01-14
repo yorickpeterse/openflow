@@ -16,7 +16,7 @@ let SAMPLE_INTERVAL = 300
 let HUMIDITY_SAMPLES = 300 / 30
 
 # A ring buffer of humidity samples.
-class pub Samples {
+type pub Samples {
   let @values: Array[Int]
   let @index: Int
 
@@ -31,7 +31,7 @@ class pub Samples {
 }
 
 # The state of a single humidity sensor.
-class copy enum Humidity {
+type copy enum Humidity {
   # The room is dry, no ventilation is necessary.
   case Dry
 
@@ -49,7 +49,7 @@ class copy enum Humidity {
   }
 }
 
-class pub Sensor {
+type pub Sensor {
   let @name: String
   let @id: String
   let @humidity: Humidity
@@ -78,7 +78,7 @@ class pub Sensor {
 
 # A process monitoring humidity sensors, adjusting ventilation if the humidity
 # gets too high.
-class pub async Input {
+type pub async Input {
   let @state: State
   let @logger: Logger
   let @metrics: Metrics

@@ -4,7 +4,7 @@ import std.io (Error as IoError)
 import std.test (Tests)
 import std.time (Duration, ToInstant)
 
-class TimeoutDriver {
+type TimeoutDriver {
   let @timed_out: Bool
 
   fn static new -> TimeoutDriver {

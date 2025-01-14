@@ -4,7 +4,7 @@ import openflow.state (State, Status)
 import std.process (sleep)
 import std.time (Duration, Instant)
 
-class pub inline Button {
+type pub inline Button {
   let @rooms: Array[String]
   let @duration: Duration
 
@@ -15,7 +15,7 @@ class pub inline Button {
 
 # A process monitoring the state of an RF button and adjusting ventilation
 # accordingly.
-class pub async Input {
+type pub async Input {
   let @state: State
   let @logger: Logger
   let @itho: Itho
