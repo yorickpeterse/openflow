@@ -1,11 +1,10 @@
-import helpers (NullWriter, Snapshot, allow_api_calls, state)
+import helpers (Snapshot, allow_api_calls, state)
 import openflow.http (Client, Driver, Response, TestDriver)
 import openflow.inputs.remote (Button, Input)
 import openflow.itho (Itho)
 import openflow.logger (Logger)
 import openflow.state (State, Status)
 import std.int (ToInt)
-import std.io (Write)
 import std.json (Json)
 import std.sync (Future, Promise)
 import std.test (Tests)
@@ -42,7 +41,7 @@ impl Input {
 }
 
 fn input(state: State, states: uni Array[RemoteState]) -> Input {
-  let logger = Logger.new(recover NullWriter() as Write)
+  let logger = Logger.disabled
   let driver = recover {
     let states = recover states
     let driver = TestDriver.new

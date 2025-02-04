@@ -4,25 +4,8 @@ import openflow.itho (Itho)
 import openflow.logger (Logger)
 import openflow.metrics (Metrics)
 import openflow.state (Room, State, Status)
-import std.io (Error, Write)
 import std.net.ip (IpAddress)
 import std.sync (Future, Promise)
-
-type pub NullWriter {}
-
-impl Write for NullWriter {
-  fn pub mut write_bytes(bytes: ref ByteArray) -> Result[Nil, Error] {
-    Result.Ok(nil)
-  }
-
-  fn pub mut write_string(string: String) -> Result[Nil, Error] {
-    Result.Ok(nil)
-  }
-
-  fn pub mut flush -> Result[Nil, Error] {
-    Result.Ok(nil)
-  }
-}
 
 type pub inline RoomSnapshot {
   let pub @status: Status
@@ -157,7 +140,7 @@ fn pub state_with_rooms(
   rooms: Array[RoomConfig],
 ) -> State {
   let itho = recover Itho.new(Client.with_driver(driver as Driver))
-  let logger = Logger.new(recover NullWriter() as Write)
+  let logger = Logger.disabled
   let config = IthoConfig(
     ip: IpAddress.v4(0, 0, 0, 0),
     minimum_flow: 75,

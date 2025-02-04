@@ -1,4 +1,3 @@
-import std.io (Write)
 import std.stdio (Stdout)
 import std.time (DateTime)
 
@@ -12,30 +11,42 @@ fn iso8601_time -> String {
   '${time.year}-${pad_zero(time.month)}-${pad_zero(time.day)} ${pad_zero(time.hour)}:${pad_zero(time.minute)}:${pad_zero(time.second)}'
 }
 
+type copy enum Level {
+  case Info
+  case Error
+  case None
+}
+
 # A process for logging messages to an output stream.
 type pub async Logger {
-  let @stream: Write
+  let @stream: Stdout
+  let @level: Level
 
-  # Returns a logger using the default output stream (Stdout).
-  fn pub static default -> Logger {
-    Logger(recover Stdout.new as Write)
+  fn pub static new -> Logger {
+    Logger(stream: recover Stdout.new, level: Level.Info)
   }
 
-  fn pub static new(stream: uni Write) -> Logger {
-    Logger(stream)
+  fn pub static disabled -> Logger {
+    Logger(stream: recover Stdout.new, level: Level.None)
   }
 
   fn pub async mut info(message: String) {
-    write('INFO', message)
+    write(Level.Info, message)
   }
 
   fn pub async mut error(message: String) {
-    write('ERROR', message)
+    write(Level.Error, message)
   }
 
-  fn mut write(severity: String, message: String) {
+  fn mut write(level: Level, message: String) {
+    let label = match (@level, level) {
+      case (Info, Info) -> 'INFO'
+      case (Info or Error, Error) -> 'ERROR'
+      case _ -> return
+    }
+
     # Logging failing isn't a big deal, but having to handle potential failures
     # _every_ time _is_, so we simply discard any errors.
-    let _ = @stream.write_string('${iso8601_time}: ${severity}: ${message}\n')
+    let _ = @stream.write_string('${iso8601_time}: ${label}: ${message}\n')
   }
 }

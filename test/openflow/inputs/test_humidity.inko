@@ -1,4 +1,4 @@
-import helpers (NullWriter, Snapshot, allow_api_calls, state)
+import helpers (Snapshot, allow_api_calls, state)
 import openflow.config (Humidity)
 import openflow.http (Client, Driver, Response, TestDriver)
 import openflow.inputs.humidity (Input, Samples, Sensor)
@@ -6,7 +6,6 @@ import openflow.itho (Itho)
 import openflow.logger (Logger)
 import openflow.metrics (Metrics)
 import openflow.state (State, Status)
-import std.io (Write)
 import std.json (Json)
 import std.net.ip (IpAddress)
 import std.sync (Future, Promise)
@@ -29,7 +28,7 @@ impl Input {
 
 fn input(state: State, humidity: uni Array[Int], correction: Int) -> Input {
   let metrics = recover Metrics.new(IpAddress.v4(0, 0, 0, 0), port: 0)
-  let logger = Logger.new(recover NullWriter() as Write)
+  let logger = Logger.disabled
   let driver = recover TestDriver.new
   let mut index = 0
 
