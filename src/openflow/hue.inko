@@ -20,7 +20,7 @@ type pub Hue {
   let @user: String
 
   # The amount of time to wait after retrying a failed operation.
-  let pub @retry_wait_time: Duration
+  let pub mut @retry_wait_time: Duration
 
   fn pub static new(client: Client, user: String) -> Hue {
     Hue(client: client, user: user, retry_wait_time: Duration.from_secs(5))

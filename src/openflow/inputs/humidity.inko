@@ -18,7 +18,7 @@ let HUMIDITY_SAMPLES = 300 / 30
 # A ring buffer of humidity samples.
 type pub Samples {
   let @values: Array[Int]
-  let @index: Int
+  let mut @index: Int
 
   fn pub static new(capacity: Int) -> Samples {
     Samples(values: Array.filled(capacity, with: 0), index: 0)
@@ -52,9 +52,9 @@ type copy enum Humidity {
 type pub Sensor {
   let @name: String
   let @id: String
-  let @humidity: Humidity
+  let mut @humidity: Humidity
   let @samples: Samples
-  let @last_status_update: Instant
+  let mut @last_status_update: Instant
 
   fn pub static new(name: String, id: String) -> Sensor {
     Sensor(
@@ -103,7 +103,7 @@ type pub async Input {
 
   # The amount of time humidity must be below the "low" threshold before
   # ventilation can be disabled.
-  let @low_time: Duration
+  let mut @low_time: Duration
 
   # The interval at which to check the humidity sensors.
   let @check_interval: Duration

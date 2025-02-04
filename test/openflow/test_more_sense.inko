@@ -5,7 +5,7 @@ import std.test (Tests)
 import std.time (Duration, ToInstant)
 
 type TimeoutDriver {
-  let @timed_out: Bool
+  let mut @timed_out: Bool
 
   fn static new -> TimeoutDriver {
     TimeoutDriver(false)

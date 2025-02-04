@@ -7,7 +7,7 @@ import std.time (Duration, ToInstant)
 type ErrorDriver {
   let @body: String
   let @error: fn -> Result[Response, Error]
-  let @thrown: Bool
+  let mut @thrown: Bool
 
   fn static new(
     body: String,

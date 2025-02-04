@@ -23,16 +23,16 @@ type pub Sensor {
   let @co2: Co2
 
   # The ventilation status of the room this sensor belongs to.
-  let @status: Status
+  let mut @status: Status
 
   # The time at which the current status was produced.
-  let @last_status_change: Instant
+  let mut @last_status_change: Instant
 
   # The CO2 at the time of the last status change.
-  let @last_change_co2: Int
+  let mut @last_change_co2: Int
 
   # The lowest CO2 value at which to start active ventilation.
-  let pub @co2_minimum: Int
+  let pub mut @co2_minimum: Int
 
   fn pub static new(name: String, client: MoreSense) -> Sensor {
     Sensor(
@@ -91,11 +91,11 @@ type pub async Input {
   let @sensors: Array[Sensor]
 
   # The time between CO2 samples.
-  let @sample_interval: Duration
+  let mut @sample_interval: Duration
 
   # The amount of time to wait after an update before reducing the ventilation
   # speed of a room.
-  let @reduce_wait_time: Duration
+  let mut @reduce_wait_time: Duration
 
   fn pub static new(
     state: State,

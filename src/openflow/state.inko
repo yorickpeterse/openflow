@@ -166,10 +166,10 @@ type pub Room {
   let pub @name: String
 
   # The ventilation status of this room.
-  let pub @status: Status
+  let pub mut @status: Status
 
   # The last time the status was updated.
-  let pub @last_update: Instant
+  let pub mut @last_update: Instant
 
   # The value to multiply the raw air flow by to account for pressure loss in
   # the air duct.
@@ -183,7 +183,7 @@ type pub Room {
   # This value defaults to -1. This ensures that the first time we make any
   # changes, we don't ignore exhausts with a target value of zero, as that could
   # result in them remaining in whatever state they were before we started.
-  let @exhaust_value: Int
+  let mut @exhaust_value: Int
 
   # The default air flow in m3/hour, without the flow correction.
   let @default_flow: Int
@@ -210,10 +210,10 @@ type pub Room {
   let @button_flow: Int
 
   # The air flow in m3/hour, without the flow correction applied
-  let @base_flow: Int
+  let mut @base_flow: Int
 
   # The air flow in m3/hour, with the flow correction applied
-  let @current_flow: Int
+  let mut @current_flow: Int
 
   fn pub static new(name: String, config: ref RoomConfig) -> uni Room {
     recover {
@@ -281,7 +281,7 @@ type pub async State {
 
   # The speed (as a percentage of its maximum) the ventilation unit is running
   # at.
-  let @speed: Int
+  let mut @speed: Int
 
   # The rooms to ventilate along with their current state.
   let @rooms: Map[String, Room]

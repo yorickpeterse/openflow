@@ -21,16 +21,16 @@ type pub async Input {
   let @itho: Itho
 
   # The status of the RF remote.
-  let @status: RemoteStatus
+  let mut @status: RemoteStatus
 
   # The interval at which to check the button state.
   let @interval: Duration
 
   # The timestamp of when the last command was received.
-  let @timestamp: Int
+  let mut @timestamp: Int
 
   # The time after which the remote should be reset to its initial state.
-  let @deadline: Instant
+  let mut @deadline: Instant
 
   # The ID of the remote as used by the Itho WiFi API.
   let @id: String

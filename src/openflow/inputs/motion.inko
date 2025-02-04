@@ -21,8 +21,8 @@ type copy enum Presence {
 type pub Sensor {
   let @name: String
   let @id: Int
-  let @presence: Presence
-  let @last_update: Instant
+  let mut @presence: Presence
+  let mut @last_update: Instant
 
   fn pub static new(name: String, id: Int) -> Sensor {
     Sensor(
@@ -60,14 +60,14 @@ type pub async Input {
   # ventilation, as that may be redundant. Instead we wait N minutes, then the
   # next motion event enables ventilation. This way quickly popping into e.g.
   # the toilet to grab something won't immediately enable ventilation.
-  let @motion_wait_time: Duration
+  let mut @motion_wait_time: Duration
 
   # The time to wait before transitioning a sensor from the `Pending` state back
   # to `False`.
-  let @pending_timeout: Duration
+  let mut @pending_timeout: Duration
 
   # The time to wait after the last motion event before disabling ventilation.
-  let @ventilation_timeout: Duration
+  let mut @ventilation_timeout: Duration
 
   fn pub static new(
     state: State,

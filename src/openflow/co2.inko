@@ -43,7 +43,7 @@ type pub Co2 {
   let @histogram: Histogram
 
   # The current estimated CO2 level in parts-per-million (ppm).
-  let @value: Int
+  let mut @value: Int
 
   fn pub static new -> Co2 {
     Co2(histogram: Histogram.new(BUCKETS), value: 0)

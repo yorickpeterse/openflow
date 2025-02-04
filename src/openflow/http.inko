@@ -431,7 +431,7 @@ trait pub Driver {
 type pub DefaultDriver {
   let @ip: IpAddress
   let @port: Int
-  let @deadline: Option[Instant]
+  let mut @deadline: Option[Instant]
 
   fn pub static new(ip: IpAddress, port: Int) -> DefaultDriver {
     DefaultDriver(ip: ip, port: port, deadline: Option.None)
