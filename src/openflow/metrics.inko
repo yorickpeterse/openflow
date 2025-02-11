@@ -100,7 +100,7 @@ type pub inline Metrics {
   }
 }
 
-impl Clone[Metrics] for Metrics {
+impl Clone for Metrics {
   fn pub clone -> Metrics {
     Metrics(
       ip: @ip.clone,

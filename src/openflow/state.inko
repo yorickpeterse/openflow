@@ -66,7 +66,7 @@ type pub enum Status {
   }
 }
 
-impl Clone[uni Status] for Status {
+impl Clone for Status {
   fn pub clone -> uni Status {
     match self {
       case Default -> recover Status.Default
@@ -96,7 +96,7 @@ impl ToString for Status {
   }
 }
 
-impl Equal[ref Status] for Status {
+impl Equal for Status {
   fn pub ==(other: ref Status) -> Bool {
     match (self, other) {
       case (Default, Default) -> true
@@ -112,7 +112,7 @@ impl Equal[ref Status] for Status {
   }
 }
 
-impl Compare[Status] for Status {
+impl Compare for Status {
   fn pub cmp(other: ref Status) -> Ordering {
     match (self, other) {
       case (Default, Default) -> Ordering.Equal

@@ -39,7 +39,7 @@ type pub copy enum RemoteStatus {
   }
 }
 
-impl Equal[ref RemoteStatus] for RemoteStatus {
+impl Equal for RemoteStatus {
   fn pub ==(other: ref RemoteStatus) -> Bool {
     match (self, other) {
       case (Unknown, Unknown) -> true
@@ -76,7 +76,7 @@ impl Format for RemoteStatus {
   }
 }
 
-impl Clone[RemoteStatus] for RemoteStatus {
+impl Clone for RemoteStatus {
   fn pub clone -> RemoteStatus {
     match self {
       case Unknown -> RemoteStatus.Unknown
