@@ -1,14 +1,8 @@
 import std.stdio (Stdout)
 import std.time (DateTime)
 
-fn pad_zero(value: Int) -> String {
-  value.to_string.pad_start(with: '0', chars: 2)
-}
-
 fn iso8601_time -> String {
-  let time = DateTime.utc
-
-  '${time.year}-${pad_zero(time.month)}-${pad_zero(time.day)} ${pad_zero(time.hour)}:${pad_zero(time.minute)}:${pad_zero(time.second)}'
+  DateTime.utc.to_iso8601
 }
 
 type copy enum Level {
