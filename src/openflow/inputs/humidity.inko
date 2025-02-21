@@ -171,12 +171,8 @@ type pub async Input {
         case Dry -> false
       }
 
-      recover {
-        let map = recover map
-
-        map.set(sensor.name, humid)
-        map
-      }
+      map.set(sensor.name, humid)
+      map
     })
 
     apply(updates)

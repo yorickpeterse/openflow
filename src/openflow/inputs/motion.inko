@@ -145,12 +145,8 @@ type pub async Input {
         case _ -> false
       }
 
-      recover {
-        let map = recover map
-
-        map.set(sensor.name, enable)
-        map
-      }
+      map.set(sensor.name, enable)
+      map
     })
 
     apply(updates)

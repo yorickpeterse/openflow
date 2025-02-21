@@ -158,15 +158,11 @@ type pub async Input {
 
       if status >= sensor.status or sensor.reduce?(@reduce_wait_time) {
         sensor.update_status(status.clone)
-        recover {
-          let map = recover map
-
-          map.set(sensor.name, status)
-          map
-        }
-      } else {
-        map
+        map.set(sensor.name, status)
+        nil
       }
+
+      map
     })
 
     apply(updates)

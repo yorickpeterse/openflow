@@ -40,12 +40,8 @@ impl Room {
 impl State {
   fn pub async snapshot(promise: uni Promise[uni Snapshot]) {
     let rooms = @rooms.iter.reduce(recover Map.new, fn (map, entry) {
-      recover {
-        let map = recover map
-
-        map.set(entry.key, recover entry.value.snapshot)
-        map
-      }
+      map.set(entry.key, recover entry.value.snapshot)
+      map
     })
 
     promise.set(recover Snapshot(speed: @speed, rooms: rooms))

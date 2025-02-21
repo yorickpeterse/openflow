@@ -43,7 +43,6 @@ impl Input {
 fn input(state: State, states: uni Array[RemoteState]) -> Input {
   let logger = Logger.disabled
   let driver = recover {
-    let states = recover states
     let driver = TestDriver.new
     let mut index = 0
 
