@@ -101,7 +101,7 @@ type async Main {
       config.humidity,
     )
 
-    config.rooms.iter.each(fn (conf) {
+    for conf in config.rooms.iter {
       let name = conf.name
 
       match conf.co2 {
@@ -135,19 +135,19 @@ type async Main {
       }
 
       state.add_room(Room.new(name, conf))
-    })
+    }
 
     match config.remote {
       case Some(remote) -> {
         let itho = recover Itho.new(Client.new(config.itho.ip.clone))
         let input = RemoteInput.new(state, logger, itho, remote.id)
 
-        remote.buttons.iter.each(fn (cfg) {
+        for cfg in remote.buttons.iter {
           input.add_button(
             cfg.name,
             recover Button.new(cfg.rooms.clone, cfg.duration.clone),
           )
-        })
+        }
 
         input.run
       }

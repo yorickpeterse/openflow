@@ -195,19 +195,19 @@ type pub Itho {
       case _ -> 0
     }
 
-    root.iter.each(fn (pair) {
-      if pair.key.starts_with?('RH ').false? { return }
+    for pair in root.iter {
+      if pair.key.starts_with?('RH ').false? { next }
 
       let value = match pair.value {
         case Int(v) -> v
         case Float(v) -> v.to_int
-        case _ -> return
+        case _ -> next
       }
 
       # Sensors that aren't connected report a value that's very close to zero,
       # which due to the conversion to an Int is turned into zero.
       if value > 0 { humidity.set(pair.key, value) }
-    })
+    }
 
     Result.Ok(
       Status(co2: co2, exhaust_speed: exhaust_speed, humidity: humidity),

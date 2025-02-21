@@ -124,20 +124,18 @@ type pub async Input {
 
   fn enable(rooms: uni Array[String]) {
     @state.update_with(rooms, fn (rooms, enable) {
-      rooms.iter_mut.each(fn (entry) {
-        let room = entry.value
-
+      for { @value = room } in rooms.iter_mut {
         match room.status.clone {
           case Button(old) -> room.update(old)
           case _ -> {}
         }
-      })
+      }
 
-      enable.into_iter.each(fn (name) {
+      for name in enable.into_iter {
         let room = rooms.get_mut(name)
 
         room.update(recover Status.Button(room.status.clone))
-      })
+      }
 
       true
     })
@@ -145,14 +143,12 @@ type pub async Input {
 
   fn reset_rooms {
     @state.update(fn (rooms) {
-      rooms.iter_mut.each(fn (entry) {
-        let room = entry.value
-
+      for { @value = room } in rooms.iter_mut {
         match room.status.clone {
           case Button(old) -> room.update(old)
           case _ -> {}
         }
-      })
+      }
 
       true
     })

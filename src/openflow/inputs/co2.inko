@@ -173,30 +173,26 @@ type pub async Input {
   }
 
   fn mut sample {
-    @sensors.iter_mut.each(fn (sensor) {
+    for sensor in @sensors.iter_mut {
       match sensor.sample {
         case Ok(_) -> {}
         case Error(e) -> {
           error(sensor.name, 'failed to read the CO2 value: ${e}')
         }
       }
-    })
+    }
   }
 
   fn apply(updates: uni Map[String, Status]) {
     @state.update_with(updates, fn move (rooms, updates) {
-      updates.into_iter.each(fn (entry) {
-        match entry {
-          case { @key = name, @value = status } -> {
-            let room = rooms.get_mut(name)
+      for { @key = name, @value = status } in updates.into_iter {
+        let room = rooms.get_mut(name)
 
-            match room.status {
-              case Humid or Button(_) -> {}
-              case _ -> room.update(status)
-            }
-          }
+        match room.status {
+          case Humid or Button(_) -> {}
+          case _ -> room.update(status)
         }
-      })
+      }
 
       false
     })

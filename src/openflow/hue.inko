@@ -42,16 +42,16 @@ type pub Hue {
 
     let motion = Map.new
 
-    root.into_iter.each(fn (entry) {
+    for entry in root.into_iter {
       let id = Int.parse(entry.key, Format.Decimal).get
       let val = match entry {
         case { @value = Object(map) } -> map
-        case _ -> return
+        case _ -> next
       }
 
       let state = match val.remove('state') {
         case Some(Object(map)) -> map
-        case _ -> return
+        case _ -> next
       }
 
       match val.opt('type') {
@@ -69,7 +69,7 @@ type pub Hue {
         }
         case _ -> {}
       }
-    })
+    }
 
     Result.Ok(Sensors(motion))
   }

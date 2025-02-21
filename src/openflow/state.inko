@@ -369,8 +369,7 @@ type pub async State {
     # adjusted.
     if new_speed < @speed { update_speed(new_speed) }
 
-    @rooms.iter_mut.each_with_index(fn (index, entry) {
-      let room = entry.value
+    for { @value = room } in @rooms.iter_mut {
       let flow = room.current_flow
       let new = exhaust_percentage(flow, total_flow)
       let old = room.exhaust_value
@@ -380,7 +379,7 @@ type pub async State {
         m.field('rate', flow)
       })
 
-      if new == old { return }
+      if new == old { next }
 
       info(
         room,
@@ -393,7 +392,7 @@ type pub async State {
 
       room.exhaust_value = new
       wait_for_valve
-    })
+    }
 
     if new_speed > @speed { update_speed(new_speed) }
 
@@ -451,21 +450,21 @@ type pub async State {
   fn mut assign_default_flow(total: Int) {
     let mut extra = @minimum_flow - total
 
-    @rooms.iter_mut.each(fn move (e) {
+    for e in @rooms.iter_mut {
       let room = match e.value.status {
         case Default if e.value.default_flow > 0 -> e.value
-        case _ -> return
+        case _ -> next
       }
 
       # Ventilation speeds less than 10 m3 (give or take) don't really do much,
       # so we avoid enabling ventilation for a room in such a case.
-      if extra == 0 or (room.current_flow == 0 and extra < 10) { return }
+      if extra == 0 or (room.current_flow == 0 and extra < 10) { next }
 
       let add = max(min(room.default_flow - room.minimum_flow, extra), 0)
 
       extra -= add
       room.update_flow(room.base_flow + add, @maximum_flow)
-    })
+    }
   }
 
   fn flow_percentage(flow: Int) -> Int {

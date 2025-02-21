@@ -119,10 +119,10 @@ fn pub tests(t: mut Tests) {
 
     input.reset_reduce_wait_time
 
-    tests.into_iter.each(fn (tup) {
+    for (_, status) in tests {
       run(input)
-      t.equal(Snapshot.of(state).rooms.get('office').status, tup.1)
-    })
+      t.equal(Snapshot.of(state).rooms.get('office').status, status)
+    }
   })
 
   t.test('Enabling maximum ventilation in response to CO2 levels', fn (t) {

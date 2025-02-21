@@ -42,26 +42,26 @@ impl ToString for Metric {
     if @tags.size > 0 {
       buf.push(',')
 
-      @tags.iter.each_with_index(fn (index, pair) {
+      for (index, pair) in @tags.iter.with_index {
         if index > 0 { buf.push(',') }
 
         buf.push(pair.0)
         buf.push('=')
         buf.push(pair.1.to_string)
         buf.push('')
-      })
+      }
     }
 
     if @fields.size > 0 {
       buf.push(' ')
 
-      @fields.iter.each_with_index(fn (index, pair) {
+      for (index, pair) in @fields.iter.with_index {
         if index > 0 { buf.push(',') }
 
         buf.push(pair.0)
         buf.push('=')
         buf.push(pair.1)
-      })
+      }
     }
 
     buf.into_string

@@ -394,13 +394,13 @@ type pub inline Request {
     buf.push(' ')
     buf.push(@path)
 
-    @queries.iter.each_with_index(fn (index, entry) {
+    for (index, entry) in @queries.iter.with_index {
       if index == 0 { buf.push('?') } else { buf.push('&') }
 
       buf.push(entry.key)
       buf.push('=')
       buf.push(entry.value)
-    })
+    }
 
     buf.push(' HTTP/1.1 \r\n')
     buf.push('Host: ')
