@@ -159,8 +159,8 @@ type pub Itho {
     }
 
     let val = match root.remove('current') {
-      case Some(Int(v)) -> v
-      case Some(Float(v)) -> v.to_int
+      case Ok(Int(v)) -> v
+      case Ok(Float(v)) -> v.to_int
       case _ -> 0
     }
 
@@ -183,15 +183,15 @@ type pub Itho {
     }
 
     let humidity = Map.new
-    let co2 = match root.opt('CO2 plenum (ppm)') {
-      case Some(Int(v)) -> v
-      case Some(Float(v)) -> v.to_int
+    let co2 = match root.get('CO2 plenum (ppm)') {
+      case Ok(Int(v)) -> v
+      case Ok(Float(v)) -> v.to_int
       case _ -> 0
     }
 
-    let exhaust_speed = match root.opt('exhaust fan (%)') {
-      case Some(Int(v)) -> v
-      case Some(Float(v)) -> v.to_int
+    let exhaust_speed = match root.get('exhaust fan (%)') {
+      case Ok(Int(v)) -> v
+      case Ok(Float(v)) -> v.to_int
       case _ -> 0
     }
 
@@ -235,17 +235,17 @@ type pub Itho {
       }
 
       let status = match obj.remove('lastcmd') {
-        case Some(Int(6)) -> RemoteStatus.High
-        case Some(Int(13)) -> RemoteStatus.Cook30
-        case Some(Int(14)) -> RemoteStatus.Cook60
-        case Some(Int(8)) -> RemoteStatus.Timer1
-        case Some(Int(9)) -> RemoteStatus.Timer2
-        case Some(Int(10)) -> RemoteStatus.Timer3
+        case Ok(Int(6)) -> RemoteStatus.High
+        case Ok(Int(13)) -> RemoteStatus.Cook30
+        case Ok(Int(14)) -> RemoteStatus.Cook60
+        case Ok(Int(8)) -> RemoteStatus.Timer1
+        case Ok(Int(9)) -> RemoteStatus.Timer2
+        case Ok(Int(10)) -> RemoteStatus.Timer3
         case _ -> RemoteStatus.Low
       }
 
       let timestamp = match obj.remove('timestamp') {
-        case Some(Int(val)) -> val
+        case Ok(Int(val)) -> val
         case _ -> 0
       }
 

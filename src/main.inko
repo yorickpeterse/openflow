@@ -57,7 +57,7 @@ type async Main {
         .options(opts)
         .to_string
 
-      let _ = Stdout.new.write_string(help)
+      let _ = Stdout.new.write(help)
 
       return
     }

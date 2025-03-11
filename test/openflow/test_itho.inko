@@ -82,8 +82,8 @@ fn pub tests(t: mut Tests) {
 
     driver.request(
       matches: fn (req) {
-        req.queries.opt('setsetting') == Option.Some('124')
-          and req.queries.opt('value') == Option.Some('50')
+        req.queries.get('setsetting') == Result.Ok('124')
+          and req.queries.get('value') == Result.Ok('50')
       },
       then: fn (_) { Response.ok('OK'.to_byte_array) },
     )
@@ -123,7 +123,7 @@ fn pub tests(t: mut Tests) {
     let driver = TestDriver.new
 
     driver.request(
-      matches: fn (req) { req.queries.opt('getsetting').some? },
+      matches: fn (req) { req.queries.get('getsetting').ok? },
       then: fn (_) { Response.ok('{"current":42}'.to_byte_array) },
     )
 
@@ -137,7 +137,7 @@ fn pub tests(t: mut Tests) {
     let driver = TestDriver.new
 
     driver.request(
-      matches: fn (req) { req.queries.opt('getsetting').some? },
+      matches: fn (req) { req.queries.get('getsetting').ok? },
       then: fn (_) { Response.ok('[]'.to_byte_array) },
     )
 
@@ -151,7 +151,7 @@ fn pub tests(t: mut Tests) {
     let driver = TestDriver.new
 
     driver.request(
-      matches: fn (req) { req.queries.opt('getsetting').some? },
+      matches: fn (req) { req.queries.get('getsetting').ok? },
       then: fn (_) { Response.ok('{}'.to_byte_array) },
     )
 
@@ -190,7 +190,7 @@ fn pub tests(t: mut Tests) {
     let driver = TestDriver.new
 
     driver.request(
-      matches: fn (req) { req.queries.opt('get').some? },
+      matches: fn (req) { req.queries.get('get').ok? },
       then: fn (_) {
         Response.ok(
           '{
@@ -210,15 +210,15 @@ fn pub tests(t: mut Tests) {
 
     t.equal(status.co2, 750)
     t.equal(status.exhaust_speed, 45)
-    t.equal(status.humidity.opt('RH bathroom 1 (%)'), Option.Some(75))
-    t.equal(status.humidity.opt('RH bathroom 2 (%)'), Option.None)
+    t.equal(status.humidity.get('RH bathroom 1 (%)'), Result.Ok(75))
+    t.true(status.humidity.get('RH bathroom 2 (%)').error?)
   })
 
   t.test('Itho.status with an invalid response', fn (t) {
     let driver = TestDriver.new
 
     driver.request(
-      matches: fn (req) { req.queries.opt('get').some? },
+      matches: fn (req) { req.queries.get('get').ok? },
       then: fn (_) { Response.ok('[]'.to_byte_array) },
     )
 
@@ -232,7 +232,7 @@ fn pub tests(t: mut Tests) {
     let driver = TestDriver.new
 
     driver.request(
-      matches: fn (req) { req.queries.opt('get').some? },
+      matches: fn (req) { req.queries.get('get').ok? },
       then: fn (_) { Response.ok('{}'.to_byte_array) },
     )
 
@@ -242,7 +242,7 @@ fn pub tests(t: mut Tests) {
 
     t.equal(status.co2, 0)
     t.equal(status.exhaust_speed, 0)
-    t.equal(status.humidity.opt('RH bathroom (%)'), Option.None)
+    t.true(status.humidity.get('RH bathroom (%)').error?)
   })
 
   t.test('Itho.status with a network timeout', fn (t) {
@@ -275,7 +275,7 @@ fn pub tests(t: mut Tests) {
     let driver = TestDriver.new
 
     driver.request(
-      matches: fn (req) { req.queries.opt('get').some? },
+      matches: fn (req) { req.queries.get('get').ok? },
       then: fn (_) {
         Response.ok(
           '{
@@ -293,7 +293,7 @@ fn pub tests(t: mut Tests) {
     let client = Client.with_driver(driver as Driver)
     let itho = Itho.new(client)
     let remotes = itho.remotes.get
-    let remote = remotes.get('kitchen')
+    let remote = remotes.get('kitchen').or_panic
 
     t.true(
       match remote.status {
@@ -316,7 +316,7 @@ fn pub tests(t: mut Tests) {
     itho.retry_wait_time = Duration.from_secs(0)
 
     let remotes = itho.remotes.get
-    let remote = remotes.get('kitchen')
+    let remote = remotes.get('kitchen').or_panic
 
     t.true(
       match remote.status {

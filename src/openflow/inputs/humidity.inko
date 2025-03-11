@@ -151,7 +151,7 @@ type pub async Input {
     }
 
     let updates = @sensors.iter_mut.reduce(recover Map.new, fn (map, sensor) {
-      let mut humidity = status.humidity.opt(sensor.id).or(0)
+      let mut humidity = status.humidity.get(sensor.id).or(0)
 
       # The Itho sensors aren't entirely accurate, often reporting values 5-10%
       # higher than reality, but only if the humidity is in the range of 60-90%.
@@ -225,7 +225,7 @@ type pub async Input {
     @state.update_with(updates, fn move (rooms, updates) {
       updates.into_iter.reduce(false, fn (apply_now, entry) {
         let humid = entry.value
-        let room = rooms.get_mut(entry.key)
+        let room = rooms.get_mut(entry.key).or_panic
 
         if humid {
           room.update(recover Status.Humid)

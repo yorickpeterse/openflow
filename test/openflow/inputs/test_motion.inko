@@ -42,7 +42,7 @@ fn input(state: State, motion: uni Array[Bool]) -> Input {
   driver.request(
     matches: fn (req) { req.path == '/api/hunter2/sensors' },
     then: fn move (_) {
-      let val = motion.get(index := index + 1)
+      let val = motion.get(index := index + 1).or_panic
       let root = Map.new
       let sensor = Map.new
       let state = Map.new
@@ -82,7 +82,10 @@ fn pub tests(t: mut Tests) {
     let input = input(state, motion: recover [true])
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+    t.equal(
+      Snapshot.of(state).rooms.get('office').or_panic.status,
+      Status.Default,
+    )
   })
 
   t.test('Detection motion twice in a row', fn (t) {
@@ -91,7 +94,10 @@ fn pub tests(t: mut Tests) {
 
     run(input)
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+    t.equal(
+      Snapshot.of(state).rooms.get('office').or_panic.status,
+      Status.Default,
+    )
   })
 
   t.test('Detection motion without additional motion', fn (t) {
@@ -103,7 +109,10 @@ fn pub tests(t: mut Tests) {
     input.reset_pending_timeout
     run(input)
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+    t.equal(
+      Snapshot.of(state).rooms.get('office').or_panic.status,
+      Status.Default,
+    )
   })
 
   t.test('Enabling ventilation when enough motion is detected', fn (t) {
@@ -113,7 +122,7 @@ fn pub tests(t: mut Tests) {
     run(input)
     input.reset_motion_wait_time
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
+    t.equal(Snapshot.of(state).rooms.get('office').or_panic.status, Status.Low)
   })
 
   t.test(
@@ -126,7 +135,10 @@ fn pub tests(t: mut Tests) {
       input.reset_motion_wait_time
       run(input)
       run(input)
-      t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
+      t.equal(
+        Snapshot.of(state).rooms.get('office').or_panic.status,
+        Status.Low,
+      )
     },
   )
 
@@ -141,7 +153,10 @@ fn pub tests(t: mut Tests) {
       run(input)
       input.reset_ventilation_timeout
       run(input)
-      t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+      t.equal(
+        Snapshot.of(state).rooms.get('office').or_panic.status,
+        Status.Default,
+      )
     },
   )
 }

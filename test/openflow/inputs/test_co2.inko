@@ -29,7 +29,7 @@ impl Input {
   }
 
   fn async mut update_co2_minimum(value: Int) {
-    @sensors.get_mut(0).co2_minimum = value
+    @sensors.get_mut(0).or_panic.co2_minimum = value
   }
 }
 
@@ -50,7 +50,7 @@ fn sensor(name: String, samples: uni Array[Int]) -> uni Sensor {
   driver.request(
     matches: fn (req) { req.path == '/VALUES' },
     then: fn move (_) {
-      let val = samples.get(index := index + 1)
+      let val = samples.get(index := index + 1).or_panic
       let map = Map.new
 
       map.set('CO2', Json.Int(val))
@@ -81,7 +81,10 @@ fn pub tests(t: mut Tests) {
     )
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+    t.equal(
+      Snapshot.of(state).rooms.get('office').or_panic.status,
+      Status.Default,
+    )
   })
 
   t.test('Applying ventilation in response to different CO2 levels', fn (t) {
@@ -121,7 +124,7 @@ fn pub tests(t: mut Tests) {
 
     for (_, status) in tests {
       run(input)
-      t.equal(Snapshot.of(state).rooms.get('office').status, status)
+      t.equal(Snapshot.of(state).rooms.get('office').or_panic.status, status)
     }
   })
 
@@ -140,7 +143,7 @@ fn pub tests(t: mut Tests) {
 
     run(input)
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.High)
+    t.equal(Snapshot.of(state).rooms.get('office').or_panic.status, Status.High)
   })
 
   t.test('Ignoring rooms that are humid', fn (t) {
@@ -151,12 +154,15 @@ fn pub tests(t: mut Tests) {
     )
 
     state.update(fn (rooms) {
-      rooms.get_mut('office').update(recover Status.Humid)
+      rooms.get_mut('office').or_panic.update(recover Status.Humid)
       false
     })
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Humid)
+    t.equal(
+      Snapshot.of(state).rooms.get('office').or_panic.status,
+      Status.Humid,
+    )
   })
 
   t.test('Ignoring rooms that are ventilated in response to a button', fn (t) {
@@ -167,13 +173,15 @@ fn pub tests(t: mut Tests) {
     )
 
     state.update(fn (rooms) {
-      rooms.get_mut('office').update(recover Status.Button(Status.Default))
+      rooms.get_mut('office').or_panic.update(
+        recover Status.Button(Status.Default),
+      )
       false
     })
 
     run(input)
     t.equal(
-      Snapshot.of(state).rooms.get('office').status,
+      Snapshot.of(state).rooms.get('office').or_panic.status,
       Status.Button(Status.Default),
     )
   })
@@ -203,11 +211,17 @@ fn pub tests(t: mut Tests) {
 
     run(input)
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Medium)
+    t.equal(
+      Snapshot.of(state).rooms.get('office').or_panic.status,
+      Status.Medium,
+    )
 
     input.reset_reduce_wait_time
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+    t.equal(
+      Snapshot.of(state).rooms.get('office').or_panic.status,
+      Status.Default,
+    )
   })
 
   t.test('Maintaining ventilation when reducing CO2 from 750 to 550', fn (t) {
@@ -237,10 +251,16 @@ fn pub tests(t: mut Tests) {
     input.reset_reduce_wait_time
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Medium)
+    t.equal(
+      Snapshot.of(state).rooms.get('office').or_panic.status,
+      Status.Medium,
+    )
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+    t.equal(
+      Snapshot.of(state).rooms.get('office').or_panic.status,
+      Status.Default,
+    )
   })
 
   t.test('Reducing ventilation immediately when reducing CO2 to 600', fn (t) {
@@ -262,10 +282,13 @@ fn pub tests(t: mut Tests) {
     let input = input(state, samples: samples)
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
+    t.equal(Snapshot.of(state).rooms.get('office').or_panic.status, Status.Low)
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+    t.equal(
+      Snapshot.of(state).rooms.get('office').or_panic.status,
+      Status.Default,
+    )
   })
 
   t.test(
@@ -294,13 +317,22 @@ fn pub tests(t: mut Tests) {
       let input = input(state, samples: samples)
 
       run(input)
-      t.equal(Snapshot.of(state).rooms.get('office').status, Status.High)
+      t.equal(
+        Snapshot.of(state).rooms.get('office').or_panic.status,
+        Status.High,
+      )
 
       run(input)
-      t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
+      t.equal(
+        Snapshot.of(state).rooms.get('office').or_panic.status,
+        Status.Low,
+      )
 
       run(input)
-      t.equal(Snapshot.of(state).rooms.get('office').status, Status.Default)
+      t.equal(
+        Snapshot.of(state).rooms.get('office').or_panic.status,
+        Status.Default,
+      )
     },
   )
 
@@ -325,11 +357,17 @@ fn pub tests(t: mut Tests) {
       let input = input(state, samples: samples)
 
       run(input)
-      t.equal(Snapshot.of(state).rooms.get('office').status, Status.Medium)
+      t.equal(
+        Snapshot.of(state).rooms.get('office').or_panic.status,
+        Status.Medium,
+      )
 
       input.reset_reduce_wait_time
       run(input)
-      t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
+      t.equal(
+        Snapshot.of(state).rooms.get('office').or_panic.status,
+        Status.Low,
+      )
     },
   )
 
@@ -348,6 +386,6 @@ fn pub tests(t: mut Tests) {
 
     input.update_co2_minimum(400)
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('office').status, Status.Low)
+    t.equal(Snapshot.of(state).rooms.get('office').or_panic.status, Status.Low)
   })
 }

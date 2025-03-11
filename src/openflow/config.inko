@@ -5,15 +5,15 @@ import std.net.ip (IpAddress)
 import std.time (Duration)
 
 fn opt_int(object: ref Map[String, Json], key: String) -> Option[Int] {
-  match object.opt(key) {
-    case Some(Int(v)) -> Option.Some(v)
+  match object.get(key) {
+    case Ok(Int(v)) -> Option.Some(v)
     case _ -> Option.None
   }
 }
 
 fn opt_string(object: ref Map[String, Json], key: String) -> Option[String] {
-  match object.opt(key) {
-    case Some(String(v)) -> Option.Some(v)
+  match object.get(key) {
+    case Ok(String(v)) -> Option.Some(v)
     case _ -> Option.None
   }
 }
@@ -22,29 +22,29 @@ fn string(
   object: ref Map[String, Json],
   key: String,
 ) -> Result[String, String] {
-  match object.opt(key) {
-    case Some(String(v)) -> Result.Ok(v)
+  match object.get(key) {
+    case Ok(String(v)) -> Result.Ok(v)
     case _ -> throw 'The "${key}" value must be a string'
   }
 }
 
 fn int(object: ref Map[String, Json], key: String) -> Result[Int, String] {
-  match object.opt(key) {
-    case Some(Int(v)) -> Result.Ok(v)
+  match object.get(key) {
+    case Ok(Int(v)) -> Result.Ok(v)
     case _ -> throw 'The "${key}" value must be an integer'
   }
 }
 
 fn int_opt(object: ref Map[String, Json], key: String) -> Option[Int] {
-  match object.opt(key) {
-    case Some(Int(v)) -> Option.Some(v)
+  match object.get(key) {
+    case Ok(Int(v)) -> Option.Some(v)
     case _ -> Option.None
   }
 }
 
 fn float(object: ref Map[String, Json], key: String) -> Result[Float, String] {
-  match object.opt(key) {
-    case Some(Float(v)) -> Result.Ok(v)
+  match object.get(key) {
+    case Ok(Float(v)) -> Result.Ok(v)
     case _ -> throw 'The "${key}" value must be a float'
   }
 }
@@ -53,8 +53,8 @@ fn opt_ip(
   object: ref Map[String, Json],
   key: String,
 ) -> Result[Option[IpAddress], String] {
-  let res = match object.opt(key) {
-    case Some(String(str)) -> {
+  let res = match object.get(key) {
+    case Ok(String(str)) -> {
       Option.Some(
         match IpAddress.parse(str) {
           case Some(ip) -> ip
@@ -69,8 +69,8 @@ fn opt_ip(
 }
 
 fn ip(object: ref Map[String, Json], key: String) -> Result[IpAddress, String] {
-  match object.opt(key) {
-    case Some(String(str)) -> {
+  match object.get(key) {
+    case Ok(String(str)) -> {
       match IpAddress.parse(str) {
         case Some(ip) -> return Result.Ok(ip)
         case _ -> {}
@@ -186,8 +186,8 @@ type pub Room {
     object: ref Map[String, Json],
   ) -> Result[Room, String] {
     let exhaust = try int(object, 'exhaust')
-    let flow = match object.opt('flow') {
-      case Some(Object(map)) -> try Flow.from_json(map)
+    let flow = match object.get('flow') {
+      case Ok(Object(map)) -> try Flow.from_json(map)
       case _ -> throw 'The "flow" key must be an object'
     }
 
@@ -342,8 +342,8 @@ type pub Button {
     name: String,
     object: ref Map[String, Json],
   ) -> Result[Button, String] {
-    let rooms = match object.opt('rooms') {
-      case Some(Array(vals)) -> {
+    let rooms = match object.get('rooms') {
+      case Ok(Array(vals)) -> {
         let iter = vals.iter.map(fn (val) {
           match val {
             case String(v) -> Result.Ok(v)
@@ -376,8 +376,8 @@ type pub Remote {
     object: ref Map[String, Json],
   ) -> Result[Remote, String] {
     let id = try string(object, 'id')
-    let buttons = match object.opt('buttons') {
-      case Some(Object(map)) -> {
+    let buttons = match object.get('buttons') {
+      case Ok(Object(map)) -> {
         let iter = map.iter.map(fn (entry) {
           match entry.value {
             case Object(val) -> Button.from_json(entry.key, val)
@@ -423,8 +423,8 @@ type pub Config {
       case _ -> throw 'the top-level JSON value must be an object'
     }
 
-    let rooms = match root.opt('rooms') {
-      case Some(Object(map)) -> {
+    let rooms = match root.get('rooms') {
+      case Ok(Object(map)) -> {
         let iter = map.iter.map(fn (entry) {
           let name = entry.key
 
@@ -439,30 +439,30 @@ type pub Config {
       case _ -> throw 'the "rooms" key must be an array of objects'
     }
 
-    let itho = match root.opt('itho') {
-      case Some(Object(map)) -> try Itho.from_json(map)
+    let itho = match root.get('itho') {
+      case Ok(Object(map)) -> try Itho.from_json(map)
       case _ -> throw 'the "itho" key must be an object'
     }
 
-    let metrics = match root.opt('metrics') {
-      case Some(Object(map)) -> try Metrics.from_json(map)
+    let metrics = match root.get('metrics') {
+      case Ok(Object(map)) -> try Metrics.from_json(map)
       case _ -> throw 'the "metrics" key must be an object'
     }
 
-    let hue = match root.opt('hue') {
-      case Some(Object(map)) -> try Hue.from_json(map)
+    let hue = match root.get('hue') {
+      case Ok(Object(map)) -> try Hue.from_json(map)
       case _ -> throw 'the "hue" key must be an object'
     }
 
-    let humidity = match root.opt('humidity') {
-      case Some(Object(map)) -> try Humidity.from_json(map)
+    let humidity = match root.get('humidity') {
+      case Ok(Object(map)) -> try Humidity.from_json(map)
       case _ -> throw 'the "humidity" key must be an object'
     }
 
-    let remote = match root.opt('remote') {
-      case Some(Object(map)) -> Option.Some(try Remote.from_json(map))
-      case None -> Option.None
-      case _ -> throw 'the "remote" key must be an object'
+    let remote = match root.get('remote') {
+      case Ok(Object(map)) -> Option.Some(try Remote.from_json(map))
+      case Ok(_) -> throw 'the "remote" key must be an object'
+      case _ -> Option.None
     }
 
     Result.Ok(

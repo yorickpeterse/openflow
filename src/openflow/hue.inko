@@ -50,14 +50,14 @@ type pub Hue {
       }
 
       let state = match val.remove('state') {
-        case Some(Object(map)) -> map
+        case Ok(Object(map)) -> map
         case _ -> next
       }
 
-      match val.opt('type') {
-        case Some(String('ZLLPresence')) -> {
-          match state.opt('presence') {
-            case Some(Bool(val)) -> {
+      match val.get('type') {
+        case Ok(String('ZLLPresence')) -> {
+          match state.get('presence') {
+            case Ok(Bool(val)) -> {
               motion.set(id, val)
               nil
             }

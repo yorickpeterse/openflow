@@ -27,7 +27,7 @@ fn pub tests(t: mut Tests) {
     let driver = recover TestDriver.new
 
     driver.request(
-      matches: fn (req) { req.queries.opt('getsetting').some? },
+      matches: fn (req) { req.queries.get('getsetting').ok? },
       then: fn (_) { Response.ok('{"current":0}'.to_byte_array) },
     )
 
@@ -36,7 +36,7 @@ fn pub tests(t: mut Tests) {
         let mut prom_opt = recover Option.Some(promise)
 
         driver.request(
-          matches: fn (req) { req.queries.opt('setsetting').some? },
+          matches: fn (req) { req.queries.get('setsetting').ok? },
           then: fn move (_) {
             (prom_opt := recover Option.None).get.set(true)
             Response.ok('OK'.to_byte_array)
@@ -56,7 +56,7 @@ fn pub tests(t: mut Tests) {
     let driver = recover TestDriver.new
 
     driver.request(
-      matches: fn (req) { req.queries.opt('getsetting').some? },
+      matches: fn (req) { req.queries.get('getsetting').ok? },
       then: fn (_) { Response.ok('{"current":1}'.to_byte_array) },
     )
 
@@ -74,12 +74,12 @@ fn pub tests(t: mut Tests) {
     let state = state(recover TestDriver.new)
 
     state.update(fn (rooms) {
-      rooms.get_mut('living_room').update(Status.Low)
+      rooms.get_mut('living_room').or_panic.update(Status.Low)
       false
     })
 
     let snap = Snapshot.of(state)
-    let living = snap.rooms.get('living_room')
+    let living = snap.rooms.get('living_room').or_panic
 
     t.equal(living.status, Status.Low)
   })
@@ -88,12 +88,12 @@ fn pub tests(t: mut Tests) {
     let state = state(recover TestDriver.new)
 
     state.update_with(42, fn (rooms, _) {
-      rooms.get_mut('living_room').update(Status.Low)
+      rooms.get_mut('living_room').or_panic.update(Status.Low)
       false
     })
 
     let snap = Snapshot.of(state)
-    let living = snap.rooms.get('living_room')
+    let living = snap.rooms.get('living_room').or_panic
 
     t.equal(living.status, Status.Low)
   })
@@ -102,7 +102,7 @@ fn pub tests(t: mut Tests) {
     let state = state(allow_api_calls)
 
     state.update(fn (rooms) {
-      rooms.get_mut('living_room').update(Status.Low)
+      rooms.get_mut('living_room').or_panic.update(Status.Low)
       false
     })
 
@@ -111,7 +111,7 @@ fn pub tests(t: mut Tests) {
     }
 
     let snap = Snapshot.of(state)
-    let living = snap.rooms.get('living_room')
+    let living = snap.rooms.get('living_room').or_panic
 
     t.equal(snap.speed, 21)
     t.equal(living.status, Status.Low)
@@ -123,7 +123,9 @@ fn pub tests(t: mut Tests) {
     let state = state(allow_api_calls)
 
     state.update(fn (rooms) {
-      rooms.get_mut('living_room').update(Status.Button(Status.Default))
+      rooms.get_mut('living_room').or_panic.update(
+        Status.Button(Status.Default),
+      )
       false
     })
 
@@ -132,9 +134,9 @@ fn pub tests(t: mut Tests) {
     }
 
     let snap = Snapshot.of(state)
-    let office = snap.rooms.get('office')
-    let living = snap.rooms.get('living_room')
-    let bath = snap.rooms.get('bathroom')
+    let office = snap.rooms.get('office').or_panic
+    let living = snap.rooms.get('living_room').or_panic
+    let bath = snap.rooms.get('bathroom').or_panic
 
     t.equal(snap.speed, 21)
     t.equal(living.status, Status.Button(Status.Default))
@@ -150,8 +152,8 @@ fn pub tests(t: mut Tests) {
     let state = state(allow_api_calls)
 
     state.update(fn (rooms) {
-      rooms.get_mut('office').update(Status.Low)
-      rooms.get_mut('living_room').update(Status.Humid)
+      rooms.get_mut('office').or_panic.update(Status.Low)
+      rooms.get_mut('living_room').or_panic.update(Status.Humid)
       false
     })
 
@@ -160,8 +162,8 @@ fn pub tests(t: mut Tests) {
     }
 
     let snap = Snapshot.of(state)
-    let living = snap.rooms.get('living_room')
-    let office = snap.rooms.get('office')
+    let living = snap.rooms.get('living_room').or_panic
+    let office = snap.rooms.get('office').or_panic
 
     t.equal(snap.speed, 26)
     t.equal(living.status, Status.Humid)
@@ -178,7 +180,7 @@ fn pub tests(t: mut Tests) {
       let state = state(allow_api_calls)
 
       state.update(fn (rooms) {
-        rooms.get_mut('office').update(Status.Low)
+        rooms.get_mut('office').or_panic.update(Status.Low)
         false
       })
 
@@ -186,7 +188,7 @@ fn pub tests(t: mut Tests) {
         case (_, promise) -> state.apply(promise)
       }
 
-      t.equal(Snapshot.of(state).rooms.get('office').flow, 11)
+      t.equal(Snapshot.of(state).rooms.get('office').or_panic.flow, 11)
     },
   )
 
@@ -194,7 +196,7 @@ fn pub tests(t: mut Tests) {
     let state = state(allow_api_calls)
 
     state.update(fn (rooms) {
-      rooms.get_mut('office').update(Status.High)
+      rooms.get_mut('office').or_panic.update(Status.High)
       false
     })
 
@@ -202,14 +204,14 @@ fn pub tests(t: mut Tests) {
       case (_, promise) -> state.apply(promise)
     }
 
-    t.equal(Snapshot.of(state).rooms.get('office').flow, 88)
+    t.equal(Snapshot.of(state).rooms.get('office').or_panic.flow, 88)
   })
 
   t.test('State.apply with a total flow exceeding the maximum flow', fn (t) {
     let state = state(allow_api_calls)
 
     state.update(fn (rooms) {
-      rooms.get_mut('super_fast').update(Status.Maximum)
+      rooms.get_mut('super_fast').or_panic.update(Status.Maximum)
       false
     })
 
@@ -218,8 +220,8 @@ fn pub tests(t: mut Tests) {
     }
 
     let snap = Snapshot.of(state)
-    let fast = snap.rooms.get('super_fast')
-    let office = snap.rooms.get('office')
+    let fast = snap.rooms.get('super_fast').or_panic
+    let office = snap.rooms.get('office').or_panic
 
     t.equal(snap.speed, 100)
     t.equal(fast.status, Status.Maximum)
@@ -336,11 +338,11 @@ fn pub tests(t: mut Tests) {
     )
 
     state.update(fn (rooms) {
-      rooms.get_mut('living_room').update(Status.Default)
-      rooms.get_mut('kitchen').update(Status.Default)
-      rooms.get_mut('bathroom').update(Status.Default)
-      rooms.get_mut('office').update(Status.Medium)
-      rooms.get_mut('bedroom').update(Status.Low)
+      rooms.get_mut('living_room').or_panic.update(Status.Default)
+      rooms.get_mut('kitchen').or_panic.update(Status.Default)
+      rooms.get_mut('bathroom').or_panic.update(Status.Default)
+      rooms.get_mut('office').or_panic.update(Status.Medium)
+      rooms.get_mut('bedroom').or_panic.update(Status.Low)
       false
     })
 
@@ -349,11 +351,11 @@ fn pub tests(t: mut Tests) {
     }
 
     let snap = Snapshot.of(state)
-    let living = snap.rooms.get('living_room')
-    let kitchen = snap.rooms.get('kitchen')
-    let bath = snap.rooms.get('bathroom')
-    let office = snap.rooms.get('office')
-    let bed = snap.rooms.get('bedroom')
+    let living = snap.rooms.get('living_room').or_panic
+    let kitchen = snap.rooms.get('kitchen').or_panic
+    let bath = snap.rooms.get('bathroom').or_panic
+    let office = snap.rooms.get('office').or_panic
+    let bed = snap.rooms.get('bedroom').or_panic
 
     t.equal(snap.speed, 26)
     t.equal(living.flow, 0)
@@ -371,8 +373,8 @@ fn pub tests(t: mut Tests) {
     }
 
     let snap = Snapshot.of(state)
-    let office = snap.rooms.get('office')
-    let bath = snap.rooms.get('bathroom')
+    let office = snap.rooms.get('office').or_panic
+    let bath = snap.rooms.get('bathroom').or_panic
 
     t.equal(office.flow, 22)
     t.equal(bath.flow, 10)

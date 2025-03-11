@@ -81,9 +81,9 @@ type pub inline Metrics {
     #
     # Rather than handling this every time we call `Metrics.new`, we just handle
     # it here and panic.
-    let sock = UdpSocket.new(ip: IpAddress.v4(0, 0, 0, 0), port: 0).or_panic(
-      'failed to set up the socket for the metrics database',
-    )
+    let sock = UdpSocket
+      .new(ip: IpAddress.v4(0, 0, 0, 0), port: 0)
+      .or_panic_with('failed to set up the socket for the metrics database')
 
     Metrics(ip: ip, port: port, socket: sock)
   }
@@ -105,7 +105,7 @@ impl Clone for Metrics {
     Metrics(
       ip: @ip.clone,
       port: @port,
-      socket: @socket.try_clone.or_panic(
+      socket: @socket.try_clone.or_panic_with(
         'failed to clone socket for the metrics database',
       ),
     )

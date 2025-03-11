@@ -70,8 +70,8 @@ type pub async Input {
 
   fn mut iteration {
     match @itho.remotes.map(fn (s) { s.remove(@id) }) {
-      case Ok(Some(remote)) -> check(remote)
-      case Ok(None) -> @logger.error('no state was found for the remote')
+      case Ok(Ok(remote)) -> check(remote)
+      case Ok(Error(_)) -> @logger.error('no state was found for the remote')
       case Error(err) -> {
         @logger.error('failed to get the remote status: ${err}')
       }
@@ -111,8 +111,8 @@ type pub async Input {
         reset_rooms
       }
       case state -> {
-        match @buttons.opt(state.name) {
-          case Some(btn) -> {
+        match @buttons.get(state.name) {
+          case Ok(btn) -> {
             enable(recover btn.rooms.clone)
             @deadline = btn.duration.to_instant
           }
@@ -132,7 +132,7 @@ type pub async Input {
       }
 
       for name in enable.into_iter {
-        let room = rooms.get_mut(name)
+        let room = rooms.get_mut(name).or_panic
 
         room.update(recover Status.Button(room.status.clone))
       }

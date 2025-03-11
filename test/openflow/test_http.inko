@@ -8,7 +8,7 @@ type async Server {
     socket
       .accept
       .then(fn (client) {
-        client.write_string('HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK')
+        client.write('HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK')
       })
       .get
   }
@@ -60,7 +60,7 @@ fn pub tests(t: mut Tests) {
     let response = driver.execute(request).get
 
     t.equal(response.body.to_string, 'OK')
-    t.equal(response.headers.get('content-length'), '2')
+    t.equal(response.headers.get('content-length'), Result.Ok('2'))
     t.equal(response.status, 200)
     t.equal(response.version.major, 1)
     t.equal(response.version.minor, 1)

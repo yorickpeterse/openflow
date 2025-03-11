@@ -386,7 +386,7 @@ type pub async State {
         'changing exhaust from ${old} to ${new} (${room.status}, ${flow} m3/h)',
       )
 
-      @itho.set(setting: room.exhaust_id, value: new).or_panic(
+      @itho.set(setting: room.exhaust_id, value: new).or_panic_with(
         "the exhaust setting couldn't be updated",
       )
 
@@ -401,7 +401,7 @@ type pub async State {
 
   fn mut update_speed(speed: Int) {
     @logger.info('Changing exhaust speed from ${@speed}% to ${speed}%')
-    @itho.set(setting: @speed_id, value: speed).or_panic(
+    @itho.set(setting: @speed_id, value: speed).or_panic_with(
       "the exhaust speed couldn't be updated",
     )
 

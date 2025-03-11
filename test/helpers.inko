@@ -158,7 +158,7 @@ fn pub allow_api_calls -> uni TestDriver {
   let driver = recover TestDriver.new
 
   driver.request(
-    matches: fn (req) { req.queries.opt('setsetting').some? },
+    matches: fn (req) { req.queries.get('setsetting').ok? },
     then: fn (_) { Response.ok('OK'.to_byte_array) },
   )
 

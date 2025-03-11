@@ -35,10 +35,10 @@ fn input(state: State, humidity: uni Array[Int], correction: Int) -> Input {
   driver.request(
     matches: fn (req) {
       req.path == '/api.html'
-        and req.queries.opt('get') == Option.Some('ithostatus')
+        and req.queries.get('get') == Result.Ok('ithostatus')
     },
     then: fn move (_) {
-      let val = humidity.get(index := index + 1)
+      let val = humidity.get(index := index + 1).or_panic
       let root = Map.new
 
       root.set('RH bathroom 1', Json.Int(val))
@@ -87,13 +87,13 @@ fn pub tests(t: mut Tests) {
     t.equal(buf.push(20), 0)
     t.equal(buf.index, 0)
 
-    t.equal(buf.values.get(0), 10)
-    t.equal(buf.values.get(1), 20)
+    t.equal(buf.values.get(0).or_panic, 10)
+    t.equal(buf.values.get(1).or_panic, 20)
 
     t.equal(buf.push(30), 10)
     t.equal(buf.push(40), 20)
-    t.equal(buf.values.get(0), 30)
-    t.equal(buf.values.get(1), 40)
+    t.equal(buf.values.get(0).or_panic, 30)
+    t.equal(buf.values.get(1).or_panic, 40)
   })
 
   t.test('No ventilation is applied when the humidity is OK', fn (t) {
@@ -101,7 +101,10 @@ fn pub tests(t: mut Tests) {
     let input = input(state, humidity: recover [70], correction: 0)
 
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
+    t.equal(
+      Snapshot.of(state).rooms.get('bathroom').or_panic.status,
+      Status.Default,
+    )
   })
 
   t.test('Ventilation is applied when a room is humid for too long', fn (t) {
@@ -110,7 +113,10 @@ fn pub tests(t: mut Tests) {
 
     run(input)
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Humid)
+    t.equal(
+      Snapshot.of(state).rooms.get('bathroom').or_panic.status,
+      Status.Humid,
+    )
   })
 
   t.test('Ventilation persists when the humidity decreases', fn (t) {
@@ -120,7 +126,10 @@ fn pub tests(t: mut Tests) {
     run(input)
     run(input)
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Humid)
+    t.equal(
+      Snapshot.of(state).rooms.get('bathroom').or_panic.status,
+      Status.Humid,
+    )
   })
 
   t.test(
@@ -132,7 +141,10 @@ fn pub tests(t: mut Tests) {
       run(input)
       run(input)
       run(input)
-      t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Humid)
+      t.equal(
+        Snapshot.of(state).rooms.get('bathroom').or_panic.status,
+        Status.Humid,
+      )
     },
   )
 
@@ -151,7 +163,10 @@ fn pub tests(t: mut Tests) {
       input.reset_low_time
       run(input) # Transitions the state to "drying"
       run(input) # Transitions the state to "dry"
-      t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
+      t.equal(
+        Snapshot.of(state).rooms.get('bathroom').or_panic.status,
+        Status.Default,
+      )
     },
   )
 
@@ -161,7 +176,10 @@ fn pub tests(t: mut Tests) {
 
     run(input)
     run(input)
-    t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
+    t.equal(
+      Snapshot.of(state).rooms.get('bathroom').or_panic.status,
+      Status.Default,
+    )
   })
 
   t.test(
@@ -179,7 +197,10 @@ fn pub tests(t: mut Tests) {
       input.reset_low_time
       run(input) # Transitions the state to "drying"
       run(input) # Transitions the state to "humid" again
-      t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Humid)
+      t.equal(
+        Snapshot.of(state).rooms.get('bathroom').or_panic.status,
+        Status.Humid,
+      )
     },
   )
 
@@ -199,17 +220,29 @@ fn pub tests(t: mut Tests) {
       )
 
       11.times(fn (_) { run(input) })
-      t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Humid)
+      t.equal(
+        Snapshot.of(state).rooms.get('bathroom').or_panic.status,
+        Status.Humid,
+      )
 
       11.times(fn (_) { run(input) })
-      t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Humid)
+      t.equal(
+        Snapshot.of(state).rooms.get('bathroom').or_panic.status,
+        Status.Humid,
+      )
 
       input.reset_low_time
       run(input)
-      t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
+      t.equal(
+        Snapshot.of(state).rooms.get('bathroom').or_panic.status,
+        Status.Default,
+      )
 
       run(input)
-      t.equal(Snapshot.of(state).rooms.get('bathroom').status, Status.Default)
+      t.equal(
+        Snapshot.of(state).rooms.get('bathroom').or_panic.status,
+        Status.Default,
+      )
     },
   )
 }

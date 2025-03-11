@@ -30,8 +30,8 @@ type pub MoreSense {
 
     match Json.parse(Buffer.new(resp.body)) {
       case Ok(Object(map)) -> {
-        match map.opt('CO2') {
-          case Some(Int(val)) -> Result.Ok(val)
+        match map.get('CO2') {
+          case Ok(Int(val)) -> Result.Ok(val)
           case _ -> throw 'Expected the "CO2" key to be an integer'
         }
       }

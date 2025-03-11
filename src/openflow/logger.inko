@@ -41,6 +41,6 @@ type pub async Logger {
 
     # Logging failing isn't a big deal, but having to handle potential failures
     # _every_ time _is_, so we simply discard any errors.
-    let _ = @stream.write_string('${iso8601_time}: ${label}: ${message}\n')
+    let _ = @stream.write('${iso8601_time}: ${label}: ${message}\n')
   }
 }

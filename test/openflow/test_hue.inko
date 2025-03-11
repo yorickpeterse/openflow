@@ -53,8 +53,8 @@ fn pub tests(t: mut Tests) {
     let hue = Hue.new(client, user: 'foo')
     let sensors = hue.sensors.get
 
-    t.false(sensors.motion.get(1))
-    t.true(sensors.motion.get(2))
+    t.equal(sensors.motion.get(1), Result.Ok(false))
+    t.equal(sensors.motion.get(2), Result.Ok(true))
   })
 
   t.test('Hue.sensors retries failed requests', fn (t) {

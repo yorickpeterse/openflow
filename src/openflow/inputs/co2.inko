@@ -182,7 +182,7 @@ type pub async Input {
   fn apply(updates: uni Map[String, Status]) {
     @state.update_with(updates, fn move (rooms, updates) {
       for { @key = name, @value = status } in updates.into_iter {
-        let room = rooms.get_mut(name)
+        let room = rooms.get_mut(name).or_panic
 
         match room.status {
           case Humid or Button(_) -> {}

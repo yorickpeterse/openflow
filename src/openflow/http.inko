@@ -137,7 +137,8 @@ type ResponseParser[T: mut + Read] {
     # don't want to include this in the body, so we add 1 to the start.
     let body_start = headers_end + 1
     let mut body_size = headers
-      .opt('content-length')
+      .get('content-length')
+      .ok
       .then(fn (val) { Int.parse(val, Format.Decimal) })
       .or(-1)
 
@@ -152,7 +153,9 @@ type ResponseParser[T: mut + Read] {
     }
 
     let body = if body_size > 0 {
-      @buffer.slice(start: body_start, size: body_size)
+      @buffer
+        .slice(start: body_start, end: body_start + body_size)
+        .to_byte_array
     } else {
       ByteArray.new
     }
@@ -165,16 +168,8 @@ type ResponseParser[T: mut + Read] {
   fn mut parse_version -> Result[Version, Error] {
     let buf = @buffer
 
-    if
-      buf.get(0) == H
-        and buf.get(1) == T
-        and buf.get(2) == T
-        and buf.get(3) == P
-        and buf.get(4) == SLASH
-        and buf.get(5) == ONE
-        and buf.get(6) == DOT
-    {
-      let minor = match buf.get(7) {
+    if @buffer.starts_with?('HTTP/1.') {
+      let minor = match buf.get(7).or_panic {
         case ZERO -> 0
         case ONE -> 1
         case val -> throw Error.UnsupportedVersion(val)
@@ -205,7 +200,7 @@ type ResponseParser[T: mut + Read] {
 
     # Skip the first header line containing the version and status.
     while idx < end {
-      if buf.get(idx) == LF and buf.get(idx - 1) == CR {
+      if buf.get(idx).or_panic == LF and buf.get(idx - 1).or_panic == CR {
         idx += 1
         break
       } else {
@@ -217,14 +212,14 @@ type ResponseParser[T: mut + Read] {
     let headers = Map.new
 
     while idx < end {
-      if buf.get(idx) == COLON {
+      if buf.get(idx).or_panic == COLON {
         let key = parse_header_name(start, end: idx)
 
         idx += 1
 
         # Skip any whitespace that follows the colon.
         while idx < end {
-          match buf.get(idx) {
+          match buf.get(idx).or_panic {
             case SPACE or TAB -> idx += 1
             case _ -> break
           }
@@ -232,7 +227,11 @@ type ResponseParser[T: mut + Read] {
 
         let val_start = idx
 
-        while idx < end and buf.get(idx) != LF and buf.get(idx - 1) != CR {
+        while
+          idx < end
+            and buf.get(idx).or_panic != LF
+            and buf.get(idx - 1).or_panic != CR
+        {
           idx += 1
         }
 
@@ -241,7 +240,7 @@ type ResponseParser[T: mut + Read] {
         # Adjust the end index such that it doesn't cover any trailing
         # whitespace.
         while val_end > val_start {
-          match buf.get(val_end) {
+          match buf.get(val_end).or_panic {
             case SPACE or TAB -> val_end -= 1
             case _ -> break
           }
@@ -252,7 +251,7 @@ type ResponseParser[T: mut + Read] {
         # character.
         headers.set(
           key,
-          buf.slice(start: val_start, size: val_end - val_start + 1).into_string,
+          buf.slice(start: val_start, end: val_end + 1).to_string,
         )
 
         idx += 1
@@ -276,7 +275,7 @@ type ResponseParser[T: mut + Read] {
       # differences we convert the header names to lowercase while parsing them.
       bytes.set(
         index,
-        match buf.get(read_index) {
+        match buf.get(read_index).or_panic {
           case byte if byte >= CAPITAL_A and byte <= CAPITAL_Z -> byte + 32
           case byte -> byte
         },
@@ -299,10 +298,10 @@ type ResponseParser[T: mut + Read] {
       while index < buf.size {
         if
           buf.size > 4
-            and buf.get(index) == LF
-            and buf.get(index - 1) == CR
-            and buf.get(index - 2) == LF
-            and buf.get(index - 3) == CR
+            and buf.get(index).or_panic == LF
+            and buf.get(index - 1).or_panic == CR
+            and buf.get(index - 2).or_panic == LF
+            and buf.get(index - 3).or_panic == CR
         {
           return Result.Ok(index)
         }
@@ -327,7 +326,7 @@ type ResponseParser[T: mut + Read] {
   }
 
   fn digit(index: Int) -> Int {
-    let byte = @buffer.get(index)
+    let byte = @buffer.get(index).or_panic
 
     if byte >= 48 and byte <= 57 { byte - 48 } else { 0 }
   }
@@ -465,7 +464,7 @@ impl Driver for DefaultDriver {
       case _ -> {}
     }
 
-    try sock.write_string(data).map_error(fn (e) { Error.Network(e) })
+    try sock.write(data).map_error(fn (e) { Error.Network(e) })
     ResponseParser.new(mut sock).parse
   }
 }

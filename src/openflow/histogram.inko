@@ -11,7 +11,7 @@ type pub inline Histogram {
 
   # Returns the value of the bucket.
   fn pub get(bucket: Int) -> Int {
-    @buckets.get(bucket)
+    @buckets.get(bucket).or_panic
   }
 
   # Resets the given bucket's count.
@@ -21,7 +21,7 @@ type pub inline Histogram {
 
   # Increments the number of values in the given bucket.
   fn pub mut increment(bucket: Int) {
-    @buckets.set(bucket, @buckets.get(bucket) + 1)
+    @buckets.set(bucket, @buckets.get(bucket).or_panic + 1)
   }
 
   # Resets the values of all buckets back to zero.
