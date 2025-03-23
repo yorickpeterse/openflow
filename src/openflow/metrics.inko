@@ -96,7 +96,7 @@ type pub inline Metrics {
   fn pub mut send(metric: Metric) {
     # If we fail to send the metrics that's OK, as it doesn't affect the
     # ventilation process.
-    let _ = @socket.send_string_to(metric.to_string, @ip, @port)
+    let _ = @socket.send_to(metric.to_string, @ip, @port)
   }
 }
 
