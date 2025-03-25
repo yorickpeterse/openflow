@@ -75,9 +75,7 @@ With all the information gathered, copy `config.example.json` to
 You can then build and run OpenFlow as follows:
 
 ```bash
-inko pkg sync
-inko build src/main.inko -o openflow # Compile the code
-./openflow                           # Start using /etc/openflow.json as the config file
+inko build --release && ./build/release/openflow
 ```
 
 You can also use the container built from `main`:
