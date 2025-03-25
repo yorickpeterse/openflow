@@ -55,7 +55,7 @@ type async Main {
         )
         .section('Options')
         .options(opts)
-        .to_string
+        .into_string
 
       let _ = Stdout.new.write(help)
 
