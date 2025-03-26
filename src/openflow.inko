@@ -13,7 +13,7 @@ import openflow.metrics (Metrics)
 import openflow.more_sense (MoreSense)
 import openflow.state (Room, State)
 import std.env
-import std.optparse (Help, Options)
+import std.optparse (Options)
 import std.process (sleep)
 import std.stdio (Stderr, Stdout)
 import std.sync (Future)
@@ -24,7 +24,15 @@ let DEFAULT_CONFIG = '/etc/openflow.json'
 
 type async Main {
   fn async main {
-    let opts = Options.new
+    let opts = Options.new('openflow')
+
+    opts.description = "A ventilation system built around Itho Daalderop's DemandFlow/QualityFlow
+ventilation system.
+
+Examples:
+
+  openflow                       # Start using the default configuration file
+  openflow --config config.json  # Start using a custom configuration file"
 
     opts.flag('h', 'help', 'Show this help message')
     opts.single(
@@ -44,20 +52,7 @@ type async Main {
     }
 
     if matches.contains?('help') {
-      let help = Help
-        .new('openflow')
-        .section('Examples')
-        .line(
-          'openflow                      # Start using the default configuration file',
-        )
-        .line(
-          'openflow --config config.json # Use ./config.json as the configuration file',
-        )
-        .section('Options')
-        .options(opts)
-        .into_string
-
-      let _ = Stdout.new.write(help)
+      let _ = Stdout.new.write(opts.to_string)
 
       return
     }
