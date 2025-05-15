@@ -1,0 +1,19 @@
+[package]
+name = "openflow"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+getopts = "^0.2"
+
+# The rustls feature is disabled because we're only talking to HTTP services.
+ureq = { version = "^3.0", features = [], default-features = false }
+
+# Some of the JSON we work with needs to be parsed in a non-static way (e.g. the
+# exact key names of an object aren't known). This crate is used to first parse
+# JSON data into a DOM document, which we then destructure into the appropriate
+# data types.
+jzon = "^0.12"
+
+[dev-dependencies]
+mockito = "^1.7"
