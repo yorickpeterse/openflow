@@ -111,7 +111,7 @@ impl ToString for Error {
 # This parser automatically reads more bytes from the input stream is necessary,
 # and takes care to not block by performing reads when no more data is
 # available.
-type ResponseParser[T: mut + Read] {
+type ResponseParser[T: mut + Read[IoError]] {
   let @stream: T
   let @buffer: ByteArray
 
