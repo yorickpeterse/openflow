@@ -393,12 +393,12 @@ type pub inline Request {
     buf.push(' ')
     buf.push(@path)
 
-    for (index, entry) in @queries.iter.with_index {
+    for (index, (k, v)) in @queries.iter.with_index {
       if index == 0 { buf.push('?') } else { buf.push('&') }
 
-      buf.push(entry.key)
+      buf.push(k)
       buf.push('=')
-      buf.push(entry.value)
+      buf.push(v)
     }
 
     buf.push(' HTTP/1.1 \r\n')

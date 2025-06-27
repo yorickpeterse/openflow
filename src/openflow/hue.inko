@@ -42,10 +42,10 @@ type pub Hue {
 
     let motion = Map.new
 
-    for entry in root.into_iter {
-      let id = Int.parse(entry.key, Format.Decimal).get
-      let val = match entry {
-        case { @value = Object(map) } -> map
+    for (k, v) in root.into_iter {
+      let id = Int.parse(k, Format.Decimal).get
+      let val = match v {
+        case Object(map) -> map
         case _ -> next
       }
 

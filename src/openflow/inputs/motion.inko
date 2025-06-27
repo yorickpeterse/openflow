@@ -155,17 +155,20 @@ type pub async Input {
   fn apply(updates: uni Map[String, Bool]) {
     @state.update_with(updates, fn move (rooms, updates) {
       updates.into_iter.reduce(false, fn (apply_now, entry) {
-        let room = rooms.get_mut(entry.key).or_panic
-        let enable = entry.value
+        match entry {
+          case (key, enable) -> {
+            let room = rooms.get_mut(key).or_panic
 
-        match room.status {
-          case Default or Low -> {
-            room.update(if enable { Status.Low } else { Status.Default })
+            match room.status {
+              case Default or Low -> {
+                room.update(if enable { Status.Low } else { Status.Default })
+              }
+              case _ -> {}
+            }
+
+            apply_now or enable
           }
-          case _ -> {}
         }
-
-        apply_now or enable
       })
     })
   }

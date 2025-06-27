@@ -124,7 +124,7 @@ type pub async Input {
 
   fn enable(rooms: uni Array[String]) {
     @state.update_with(rooms, fn (rooms, enable) {
-      for { @value = room } in rooms.iter_mut {
+      for (_, room) in rooms.iter_mut {
         match room.status.clone {
           case Button(old) -> room.update(old)
           case _ -> {}
@@ -143,7 +143,7 @@ type pub async Input {
 
   fn reset_rooms {
     @state.update(fn (rooms) {
-      for { @value = room } in rooms.iter_mut {
+      for (_, room) in rooms.iter_mut {
         match room.status.clone {
           case Button(old) -> room.update(old)
           case _ -> {}

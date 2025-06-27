@@ -40,7 +40,10 @@ impl Room {
 impl State {
   fn pub async snapshot(promise: uni Promise[uni Snapshot]) {
     let rooms = @rooms.iter.reduce(recover Map.new, fn (map, entry) {
-      map.set(entry.key, recover entry.value.snapshot)
+      match entry {
+        case (k, v) -> map.set(k, recover v.snapshot)
+      }
+
       map
     })
 

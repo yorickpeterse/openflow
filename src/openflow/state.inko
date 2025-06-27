@@ -369,7 +369,7 @@ type pub async State {
     # adjusted.
     if new_speed < @speed { update_speed(new_speed) }
 
-    for { @value = room } in @rooms.iter_mut {
+    for (_, room) in @rooms.iter_mut {
       let flow = room.current_flow
       let new = exhaust_percentage(flow, total_flow)
       let old = room.exhaust_value
@@ -418,7 +418,7 @@ type pub async State {
     })
 
     let mut total = @rooms.iter_mut.reduce(0, fn (sum, entry) {
-      let room = entry.value
+      let room = entry.1
       let base = if humid {
         match room.status {
           case Default -> 0
@@ -450,9 +450,9 @@ type pub async State {
   fn mut assign_default_flow(total: Int) {
     let mut extra = @minimum_flow - total
 
-    for e in @rooms.iter_mut {
-      let room = match e.value.status {
-        case Default if e.value.default_flow > 0 -> e.value
+    for (_, value) in @rooms.iter_mut {
+      let room = match value.status {
+        case Default if value.default_flow > 0 -> value
         case _ -> next
       }
 

@@ -195,10 +195,10 @@ type pub Itho {
       case _ -> 0
     }
 
-    for pair in root.iter {
-      if pair.key.starts_with?('RH ').false? { next }
+    for (key, val) in root.iter {
+      if key.starts_with?('RH ').false? { next }
 
-      let value = match pair.value {
+      let value = match val {
         case Int(v) -> v
         case Float(v) -> v.to_int
         case _ -> next
@@ -206,7 +206,7 @@ type pub Itho {
 
       # Sensors that aren't connected report a value that's very close to zero,
       # which due to the conversion to an Int is turned into zero.
-      if value > 0 { humidity.set(pair.key, value) }
+      if value > 0 { humidity.set(key, value) }
     }
 
     Result.Ok(
@@ -229,8 +229,9 @@ type pub Itho {
     }
 
     let result = root.into_iter.reduce(Map.new, fn (map, entry) {
-      let obj = match entry.value {
-        case Object(obj) -> obj
+      let key = entry.0
+      let obj = match entry {
+        case (_, Object(obj)) -> obj
         case _ -> return map
       }
 
@@ -249,7 +250,7 @@ type pub Itho {
         case _ -> 0
       }
 
-      map.set(entry.key, Remote(status: status, timestamp: timestamp))
+      map.set(key, Remote(status: status, timestamp: timestamp))
       map
     })
 

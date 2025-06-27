@@ -224,16 +224,19 @@ type pub async Input {
   fn apply(updates: uni Map[String, Bool]) {
     @state.update_with(updates, fn move (rooms, updates) {
       updates.into_iter.reduce(false, fn (apply_now, entry) {
-        let humid = entry.value
-        let room = rooms.get_mut(entry.key).or_panic
+        match entry {
+          case (key, humid) -> {
+            let room = rooms.get_mut(key).or_panic
 
-        if humid {
-          room.update(recover Status.Humid)
-        } else if room.status.humid? {
-          room.update(recover Status.Default)
+            if humid {
+              room.update(recover Status.Humid)
+            } else if room.status.humid? {
+              room.update(recover Status.Default)
+            }
+
+            apply_now or humid
+          }
         }
-
-        apply_now or humid
       })
     })
   }

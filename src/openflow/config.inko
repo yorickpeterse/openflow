@@ -379,8 +379,8 @@ type pub Remote {
     let buttons = match object.get('buttons') {
       case Ok(Object(map)) -> {
         let iter = map.iter.map(fn (entry) {
-          match entry.value {
-            case Object(val) -> Button.from_json(entry.key, val)
+          match entry {
+            case (key, Object(val)) -> Button.from_json(key, val)
             case _ -> Result.Error('each button must be a JSON object')
           }
         })
@@ -426,11 +426,9 @@ type pub Config {
     let rooms = match root.get('rooms') {
       case Ok(Object(map)) -> {
         let iter = map.iter.map(fn (entry) {
-          let name = entry.key
-
-          match entry.value {
-            case Object(map) -> Room.from_json(name, map)
-            case _ -> Result.Error('The "${name}" key must be an object')
+          match entry {
+            case (k, Object(map)) -> Room.from_json(k, map)
+            case (k, _) -> Result.Error('The "${k}" key must be an object')
           }
         })
 
