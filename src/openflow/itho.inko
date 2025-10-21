@@ -196,7 +196,7 @@ type pub Itho {
     }
 
     for (key, val) in root.iter {
-      if key.starts_with?('RH ').false? { next }
+      if !key.starts_with?('RH ') { next }
 
       let value = match val {
         case Int(v) -> v
