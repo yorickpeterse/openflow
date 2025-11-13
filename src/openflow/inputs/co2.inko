@@ -66,7 +66,7 @@ type pub Sensor {
     @last_change_co2 = @co2.value
   }
 
-  fn reduce?(after: ref Duration) -> Bool {
+  fn reduce?(after: Duration) -> Bool {
     # If we reduce levels this much, we can safely reduce ventilation speeds
     # right away. This won't reduce speeds too quickly, as we only periodically
     # reach this point.

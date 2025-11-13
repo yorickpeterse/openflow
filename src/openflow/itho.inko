@@ -40,7 +40,7 @@ type pub copy enum RemoteStatus {
 }
 
 impl Equal for RemoteStatus {
-  fn pub ==(other: ref RemoteStatus) -> Bool {
+  fn pub ==(other: RemoteStatus) -> Bool {
     match (self, other) {
       case (Unknown, Unknown) -> true
       case (Low, Low) -> true
@@ -259,7 +259,7 @@ type pub Itho {
 
   fn mut execute(
     request: ref Request,
-    timeout: ref Duration,
+    timeout: Duration,
   ) -> Result[Response, Error] {
     @client.timeout_after = timeout
 

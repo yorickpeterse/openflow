@@ -27,7 +27,7 @@ let CAPITAL_Z = 90
 let RETRIES = 10
 
 fn pub retry(
-  wait: ref Duration,
+  wait: Duration,
   block: fn -> Result[Response, Error],
 ) -> Result[Response, Error] {
   let mut attempts = 0
