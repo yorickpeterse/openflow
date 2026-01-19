@@ -341,7 +341,7 @@ type pub async State {
   # If the block returns `true`, the changes are applied immediately.
   fn pub async mut update_with[T](
     data: uni T,
-    block: uni fn (mut Map[String, Room], T) -> Bool,
+    block: uni fn (mut Map[String, Room], move T) -> Bool,
   ) {
     if block.call(@rooms, data) { apply_state }
   }
