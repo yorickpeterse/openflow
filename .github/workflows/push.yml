@@ -20,7 +20,7 @@ jobs:
       image: ghcr.io/inko-lang/inko:main
     steps:
       - run: microdnf install --quiet --assumeyes tar git
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: inko --version
       - run: inko test
 
@@ -30,7 +30,7 @@ jobs:
       image: ghcr.io/inko-lang/inko:main
     steps:
       - run: microdnf install --quiet --assumeyes tar git
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: inko --version
       - run: inko fmt --check
 
@@ -44,7 +44,7 @@ jobs:
       - fmt
     if: github.ref_name == 'main'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: docker/login-action@v2
         with:
           registry: ${{ env.REGISTRY }}
