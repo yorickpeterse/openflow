@@ -20,7 +20,7 @@ jobs:
       image: ghcr.io/inko-lang/inko:main
     steps:
       - run: microdnf install --quiet --assumeyes tar git
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - run: inko --version
       - run: inko test
 
@@ -30,7 +30,7 @@ jobs:
       image: ghcr.io/inko-lang/inko:main
     steps:
       - run: microdnf install --quiet --assumeyes tar git
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - run: inko --version
       - run: inko fmt --check
 
@@ -44,17 +44,17 @@ jobs:
       - fmt
     if: github.ref_name == 'main'
     steps:
-      - uses: actions/checkout@v6
-      - uses: docker/login-action@v2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/metadata-action@v4
+      - uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e0
         id: meta
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-      - uses: docker/build-push-action@v4
+      - uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f
         with:
           context: .
           push: true
