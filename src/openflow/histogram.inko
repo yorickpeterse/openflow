@@ -1,4 +1,4 @@
-import std.iter (Stream)
+import std.array (Iter)
 
 # A histogram for tracking the occurrences of some value.
 type pub inline Histogram {
@@ -30,7 +30,7 @@ type pub inline Histogram {
   }
 
   # Returns an iterator over the counts in the histogram.
-  fn pub iter -> Stream[Int] {
+  fn pub iter -> Iter[Int] {
     @buckets.iter
   }
 }
