@@ -151,7 +151,15 @@ type pub async Input {
     }
 
     let updates = @sensors.iter_mut.reduce(recover Map.new, fn (map, sensor) {
-      let mut humidity = status.humidity.get(sensor.id).or(0)
+      let mut humidity = match status.humidity.get(sensor.id) {
+        case Ok(v) -> v
+        case _ -> {
+          @logger.info(
+            "no humidity value found for '${sensor.id}', defaulting to zero",
+          )
+          0
+        }
+      }
 
       # The Itho sensors aren't entirely accurate, often reporting values 5-10%
       # higher than reality, but only if the humidity is in the range of 60-90%.
