@@ -18,10 +18,8 @@ fn opt_string(object: ref Map[String, Json], key: String) -> Option[String] {
   }
 }
 
-fn string(
-  object: ref Map[String, Json],
-  key: String,
-) -> Result[String, String] {
+fn string(object: ref Map[String, Json], key: String) -> Result[String, String]
+{
   match object.get(key) {
     case Ok(String(v)) -> Result.Ok(v)
     case _ -> throw 'The "${key}" value must be a string'
@@ -129,9 +127,8 @@ type pub Flow {
   # button.
   let pub @button: Int
 
-  fn pub static from_json(
-    object: ref Map[String, Json],
-  ) -> Result[Flow, String] {
+  fn pub static from_json(object: ref Map[String, Json]) -> Result[Flow, String]
+  {
     let correct = try float(object, 'correction')
     let min = try int(object, 'minimum')
     let max = try int(object, 'maximum')
@@ -230,9 +227,8 @@ type pub Itho {
   # The amount of time to wait for the valves to adjust their setting.
   let pub @adjust_time: Int
 
-  fn pub static from_json(
-    object: ref Map[String, Json],
-  ) -> Result[Itho, String] {
+  fn pub static from_json(object: ref Map[String, Json]) -> Result[Itho, String]
+  {
     let ip = try ip(object, 'ip')
     let manual = try int(object, 'manual_id')
     let speed = try int(object, 'speed_id')
@@ -279,9 +275,8 @@ type pub Hue {
   # The user/API token to use.
   let pub @user: String
 
-  fn pub static from_json(
-    object: ref Map[String, Json],
-  ) -> Result[Hue, String] {
+  fn pub static from_json(object: ref Map[String, Json]) -> Result[Hue, String]
+  {
     let ip = try ip(object, 'ip')
     let user = try string(object, 'user')
 

@@ -97,11 +97,8 @@ type pub async Input {
   # speed of a room.
   let mut @reduce_wait_time: Duration
 
-  fn pub static new(
-    state: State,
-    logger: Logger,
-    metrics: uni Metrics,
-  ) -> Input {
+  fn pub static new(state: State, logger: Logger, metrics: uni Metrics) -> Input
+  {
     Input(
       state: state,
       logger: logger,
