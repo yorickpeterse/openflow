@@ -332,7 +332,7 @@ type pub async State {
   #
   # If the block returns `true`, the changes are applied immediately.
   fn pub async mut update(block: uni fn (mut Map[String, Room]) -> Bool) {
-    if block.call(@rooms) { apply_state }
+    if (recover block).call(@rooms) { apply_state }
   }
 
   # Run a closure in the context of the current state, passing the extra data to
@@ -343,7 +343,7 @@ type pub async State {
     data: uni T,
     block: uni fn (mut Map[String, Room], move T) -> Bool,
   ) {
-    if block.call(@rooms, data) { apply_state }
+    if (recover block).call(@rooms, data) { apply_state }
   }
 
   # Applies the state to the ventilation system.

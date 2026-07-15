@@ -1,4 +1,3 @@
-import std.int (Format)
 import std.io (Error as IoError, Read)
 import std.net.ip (IpAddress)
 import std.net.socket (TcpClient)
@@ -139,7 +138,7 @@ type ResponseParser[T: mut + Read[IoError]] {
     let mut body_size = headers
       .get('content-length')
       .ok
-      .then(fn (val) { Int.parse(val, Format.Decimal) })
+      .then(fn (val) { Int.parse(val, base: 10) })
       .or(-1)
 
     if body_size == -1 {
