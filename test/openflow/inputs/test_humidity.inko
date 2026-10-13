@@ -219,13 +219,15 @@ fn pub tests(t: mut Tests) {
         correction: 0,
       )
 
-      11.times(fn (_) { run(input) })
+      for _ in 0.until(11) { run(input) }
+
       t.equal(
         Snapshot.of(state).rooms.get('bathroom').or_panic.status,
         Status.Humid,
       )
 
-      11.times(fn (_) { run(input) })
+      for _ in 0.until(11) { run(input) }
+
       t.equal(
         Snapshot.of(state).rooms.get('bathroom').or_panic.status,
         Status.Humid,

@@ -26,7 +26,7 @@ type pub inline Histogram {
 
   # Resets the values of all buckets back to zero.
   fn pub mut reset {
-    @buckets.size.times(fn (index) { @buckets.set(index, 0) })
+    for index in 0.until(@buckets.size) { @buckets.set(index, 0) }
   }
 
   # Returns an iterator over the counts in the histogram.

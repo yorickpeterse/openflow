@@ -118,10 +118,10 @@ type pub async Input {
   }
 
   fn mut iteration {
-    SAMPLES.times(fn (_) {
+    for _ in 0.until(SAMPLES) {
       sleep(@sample_interval)
       sample
-    })
+    }
 
     update
   }
